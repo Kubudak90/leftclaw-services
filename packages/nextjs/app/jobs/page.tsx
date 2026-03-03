@@ -72,7 +72,7 @@ export default function JobsPage() {
   return (
     <div className="flex flex-col items-center py-10 px-4">
       <h1 className="text-3xl font-bold mb-2">📋 Job Board</h1>
-      <p className="opacity-70 mb-8">{jobCount} total jobs posted</p>
+      <p className="opacity-70 mb-8">{jobCount} total jobs posted (consultations are private)</p>
 
       <div className="flex gap-4 mb-8">
         <Link href="/post" className="btn btn-primary btn-sm">Post a Job</Link>
