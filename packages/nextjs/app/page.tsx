@@ -145,9 +145,17 @@ const Home: NextPage = () => {
         </div>
 
         {/* Contract Info */}
-        <div className="mt-16 text-center opacity-50 text-sm">
-          <p>Contract: <a href="https://basescan.org/address/0x24620a968985F97ED9422b7EDFf5970F07906cB7" target="_blank" rel="noopener" className="underline">0x24620a...06cB7</a> on Base</p>
-          <p>Payments in <a href="https://basescan.org/token/0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07" target="_blank" rel="noopener" className="underline">CLAWD</a> — USDC auto-swaps via Uniswap V3</p>
+        <div className="mt-16 text-center text-sm">
+          <p className="opacity-60 mb-1">Contract on Base:</p>
+          <a
+            href="https://basescan.org/address/0x8FB713Dc14Bd9d0f32E3b8eA13B4F4b7F4C9D335"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-xs underline opacity-70 hover:opacity-100"
+          >
+            0x8FB713Dc14Bd9d0f32E3b8eA13B4F4b7F4C9D335
+          </a>
+          <p className="opacity-50 mt-2">Payments in <a href="https://basescan.org/token/0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07" target="_blank" rel="noopener" className="underline">CLAWD</a> — USDC auto-swaps via Uniswap V3</p>
         </div>
       </div>
     </div>
