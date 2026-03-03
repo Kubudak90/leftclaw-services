@@ -250,7 +250,7 @@ function PostJobPage() {
         <div className="form-control mb-4">
           <label className="label"><span className="label-text font-bold">Service Type</span></label>
           <select
-            className="select select-bordered w-full"
+            className="select select-bordered w-full rounded-md"
             value={serviceType}
             onChange={e => setServiceType(parseInt(e.target.value))}
           >
@@ -268,7 +268,7 @@ function PostJobPage() {
             <input
               type="number"
               placeholder="e.g. 1000000"
-              className="input input-bordered w-full"
+              className="input input-bordered w-full rounded-md"
               value={customAmount}
               onChange={e => setCustomAmount(e.target.value)}
             />
@@ -287,7 +287,7 @@ function PostJobPage() {
         <div className="form-control mb-6">
           <label className="label"><span className="label-text font-bold">Job Description</span></label>
           <textarea
-            className="textarea textarea-bordered w-full h-32"
+            className="textarea textarea-bordered w-full h-32 rounded-md"
             placeholder="Describe what you need. Be specific about requirements, timeline, and deliverables..."
             value={description}
             onChange={e => { setDescription(e.target.value); setTxError(null); }}
