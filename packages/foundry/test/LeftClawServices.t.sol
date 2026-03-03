@@ -234,7 +234,7 @@ contract LeftClawServicesTest is Test {
     // ─── Test 12: Withdraw Fees ─────────────────────────────────────────────
 
     function test_WithdrawFees() public {
-        // Post and complete two jobs
+        // Post and complete two jobs, then claim (fees accumulate at claimPayment now)
         _postAndAcceptJob(LeftClawServices.ServiceType.CONSULT_S);
         vm.prank(executor);
         services.completeJob(1, "QmResult1");
@@ -245,7 +245,17 @@ contract LeftClawServicesTest is Test {
         vm.prank(executor);
         services.completeJob(2, "QmResult2");
 
-        // Check accumulated fees
+        // fees not yet accumulated — claimPayment hasn't run
+        assertEq(services.accumulatedFees(), 0);
+
+        // Warp past dispute window and claim both
+        vm.warp(block.timestamp + 8 days);
+        vm.prank(executor);
+        services.claimPayment(1);
+        vm.prank(executor);
+        services.claimPayment(2);
+
+        // Now fees should be accumulated
         uint256 price1 = services.servicePriceInClawd(LeftClawServices.ServiceType.CONSULT_S);
         uint256 price2 = services.servicePriceInClawd(LeftClawServices.ServiceType.CONSULT_L);
         uint256 expectedFees = (price1 * 500) / 10_000 + (price2 * 500) / 10_000;
@@ -299,6 +309,96 @@ contract LeftClawServicesTest is Test {
 
         vm.expectRevert("Fee too high");
         services.setProtocolFee(1001);
+    }
+
+    // ─── Test 16 (FIX HIGH): withdrawStuckTokens cannot drain active job escrow ─
+
+    function test_WithdrawStuckTokens_CannotDrainLockedClawd() public {
+        // Post a job — CLAWD is escrowed
+        _postJob(LeftClawServices.ServiceType.CONSULT_S);
+
+        // Should revert: all CLAWD is locked for the job
+        vm.expectRevert("No surplus CLAWD to withdraw");
+        services.withdrawStuckTokens(address(CLAWD), address(this));
+    }
+
+    function test_WithdrawStuckTokens_AllowsSurplusClawd() public {
+        // Send some extra CLAWD directly to contract (e.g., airdrop)
+        deal(CLAWD, address(services), 1000e18);
+
+        // Post a job too
+        _postJob(LeftClawServices.ServiceType.CONSULT_S);
+        uint256 jobPrice = services.servicePriceInClawd(LeftClawServices.ServiceType.CONSULT_S);
+
+        // Surplus = total balance - locked - fees = (1000e18 + jobPrice) - jobPrice - 0 = 1000e18
+        uint256 balBefore = IERC20(CLAWD).balanceOf(address(this));
+        services.withdrawStuckTokens(address(CLAWD), address(this));
+        uint256 balAfter = IERC20(CLAWD).balanceOf(address(this));
+        assertEq(balAfter - balBefore, 1000e18);
+    }
+
+    // ─── Test 17 (FIX MEDIUM): fee is snapshotted at completeJob, immune to bps change ─
+
+    function test_FeeSnapshot_ImmuneToProtocolFeeChange() public {
+        _postAndAcceptJob(LeftClawServices.ServiceType.CONSULT_S);
+
+        vm.prank(executor);
+        services.completeJob(1, "QmResultCID");
+
+        // Owner changes fee to 10% after completion
+        services.setProtocolFee(1000);
+
+        vm.warp(block.timestamp + 8 days);
+
+        uint256 price = services.servicePriceInClawd(LeftClawServices.ServiceType.CONSULT_S);
+        uint256 feeAt5pct = (price * 500) / 10_000;
+        uint256 expectedPayout = price - feeAt5pct; // should use 5%, not 10%
+
+        uint256 balBefore = IERC20(CLAWD).balanceOf(executor);
+        vm.prank(executor);
+        services.claimPayment(1);
+        uint256 balAfter = IERC20(CLAWD).balanceOf(executor);
+
+        // Executor gets 95% (5% fee locked at completeJob), not 90% (10% current)
+        assertEq(balAfter - balBefore, expectedPayout);
+
+        // feeSnapshot stored in job struct
+        LeftClawServices.Job memory job = services.getJob(1);
+        assertEq(job.feeSnapshot, feeAt5pct);
+    }
+
+    // ─── Test 18 (FIX LOW): pause mechanism blocks job posting and claiming ─
+
+    function test_Pause_BlocksPostJob() public {
+        services.pause();
+
+        uint256 price = services.servicePriceInClawd(LeftClawServices.ServiceType.CONSULT_S);
+        vm.startPrank(client);
+        IERC20(CLAWD).approve(address(services), price);
+        vm.expectRevert();
+        services.postJob(LeftClawServices.ServiceType.CONSULT_S, "QmTestCID");
+        vm.stopPrank();
+
+        // Unpause and verify it works again
+        services.unpause();
+        vm.startPrank(client);
+        services.postJob(LeftClawServices.ServiceType.CONSULT_S, "QmTestCID");
+        vm.stopPrank();
+        assertEq(services.getTotalJobs(), 1);
+    }
+
+    function test_Pause_BlocksClaimPayment() public {
+        _postAndAcceptJob(LeftClawServices.ServiceType.CONSULT_S);
+        vm.prank(executor);
+        services.completeJob(1, "QmResultCID");
+
+        vm.warp(block.timestamp + 8 days);
+
+        services.pause();
+
+        vm.prank(executor);
+        vm.expectRevert();
+        services.claimPayment(1);
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -22,7 +23,7 @@ interface ISwapRouter {
 /// @title LeftClawServices
 /// @notice A marketplace for hiring LeftClaw (AI Ethereum builder) — post jobs, pay with CLAWD or USDC
 /// @dev Jobs are escrowed until completion + dispute window passes. USDC auto-swaps to CLAWD via Uniswap V3.
-contract LeftClawServices is Ownable, ReentrancyGuard {
+contract LeftClawServices is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     // ─── Enums ────────────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         string resultCID;           // IPFS CID of result
         address executor;
         bool paymentClaimed;        // Whether executor claimed payment
+        uint256 feeSnapshot;        // Protocol fee snapshotted at completeJob time (FIX: no bps drift)
     }
 
     // ─── State ────────────────────────────────────────────────────────────────
@@ -75,7 +77,10 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     mapping(address => bool) public isExecutor;
 
     uint256 public protocolFeeBps; // basis points (500 = 5%)
-    uint256 public accumulatedFees; // CLAWD fees accumulated
+    uint256 public accumulatedFees; // CLAWD fees accumulated (only from claimed/resolved jobs)
+
+    /// @notice Total CLAWD locked in active job escrow. withdrawStuckTokens may not touch this.
+    uint256 public totalLockedClawd;
 
     IERC20 public immutable clawdToken;
     IERC20 public immutable usdcToken;
@@ -150,7 +155,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     // ─── Job Posting ──────────────────────────────────────────────────────────
 
     /// @notice Post a job with CLAWD payment (standard service types)
-    function postJob(ServiceType serviceType, string calldata descriptionCID) external nonReentrant {
+    function postJob(ServiceType serviceType, string calldata descriptionCID) external nonReentrant whenNotPaused {
         require(serviceType != ServiceType.CUSTOM, "Use postJobCustom for CUSTOM");
         require(bytes(descriptionCID).length > 0, "Description required");
         uint256 price = servicePriceInClawd[serviceType];
@@ -162,7 +167,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     }
 
     /// @notice Post a CUSTOM job with any CLAWD amount
-    function postJobCustom(uint256 clawdAmount, string calldata descriptionCID) external nonReentrant {
+    function postJobCustom(uint256 clawdAmount, string calldata descriptionCID) external nonReentrant whenNotPaused {
         require(clawdAmount >= 1e18, "Min 1 CLAWD");
         require(bytes(descriptionCID).length > 0, "Description required");
 
@@ -177,7 +182,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         string calldata descriptionCID,
         uint256 usdcAmount,
         uint256 minClawdOut
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         require(usdcAmount > 0, "USDC amount must be > 0");
 
         // Pull USDC from sender
@@ -211,7 +216,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     // ─── Job Lifecycle ────────────────────────────────────────────────────────
 
     /// @notice Executor accepts an open job
-    function acceptJob(uint256 jobId) external nonReentrant onlyExecutor {
+    function acceptJob(uint256 jobId) external nonReentrant onlyExecutor whenNotPaused {
         Job storage job = jobs[jobId];
         require(job.id != 0, "Job does not exist");
         require(job.status == JobStatus.OPEN, "Job not OPEN");
@@ -224,7 +229,8 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     }
 
     /// @notice Executor marks job as complete with result CID
-    function completeJob(uint256 jobId, string calldata resultCID) external nonReentrant onlyExecutor {
+    /// @dev Fee is snapshotted here at current protocolFeeBps to prevent drift in claimPayment.
+    function completeJob(uint256 jobId, string calldata resultCID) external nonReentrant onlyExecutor whenNotPaused {
         Job storage job = jobs[jobId];
         require(job.id != 0, "Job does not exist");
         require(job.status == JobStatus.IN_PROGRESS, "Job not IN_PROGRESS");
@@ -235,15 +241,14 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         job.resultCID = resultCID;
         job.completedAt = block.timestamp;
 
-        // Calculate and accumulate protocol fee
-        uint256 fee = (job.paymentClawd * protocolFeeBps) / 10_000;
-        accumulatedFees += fee;
+        // FIX (MEDIUM): snapshot fee now so claimPayment uses the same bps regardless of future changes
+        job.feeSnapshot = (job.paymentClawd * protocolFeeBps) / 10_000;
 
         emit JobCompleted(jobId, msg.sender, resultCID);
     }
 
     /// @notice Executor claims payment after dispute window
-    function claimPayment(uint256 jobId) external nonReentrant {
+    function claimPayment(uint256 jobId) external nonReentrant whenNotPaused {
         Job storage job = jobs[jobId];
         require(job.id != 0, "Job does not exist");
         require(job.status == JobStatus.COMPLETED, "Job not COMPLETED");
@@ -253,8 +258,13 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
         job.paymentClaimed = true;
 
-        uint256 fee = (job.paymentClawd * protocolFeeBps) / 10_000;
+        // FIX (MEDIUM): use snapshotted fee, not current protocolFeeBps
+        uint256 fee = job.feeSnapshot;
         uint256 payout = job.paymentClawd - fee;
+
+        // FIX (HIGH): release escrow lock and accumulate fee
+        totalLockedClawd -= job.paymentClawd;
+        accumulatedFees += fee;
 
         clawdToken.safeTransfer(msg.sender, payout);
 
@@ -269,6 +279,9 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         require(job.status == JobStatus.OPEN, "Can only cancel OPEN jobs");
 
         job.status = JobStatus.CANCELLED;
+
+        // FIX (HIGH): release escrow lock
+        totalLockedClawd -= job.paymentClawd;
 
         clawdToken.safeTransfer(msg.sender, job.paymentClawd);
 
@@ -295,18 +308,22 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         require(job.id != 0, "Job does not exist");
         require(job.status == JobStatus.DISPUTED, "Job not DISPUTED");
 
-        uint256 fee = (job.paymentClawd * protocolFeeBps) / 10_000;
+        // FIX (HIGH): release escrow lock in all branches
+        totalLockedClawd -= job.paymentClawd;
 
         if (refundClient) {
-            // Refund client the full amount (fee is reversed)
-            accumulatedFees -= fee;
+            // Refund client the full amount — no fee taken (job was disputed)
+            // FIX (MEDIUM): fee was not yet accumulated (snapshot only), nothing to reverse
             job.status = JobStatus.CANCELLED;
             clawdToken.safeTransfer(job.client, job.paymentClawd);
         } else {
-            // Release to executor (minus fee)
+            // Release to executor (minus fee) — fee is now earned
+            // FIX (MEDIUM): use snapshotted fee
+            uint256 fee = job.feeSnapshot;
+            uint256 payout = job.paymentClawd - fee;
+            accumulatedFees += fee;
             job.status = JobStatus.COMPLETED;
             job.paymentClaimed = true;
-            uint256 payout = job.paymentClawd - fee;
             clawdToken.safeTransfer(job.executor, payout);
         }
 
@@ -337,11 +354,32 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         emit ProtocolFeeUpdated(feeBps);
     }
 
+    /// @notice FIX (LOW): Emergency pause — blocks postJob, acceptJob, completeJob, claimPayment
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause the contract
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /// @notice Withdraw accidentally sent tokens. For CLAWD, only surplus above locked escrow + fees.
+    /// @dev FIX (HIGH): cannot drain active job funds or accumulated protocol fees.
     function withdrawStuckTokens(address token, address to) external onlyOwner nonReentrant {
         require(to != address(0), "Zero address");
         uint256 balance = IERC20(token).balanceOf(address(this));
         require(balance > 0, "No tokens to withdraw");
-        IERC20(token).safeTransfer(to, balance);
+
+        if (token == address(clawdToken)) {
+            // FIX (HIGH): guard against draining escrowed job funds or unwithdrawm protocol fees
+            uint256 locked = totalLockedClawd + accumulatedFees;
+            require(balance > locked, "No surplus CLAWD to withdraw");
+            uint256 surplus = balance - locked;
+            IERC20(token).safeTransfer(to, surplus);
+        } else {
+            IERC20(token).safeTransfer(to, balance);
+        }
     }
 
     function withdrawProtocolFees(address to) external onlyOwner nonReentrant {
@@ -398,6 +436,9 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     ) internal {
         uint256 jobId = nextJobId++;
 
+        // FIX (HIGH): track escrowed CLAWD so withdrawStuckTokens cannot drain it
+        totalLockedClawd += clawdAmount;
+
         jobs[jobId] = Job({
             id: jobId,
             client: client,
@@ -411,7 +452,8 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
             completedAt: 0,
             resultCID: "",
             executor: address(0),
-            paymentClaimed: false
+            paymentClaimed: false,
+            feeSnapshot: 0
         });
 
         emit JobPosted(jobId, client, serviceType, clawdAmount, descriptionCID);
