@@ -16,6 +16,21 @@ const ERC20_ABI = [
   { name: "approve", type: "function", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const;
 
+function parseContractError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/user rejected|user denied|rejected the request/i.test(msg)) return "Transaction cancelled";
+  if (/e450d38c|InsufficientBalance/i.test(msg)) return "Insufficient CLAWD balance — you need more CLAWD tokens";
+  if (/fb8f41b2|InsufficientAllowance/i.test(msg)) return "Allowance too low — try approving again";
+  if (/Description required/i.test(msg)) return "Description is required";
+  if (/Service price not set/i.test(msg)) return "Service price not configured";
+  if (/Min 1 CLAWD/i.test(msg)) return "Minimum amount is 1 CLAWD";
+  if (/Use postJobCustom/i.test(msg)) return "Use the Custom Amount option";
+  // Extract short revert reason if present
+  const revertMatch = msg.match(/reverted[^"']*["']([^"']{3,80})["']/i);
+  if (revertMatch) return revertMatch[1];
+  return "Transaction failed — please try again";
+}
+
 const SERVICE_NAMES: Record<number, string> = {
   0: "Quick Consult (15 messages)",
   1: "Deep Consult (30 messages)",
@@ -52,6 +67,7 @@ function PostJobPage() {
   const [customAmount, setCustomAmount] = useState("");
   const [step, setStep] = useState<"form" | "approve" | "approving" | "post" | "posting" | "done">("form");
   const [approveCooldown, setApproveCooldown] = useState(false);
+  const [txError, setTxError] = useState<string | null>(null);
 
   const selectedStandard = serviceType < 9;
 
@@ -141,6 +157,7 @@ function PostJobPage() {
       }, 4000);
     } catch (e) {
       console.error(e);
+      setTxError(parseContractError(e));
       setStep("form");
     }
   };
@@ -163,6 +180,7 @@ function PostJobPage() {
       setStep("done");
     } catch (e) {
       console.error(e);
+      setTxError(parseContractError(e));
       setStep("form");
     }
   };
@@ -228,7 +246,7 @@ function PostJobPage() {
             className="textarea textarea-bordered w-full h-32"
             placeholder="Describe what you need. Be specific about requirements, timeline, and deliverables..."
             value={description}
-            onChange={e => setDescription(e.target.value)}
+            onChange={e => { setDescription(e.target.value); setTxError(null); }}
           />
           <label className="label">
             <span className="label-text-alt opacity-50">This will be stored as the description CID on-chain</span>
@@ -273,6 +291,16 @@ function PostJobPage() {
             {(step === "posting" || isPosting) && <span className="loading loading-spinner loading-sm mr-2" />}
             {(step === "posting" || isPosting) ? "Posting..." : "Post Job 🦞"}
           </button>
+        )}
+
+        {/* Error display */}
+        {txError && (
+          <div className="mt-4 alert alert-error">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{txError}</span>
+          </div>
         )}
       </div>
     </div>
