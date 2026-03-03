@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
-import { Address } from "~~/components/scaffold-eth";
+import { Address } from "@scaffold-ui/components";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
 import { formatUnits } from "viem";
 

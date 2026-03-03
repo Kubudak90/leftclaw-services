@@ -11,10 +11,14 @@ contract DeployLeftClawServices is Script {
     address constant UNISWAP_ROUTER = 0x2626664c2603336E57B271c5C0b26F421741e481;
     address constant WETH = 0x4200000000000000000000000000000000000006;
 
+    address constant SAFE = 0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0;
+
     function run() external {
         vm.startBroadcast();
         LeftClawServices services = new LeftClawServices(CLAWD, USDC, UNISWAP_ROUTER, WETH);
         console.log("LeftClawServices deployed at:", address(services));
+        services.transferOwnership(SAFE);
+        console.log("Ownership transferred to Safe:", SAFE);
         vm.stopBroadcast();
     }
 }

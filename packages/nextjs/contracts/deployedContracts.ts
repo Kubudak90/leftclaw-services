@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   8453: {
     LeftClawServices: {
-      address: "0x8fb713dc14bd9d0f32e3b8ea13b4f4b7f4c9d335",
+      address: "0x3f10b14df859a26526f7086ef0b121b15ef92954",
       abi: [
         {
           type: "constructor",
@@ -626,6 +626,32 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "setSwapPath",
+          inputs: [
+            {
+              name: "newPath",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "swapPath",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "bytes",
+              internalType: "bytes",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "totalLockedClawd",
           inputs: [],
           outputs: [
@@ -998,6 +1024,19 @@ const deployedContracts = {
           anonymous: false,
         },
         {
+          type: "event",
+          name: "SwapPathUpdated",
+          inputs: [
+            {
+              name: "newPath",
+              type: "bytes",
+              indexed: false,
+              internalType: "bytes",
+            },
+          ],
+          anonymous: false,
+        },
+        {
           type: "error",
           name: "OwnableInvalidOwner",
           inputs: [
@@ -1037,7 +1076,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 42878043,
+      deployedOnBlock: 42885428,
     },
   },
 } as const;
