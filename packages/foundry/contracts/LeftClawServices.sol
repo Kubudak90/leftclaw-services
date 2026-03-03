@@ -152,6 +152,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     /// @notice Post a job with CLAWD payment (standard service types)
     function postJob(ServiceType serviceType, string calldata descriptionCID) external nonReentrant {
         require(serviceType != ServiceType.CUSTOM, "Use postJobCustom for CUSTOM");
+        require(bytes(descriptionCID).length > 0, "Description required");
         uint256 price = servicePriceInClawd[serviceType];
         require(price > 0, "Service price not set");
 
@@ -162,7 +163,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     /// @notice Post a CUSTOM job with any CLAWD amount
     function postJobCustom(uint256 clawdAmount, string calldata descriptionCID) external nonReentrant {
-        require(clawdAmount > 0, "Amount must be > 0");
+        require(clawdAmount >= 1e18, "Min 1 CLAWD");
         require(bytes(descriptionCID).length > 0, "Description required");
 
         clawdToken.safeTransferFrom(msg.sender, address(this), clawdAmount);
@@ -334,6 +335,13 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         require(feeBps <= MAX_FEE_BPS, "Fee too high");
         protocolFeeBps = feeBps;
         emit ProtocolFeeUpdated(feeBps);
+    }
+
+    function withdrawStuckTokens(address token, address to) external onlyOwner nonReentrant {
+        require(to != address(0), "Zero address");
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        require(balance > 0, "No tokens to withdraw");
+        IERC20(token).safeTransfer(to, balance);
     }
 
     function withdrawProtocolFees(address to) external onlyOwner nonReentrant {
