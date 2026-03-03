@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
@@ -100,6 +100,7 @@ export default function PostJobPageWrapper() {
 
 function PostJobPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const typeParam = searchParams.get("type");
   const gistParam = searchParams.get("gist");
   const isCustom = typeParam === "custom";
@@ -240,12 +241,37 @@ function PostJobPage() {
     }
   };
 
+  const isConsultation = serviceType === 0 || serviceType === 1;
+
+  const { data: nextJobId } = useScaffoldReadContract({
+    contractName: "LeftClawServices",
+    functionName: "nextJobId",
+  });
+
+  // Redirect consultations to chat after posting
+  useEffect(() => {
+    if (step === "done" && isConsultation && nextJobId) {
+      const postedJobId = Number(nextJobId) - 1;
+      router.push(`/chat/${postedJobId}`);
+    }
+  }, [step, isConsultation, nextJobId, router]);
+
   if (step === "done") {
     return (
       <div className="flex flex-col items-center py-16">
         <div className="text-6xl mb-4">✅</div>
-        <h1 className="text-3xl font-bold mb-4">Job Posted!</h1>
-        <p className="opacity-70 mb-8">Your job has been posted on-chain. LeftClaw will review and accept it shortly.</p>
+        <h1 className="text-3xl font-bold mb-4">{isConsultation ? "Consultation Started!" : "Job Posted!"}</h1>
+        {isConsultation ? (
+          <>
+            <p className="opacity-70 mb-4">Your consultation has been posted on-chain.</p>
+            <div className="alert alert-success max-w-lg mb-8">
+              <span>💬 You&apos;ll receive a Telegram message shortly from <strong>@clawdatgbackchannelbot</strong> to begin your consultation session.</span>
+            </div>
+            <p className="text-sm opacity-50 mb-8">Make sure you have Telegram open and can receive messages from the LeftClaw bot.</p>
+          </>
+        ) : (
+          <p className="opacity-70 mb-8">Your job has been posted on-chain. LeftClaw will review and accept it shortly.</p>
+        )}
         <Link href="/jobs" className="btn btn-primary">View Job Board →</Link>
       </div>
     );
