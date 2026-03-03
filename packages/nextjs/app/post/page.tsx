@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
 import { formatUnits, parseUnits } from "viem";
-import { useAccount, useChainId, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useChainId, useReadContract, useWriteContract, useSwitchChain } from "wagmi";
 import { useTargetNetwork } from "~~/hooks/scaffold-eth/useTargetNetwork";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import deployedContracts from "~~/contracts/deployedContracts";
@@ -104,6 +104,7 @@ function PostJobPage() {
 
   const { address } = useAccount();
   const chainId = useChainId();
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
   const { targetNetwork } = useTargetNetwork();
   const isWrongNetwork = chainId !== targetNetwork.id;
 
@@ -315,13 +316,11 @@ function PostJobPage() {
           /* State 2: Wrong network */
           <button
             className="btn btn-warning w-full"
-            onClick={() => {
-              // trigger network switch via wagmi
-              const el = document.querySelector("[data-rk]") as HTMLElement;
-              if (el) el.click();
-            }}
+            disabled={isSwitching}
+            onClick={() => switchChain({ chainId: targetNetwork.id })}
           >
-            Switch to {targetNetwork.name}
+            {isSwitching ? <span className="loading loading-spinner loading-sm" /> : null}
+            {isSwitching ? "Switching..." : `Switch to ${targetNetwork.name}`}
           </button>
         ) : needsApproval ? (
           /* State 3: Needs approval */
