@@ -155,7 +155,7 @@ Output EXACTLY this — no variations, no extra markers:
 The ---PLAN START--- and ---PLAN END--- markers must be EXACTLY on their own lines, unchanged.`;
 
 export async function POST(req: NextRequest) {
-  const { messages, isOpening } = await req.json();
+  const { messages, isOpening, isGreeting } = await req.json();
 
   if (!messages || !Array.isArray(messages)) {
     return new Response(JSON.stringify({ error: "messages required" }), { status: 400 });
@@ -166,10 +166,13 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "API key not configured" }), { status: 500 });
   }
 
-  // Build system prompt — add opening instruction if this is the first message
-  const systemPrompt = isOpening
-    ? SYSTEM_PROMPT + "\n\n[INSTRUCTION: This is the client's opening message. They just locked CLAWD tokens to start this consultation. Read their context carefully, reflect back the most interesting/challenging part of what they want to build, then ask the single most important clarifying question. Keep it under 4 sentences total. Do not say 'great idea' or anything generic.]"
-    : SYSTEM_PROMPT;
+  // Build system prompt with context-specific instructions
+  let systemPrompt = SYSTEM_PROMPT;
+  if (isGreeting) {
+    systemPrompt += "\n\n[INSTRUCTION: The user just arrived at the consultation. Give a short, punchy opening — 2 sentences max. Tell them you're LeftClaw, you're here to help them figure out the right way to build onchain, and ask what they're building. Be direct and real, not corporate. No generic cheerfulness.]";
+  } else if (isOpening) {
+    systemPrompt += "\n\n[INSTRUCTION: This is the client's opening message. They just locked CLAWD tokens to start this consultation. Read their context carefully, reflect back the most interesting/challenging part of what they want to build in one sentence, then ask the single most important clarifying question. Keep it under 4 sentences total. Do not say 'great idea' or anything generic.]";
+  }
 
   const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -185,10 +188,12 @@ export async function POST(req: NextRequest) {
       system: systemPrompt,
       stream: true,
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role,
-        content: m.content,
-      })),
+      messages: isGreeting
+        ? [{ role: "user", content: "Hello" }]
+        : messages.map((m: { role: string; content: string }) => ({
+            role: m.role,
+            content: m.content,
+          })),
     }),
   });
 

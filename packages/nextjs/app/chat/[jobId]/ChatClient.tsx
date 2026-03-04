@@ -132,7 +132,41 @@ export default function ChatPage() {
     }
   };
 
-  // Auto-send the initial topic from the consult page (kicks off bot's opening question)
+  // Greeting-only: bot opens without any user message shown
+  const greetUser = useCallback(async () => {
+    if (isStreaming) return;
+    setIsStreaming(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [{ role: "user", content: "__GREET__" }], jobId, isGreeting: true }),
+      });
+      if (!res.ok) { setIsStreaming(false); return; }
+      const reader = res.body?.getReader();
+      if (!reader) { setIsStreaming(false); return; }
+      const decoder = new TextDecoder();
+      let content = "";
+      setMessages([{ role: "assistant", content: "" }]);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        content += decoder.decode(value, { stream: true });
+        const snap = content;
+        setMessages([{ role: "assistant", content: snap }]);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsStreaming(false);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [isStreaming, jobId]);
+
+  // Auto-kick the conversation on first load:
+  // - if topic came from consult form → send it as user message, bot asks clarifying question
+  // - if no topic (direct nav) → bot greets first with no user message shown
   useEffect(() => {
     if (!storageLoaded) return;
     if (jobLoading) return;
@@ -140,14 +174,18 @@ export default function ChatPage() {
     if (messages.length > 0) return; // returning user — don't re-trigger
     if (autoSentRef.current) return;
 
+    autoSentRef.current = true;
+
     const topicKey = `consult-topic-${jobId}`;
     let savedTopic = "";
     try { savedTopic = sessionStorage.getItem(topicKey) || ""; } catch {}
-    if (!savedTopic) return;
 
-    autoSentRef.current = true;
-    try { sessionStorage.removeItem(topicKey); } catch {}
-    sendMessage(savedTopic, { isOpening: true });
+    if (savedTopic) {
+      try { sessionStorage.removeItem(topicKey); } catch {}
+      sendMessage(savedTopic, { isOpening: true });
+    } else {
+      greetUser();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageLoaded, jobLoading, jobExists]);
 
