@@ -17,7 +17,11 @@ export default function ChatPage() {
   const jobId = params.jobId as string;
   const { address } = useAccount();
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  const storageKey = `chat-messages-${jobId}`;
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(sessionStorage.getItem(storageKey) || "[]"); } catch { return []; }
+  });
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +37,11 @@ export default function ChatPage() {
   const totalMessages = messages.length;
 
   useEffect(() => {
+    if (messages.length > 0) {
+      try { sessionStorage.setItem(storageKey, JSON.stringify(messages)); } catch {}
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, storageKey]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isStreaming) return;
@@ -94,22 +101,20 @@ export default function ChatPage() {
 
   const createGistAndRedirect = async (plan: string) => {
     try {
-      const res = await fetch("https://api.github.com/gists", {
+      const res = await fetch("/api/gist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: `LeftClaw Build Plan - Job #${jobId}`,
-          public: false,
-          files: { "build-plan.md": { content: plan } },
-        }),
+        body: JSON.stringify({ plan, jobId }),
       });
-      const gist = await res.json();
-      if (gist.html_url) {
-        router.push(`/post?type=2&gist=${encodeURIComponent(gist.html_url)}`);
+      const data = await res.json();
+      if (data.url) {
+        router.push(`/post?type=2&gist=${encodeURIComponent(data.url)}`);
+      } else {
+        setError("Failed to save plan: " + (data.error || "unknown error"));
       }
     } catch (e) {
       console.error("Gist creation failed:", e);
-      setError("Failed to create plan gist — copy the plan manually");
+      setError("Failed to save plan — please try again");
     }
   };
 
