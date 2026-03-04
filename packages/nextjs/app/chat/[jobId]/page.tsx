@@ -41,7 +41,8 @@ export default function ChatPage() {
     args: [BigInt(jobId || "0")],
   });
 
-  const isAuthorized = job && address && job.client.toLowerCase() === address.toLowerCase();
+  const jobExists = job && job.id > 0n;
+  const isAuthorized = !jobExists || (address && job && job.client.toLowerCase() === address.toLowerCase());
   const totalMessages = messages.length;
 
   useEffect(() => {
@@ -148,7 +149,7 @@ export default function ChatPage() {
     );
   }
 
-  if (job && !isAuthorized) {
+  if (jobExists && !isAuthorized) {
     return (
       <div className="flex flex-col items-center py-20">
         <p className="text-xl mb-4">🚫 Access denied</p>
