@@ -27,7 +27,7 @@ IMPORTANT: When the user asks to finalize or generate the plan, you MUST output 
 Everything outside these markers is your normal response. The markers must be on their own lines, exactly as shown.`;
 
 export async function POST(req: NextRequest) {
-  const { messages, jobId } = await req.json();
+  const { messages } = await req.json();
 
   if (!messages || !Array.isArray(messages)) {
     return new Response(JSON.stringify({ error: "messages required" }), { status: 400 });
