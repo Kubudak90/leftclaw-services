@@ -124,9 +124,8 @@ function PostJobPage() {
     gistParam ? `Build plan: ${gistParam}\n\nSee consultation plan for full scope and requirements.` : ""
   );
   const [customAmount, setCustomAmount] = useState("");
-  const [step, setStep] = useState<"form" | "approve" | "approving" | "post" | "posting" | "done">("form");
+  const [step, setStep] = useState<"form" | "approving" | "posting" | "done">("form");
   const postedJobIdRef = useRef<number | null>(null);
-  const [approveCooldown, setApproveCooldown] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
 
   const selectedStandard = serviceType < 9;
@@ -203,33 +202,34 @@ function PostJobPage() {
     return promise;
   }, [openWallet]);
 
-  const handleApprove = async () => {
-    if (!contractAddress) return;
+  const handleSubmit = async () => {
+    if (!description.trim() || !contractAddress) return;
+    setTxError(null);
     try {
-      setStep("approving");
-      await writeAndOpen(() => approveAsync({
-        address: CLAWD_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args: [contractAddress, priceWei],
-      }));
-      setApproveCooldown(true);
-      setTimeout(async () => {
-        await refetchAllowance();
-        setApproveCooldown(false);
-        setStep("form");
-      }, 4000);
-    } catch (e) {
-      console.error(e);
-      setTxError(parseContractError(e));
-      setStep("form");
-    }
-  };
+      // Step 1: Approve if needed — then auto-continue to post
+      if (needsApproval) {
+        setStep("approving");
+        await writeAndOpen(() => approveAsync({
+          address: CLAWD_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "approve",
+          args: [contractAddress, priceWei],
+        }));
+        // Poll until allowance confirms on-chain
+        let ok = false;
+        for (let i = 0; i < 12; i++) {
+          await new Promise(r => setTimeout(r, 1500));
+          const { data } = await refetchAllowance();
+          if (data !== undefined && data >= priceWei) { ok = true; break; }
+        }
+        if (!ok) {
+          setTxError("Approval didn't confirm — please try again");
+          setStep("form");
+          return;
+        }
+      }
 
-  const handlePost = async () => {
-    if (!description.trim()) return;
-    try {
-      // Capture job ID before posting (nextJobId is the ID that will be assigned)
+      // Step 2: Post job (auto-fires after approval, or immediately if already approved)
       postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
       setStep("posting");
       if (selectedStandard) {
@@ -360,31 +360,28 @@ function PostJobPage() {
             {isSwitching ? <span className="loading loading-spinner loading-sm" /> : null}
             {isSwitching ? "Switching..." : `Switch to ${targetNetwork.name}`}
           </button>
-        ) : needsApproval ? (
-          /* State 3: Needs approval */
-          <div className="flex flex-col gap-2">
-            <button
-              className="btn btn-primary btn-lg w-full"
-              onClick={handleApprove}
-              disabled={isApproving || approveCooldown || !description.trim() || (serviceType === 9 && !customAmount)}
-            >
-              {(isApproving || approveCooldown) && <span className="loading loading-spinner loading-sm mr-2" />}
-              {isApproving ? "Approving..." : approveCooldown ? "Confirming..." : "Step 1 of 2 — Approve CLAWD 🦞"}
-            </button>
-            <p className="text-center text-xs opacity-40">Allow the contract to spend your CLAWD tokens</p>
-          </div>
         ) : (
-          /* State 4: Ready to post */
+          /* State 3+4: Single button — approve then auto-post */
           <div className="flex flex-col gap-2">
             <button
               className="btn btn-primary btn-lg w-full"
-              onClick={handlePost}
-              disabled={step === "posting" || isPosting || !description.trim() || (serviceType === 9 && !customAmount)}
+              onClick={handleSubmit}
+              disabled={step === "approving" || step === "posting" || isApproving || isPosting || !description.trim() || (serviceType === 9 && !customAmount)}
             >
-              {(step === "posting" || isPosting) && <span className="loading loading-spinner loading-sm mr-2" />}
-              {(step === "posting" || isPosting) ? "Posting..." : "Step 2 of 2 — Post Job 🦞"}
+              {(step === "approving" || step === "posting" || isApproving || isPosting) && (
+                <span className="loading loading-spinner loading-sm mr-2" />
+              )}
+              {step === "approving" || isApproving
+                ? "Approving CLAWD..."
+                : step === "posting" || isPosting
+                ? "Posting Job..."
+                : needsApproval
+                ? "Approve & Post Job 🦞"
+                : "Post Job 🦞"}
             </button>
-            <p className="text-center text-xs opacity-40">Lock CLAWD on-chain and publish your job</p>
+            {needsApproval && step === "form" && (
+              <p className="text-center text-xs opacity-40">Approve + post in 2 wallet taps</p>
+            )}
           </div>
         )}
 
