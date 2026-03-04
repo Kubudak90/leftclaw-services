@@ -165,18 +165,17 @@ export default function ChatPage() {
           </div>
         )}
         {messages.map((msg, i) => (
-          <div key={i} className={`chat ${msg.role === "user" ? "chat-end" : "chat-start"}`}>
-            <div className="chat-header text-xs opacity-50 mb-1">
-              {msg.role === "user" ? "You" : "🦞 LeftClaw"}
-            </div>
-            <div className={`chat-bubble ${msg.role === "user" ? "chat-bubble-primary" : "chat-bubble-neutral"} whitespace-pre-wrap !rounded-xl`}>
+          <div key={i} className={`flex flex-col gap-1 ${msg.role === "user" ? "items-end" : "items-start"}`}>
+            <span className="text-xs opacity-40 px-1">{msg.role === "user" ? "You" : "🦞 LeftClaw"}</span>
+            <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap ${msg.role === "user" ? "bg-primary text-primary-content" : "bg-base-300 text-base-content"}`}>
               {msg.content || (isStreaming && i === messages.length - 1 ? "..." : "")}
             </div>
           </div>
         ))}
         {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
-          <div className="chat chat-start">
-            <div className="chat-bubble chat-bubble-neutral !rounded-xl">
+          <div className="flex flex-col items-start gap-1">
+            <span className="text-xs opacity-40 px-1">🦞 LeftClaw</span>
+            <div className="bg-base-300 px-4 py-2.5 rounded-2xl">
               <span className="loading loading-dots loading-sm" />
             </div>
           </div>
