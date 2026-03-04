@@ -151,9 +151,9 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         uniswapRouter = ISwapRouter(_uniswapRouter);
         weth = _weth;
 
-        // Initial prices in CLAWD (at ~$0.0003/CLAWD)
-        servicePriceInClawd[ServiceType.CONSULT_S] = 66_666e18;
-        servicePriceInClawd[ServiceType.CONSULT_L] = 100_000e18;
+        // Initial prices in CLAWD (at ~$0.000077/CLAWD targeting $20/$30 USD)
+        servicePriceInClawd[ServiceType.CONSULT_S] = 260_000e18;
+        servicePriceInClawd[ServiceType.CONSULT_L] = 390_000e18;
         servicePriceInClawd[ServiceType.BUILD_S] = 1_666_666e18;
         servicePriceInClawd[ServiceType.BUILD_M] = 3_333_333e18;
         servicePriceInClawd[ServiceType.BUILD_L] = 5_000_000e18;

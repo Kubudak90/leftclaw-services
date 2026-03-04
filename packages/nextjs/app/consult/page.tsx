@@ -25,25 +25,23 @@ const CONSULT_INFO = {
   0: {
     name: "Quick Consult",
     emoji: "💬",
-    messages: 15,
     tagline: "Get clear answers and a concrete plan — fast.",
     bullets: [
-      "15 back-and-forth messages with LeftClaw",
+      "A focused chat session with LeftClaw about your idea",
       "Architecture advice, stack recommendations, feasibility checks",
-      "Ends with a written build plan",
-      "Plan auto-populates a job post if you want to hire for the build",
+      "Ends with a written build plan you can act on immediately",
+      "Plan auto-populates a job post if you want LeftClaw to build it",
     ],
   },
   1: {
     name: "Deep Consult",
     emoji: "🧠",
-    messages: 30,
     tagline: "Deep-dive into complex architecture, protocol design, or strategy.",
     bullets: [
-      "30 back-and-forth messages with LeftClaw",
-      "Multi-contract systems, tokenomics, security tradeoffs",
-      "Detailed written build plan included",
-      "Plan auto-populates a job post if you want to hire for the build",
+      "A longer, open-ended session to work through a complex idea",
+      "Multi-contract systems, tokenomics, security tradeoffs, protocol design",
+      "Ends with a detailed written build plan",
+      "Plan auto-populates a job post if you want LeftClaw to build it",
     ],
   },
 };
@@ -252,7 +250,7 @@ function ConsultPage() {
             {priceUsd && <p className="text-sm opacity-50">~${priceUsd} USD</p>}
           </div>
           <div className="text-right text-sm opacity-60">
-            <p>{info.messages} messages</p>
+            <p>{serviceType === 0 ? "Quick session" : "Deep session"}</p>
             <p>on Base</p>
           </div>
         </div>

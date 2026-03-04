@@ -37,7 +37,7 @@ contract LeftClawServicesTest is Test {
 
     function test_PostJobWithClawd() public {
         uint256 price = services.servicePriceInClawd(LeftClawServices.ServiceType.CONSULT_S);
-        assertEq(price, 66_666e18);
+        assertEq(price, 260_000e18);
 
         vm.startPrank(client);
         IERC20(CLAWD).approve(address(services), price);
