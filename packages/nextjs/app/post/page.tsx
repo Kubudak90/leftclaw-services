@@ -104,7 +104,14 @@ function PostJobPage() {
   const typeParam = searchParams.get("type");
   const gistParam = searchParams.get("gist");
   const isCustom = typeParam === "custom";
-  const initialType = isCustom ? 9 : (typeParam ? parseInt(typeParam) : 0);
+  const initialType = isCustom ? 9 : (typeParam ? parseInt(typeParam) : 2);
+
+  // Consult types have their own page — redirect
+  useEffect(() => {
+    if (initialType === 0 || initialType === 1) {
+      router.replace(`/consult?type=${initialType}`);
+    }
+  }, [initialType, router]);
 
   const { address } = useAccount();
   const chainId = useChainId();
@@ -263,17 +270,7 @@ function PostJobPage() {
       <div className="flex flex-col items-center py-16">
         <div className="text-6xl mb-4">✅</div>
         <h1 className="text-3xl font-bold mb-4">{isConsultation ? "Consultation Started!" : "Job Posted!"}</h1>
-        {isConsultation ? (
-          <>
-            <p className="opacity-70 mb-4">Your consultation has been posted on-chain.</p>
-            <div className="alert alert-success max-w-lg mb-8">
-              <span>💬 You&apos;ll receive a Telegram message shortly from <strong>@clawdatgbackchannelbot</strong> to begin your consultation session.</span>
-            </div>
-            <p className="text-sm opacity-50 mb-8">Make sure you have Telegram open and can receive messages from the LeftClaw bot.</p>
-          </>
-        ) : (
-          <p className="opacity-70 mb-8">Your job has been posted on-chain. LeftClaw will review and accept it shortly.</p>
-        )}
+        <p className="opacity-70 mb-8">Your job has been posted on-chain. LeftClaw will review and accept it shortly.</p>
         <Link href="/jobs" className="btn btn-primary">View Job Board →</Link>
       </div>
     );
@@ -301,7 +298,7 @@ function PostJobPage() {
             onChange={e => setServiceType(parseInt(e.target.value))}
             disabled={!!gistParam}
           >
-            {Object.entries(SERVICE_NAMES).map(([id, name]) => (
+            {Object.entries(SERVICE_NAMES).filter(([id]) => Number(id) > 1).map(([id, name]) => (
               <option key={id} value={id}>{name}</option>
             ))}
             <option value={9}>Custom Amount</option>

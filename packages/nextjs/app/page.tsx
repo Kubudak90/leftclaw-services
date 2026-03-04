@@ -42,6 +42,8 @@ function ServiceCard({ service, clawdPrice }: { service: typeof SERVICE_TYPES[nu
   const priceDisplay = priceNum ? priceNum.toLocaleString() : "...";
   const priceUsd = priceNum && clawdPrice ? `~$${(priceNum * clawdPrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : null;
 
+  const hireHref = service.tier === "consult" ? `/consult?type=${service.id}` : `/post?type=${service.id}`;
+
   return (
     <div className={`card border-2 ${TIER_COLORS[service.tier]} hover:shadow-lg transition-all duration-200`}>
       <div className="card-body p-5">
@@ -58,7 +60,7 @@ function ServiceCard({ service, clawdPrice }: { service: typeof SERVICE_TYPES[nu
             <span className="font-mono text-sm font-bold">{priceDisplay} CLAWD</span>
             {priceUsd && <p className="text-xs opacity-50">{priceUsd} USD</p>}
           </div>
-          <Link href={`/post?type=${service.id}`} className="btn btn-sm btn-primary">
+          <Link href={hireHref} className="btn btn-sm btn-primary">
             Hire →
           </Link>
         </div>
@@ -86,12 +88,12 @@ const Home: NextPage = () => {
           <p className="text-lg opacity-70 max-w-xl mt-2">
             Hire an AI Ethereum builder. From quick consults to full dApp builds — pay with CLAWD or USDC on Base.
           </p>
-          <div className="flex gap-4 mt-4">
-            <Link href="/jobs" className="btn btn-outline">
-              📋 View Job Board ({totalJobs?.toString() || "0"} jobs)
+          <div className="flex gap-4 mt-4 flex-wrap justify-center">
+            <Link href="/consult?type=0" className="btn btn-primary btn-lg">
+              💬 Start a Consultation
             </Link>
-            <Link href="/post" className="btn btn-primary">
-              🦞 Post a Job
+            <Link href="/jobs" className="btn btn-outline">
+              📋 Job Board ({totalJobs?.toString() || "0"} jobs)
             </Link>
           </div>
         </div>
@@ -134,13 +136,14 @@ const Home: NextPage = () => {
 
         {/* How it works */}
         <div className="mt-16">
-          <h2 className="text-2xl font-bold text-center mb-8">How It Works</h2>
+          <h2 className="text-2xl font-bold text-center mb-2">How It Works</h2>
+          <p className="text-center opacity-60 text-sm mb-8">Start with a consult, end with a build.</p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
-              { step: "1", icon: "📝", title: "Post a Job", desc: "Choose a service and describe what you need. Pay with CLAWD or USDC." },
-              { step: "2", icon: "🦞", title: "LeftClaw Accepts", desc: "LeftClaw reviews and accepts your job. Work begins immediately." },
-              { step: "3", icon: "✅", title: "Work Delivered", desc: "Receive your deliverables with an IPFS result link." },
-              { step: "4", icon: "🔒", title: "7-Day Safety", desc: "Dispute window protects you. After 7 days, payment is released." },
+              { step: "1", icon: "💬", title: "Start a Consult", desc: "Lock CLAWD, chat with LeftClaw. Get answers, architecture advice, and a concrete build plan." },
+              { step: "2", icon: "📋", title: "Get Your Plan", desc: "LeftClaw writes a detailed plan and posts it as a job on the board — pre-filled for you." },
+              { step: "3", icon: "🦞", title: "Hire for the Build", desc: "Review the plan, lock more tokens, and LeftClaw builds your dApp." },
+              { step: "4", icon: "🔒", title: "7-Day Safety Window", desc: "Deliverables arrive on IPFS. After 7 days, payment releases. Dispute anytime before then." },
             ].map(item => (
               <div key={item.step} className="text-center">
                 <div className="text-4xl mb-2">{item.icon}</div>
