@@ -8,12 +8,8 @@ import { Address } from "@scaffold-ui/components";
 import { formatUnits } from "viem";
 
 const SERVICE_TYPES = [
-  { id: 0, name: "Quick Consult", emoji: "💬", desc: "15-message consultation. Get answers to your Ethereum questions.", tier: "consult" },
-  { id: 1, name: "Deep Consult", emoji: "🧠", desc: "30-message deep-dive. Architecture review, strategy planning.", tier: "consult" },
-  { id: 2, name: "Simple Build", emoji: "🔨", desc: "Single contract + basic frontend. Simple but solid.", tier: "build" },
-  { id: 3, name: "Standard Build", emoji: "⚡", desc: "Full dApp build — contract + frontend + deployment.", tier: "build" },
-  { id: 4, name: "Complex Build", emoji: "🏗️", desc: "Multi-contract system with advanced frontend and integrations.", tier: "build" },
-  { id: 5, name: "Enterprise Build", emoji: "🚀", desc: "The works. Complex protocol, testing, audit, deployment.", tier: "build" },
+  { id: 0, name: "Quick Consult", emoji: "💬", desc: "A focused chat session about your idea. Ends with a written build plan.", tier: "consult" },
+  { id: 1, name: "Deep Consult", emoji: "🧠", desc: "A longer session for complex architecture, protocol design, or strategy.", tier: "consult" },
   { id: 6, name: "QA Report", emoji: "🔍", desc: "Comprehensive QA audit of your existing dApp.", tier: "audit" },
   { id: 7, name: "Contract Audit", emoji: "🛡️", desc: "Security review of a single smart contract.", tier: "audit" },
   { id: 8, name: "Multi-Contract Audit", emoji: "🔐", desc: "Full protocol security audit — multiple contracts.", tier: "audit" },
@@ -92,6 +88,9 @@ const Home: NextPage = () => {
             <Link href="/consult?type=0" className="btn btn-primary btn-lg">
               💬 Start a Consultation
             </Link>
+            <Link href="/build" className="btn btn-secondary btn-lg">
+              🔨 Start Building
+            </Link>
             <Link href="/jobs" className="btn btn-outline">
               📋 Job Board ({totalJobs?.toString() || "0"} jobs)
             </Link>
@@ -113,10 +112,28 @@ const Home: NextPage = () => {
 
         {/* Builds */}
         <h3 className="text-lg font-semibold mb-4 opacity-70">⚡ Builds</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {SERVICE_TYPES.filter(s => s.tier === "build").map(s => (
-            <ServiceCard key={s.id} service={s} clawdPrice={clawdPrice} />
-          ))}
+        <div className="mb-8">
+          <div className="card border-2 border-purple-500/30 bg-purple-500/5 hover:shadow-lg transition-all duration-200">
+            <div className="card-body p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <span className="text-4xl">🔨</span>
+                  <div>
+                    <h3 className="text-xl font-bold">Build with LeftClaw</h3>
+                    <p className="opacity-70 mt-1">$1,000 of CLAWD per day. Lock as many days as you want — you get a live, working prototype by the end of day 1, more features every day after.</p>
+                    <div className="flex gap-4 mt-2 text-sm opacity-60">
+                      <span>✓ Live prototype every day</span>
+                      <span>✓ GitHub + IPFS + ENS</span>
+                      <span>✓ 7-day dispute window</span>
+                    </div>
+                  </div>
+                </div>
+                <Link href="/build" className="btn btn-primary btn-lg whitespace-nowrap">
+                  Start Building →
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Audits */}
