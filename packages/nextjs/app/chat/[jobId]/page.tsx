@@ -26,6 +26,7 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: job, isLoading: jobLoading } = useScaffoldReadContract({
     contractName: "LeftClawServices",
@@ -96,6 +97,7 @@ export default function ChatPage() {
       console.error(e);
     } finally {
       setIsStreaming(false);
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [messages, isStreaming, jobId]);
 
@@ -203,8 +205,10 @@ export default function ChatPage() {
         >
           <input
             type="text"
+            ref={inputRef}
             className="input input-bordered flex-1 rounded-md"
             placeholder="Describe what you want to build..."
+            autoFocus
             value={input}
             onChange={e => setInput(e.target.value)}
             disabled={isStreaming}
