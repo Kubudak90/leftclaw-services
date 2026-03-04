@@ -362,24 +362,30 @@ function PostJobPage() {
           </button>
         ) : needsApproval ? (
           /* State 3: Needs approval */
-          <button
-            className="btn btn-secondary w-full"
-            onClick={handleApprove}
-            disabled={isApproving || approveCooldown || !description.trim() || (serviceType === 9 && !customAmount)}
-          >
-            {(isApproving || approveCooldown) && <span className="loading loading-spinner loading-sm mr-2" />}
-            {isApproving ? "Approving..." : approveCooldown ? "Confirming..." : "Approve CLAWD 🦞"}
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              className="btn btn-primary btn-lg w-full"
+              onClick={handleApprove}
+              disabled={isApproving || approveCooldown || !description.trim() || (serviceType === 9 && !customAmount)}
+            >
+              {(isApproving || approveCooldown) && <span className="loading loading-spinner loading-sm mr-2" />}
+              {isApproving ? "Approving..." : approveCooldown ? "Confirming..." : "Step 1 of 2 — Approve CLAWD 🦞"}
+            </button>
+            <p className="text-center text-xs opacity-40">Allow the contract to spend your CLAWD tokens</p>
+          </div>
         ) : (
           /* State 4: Ready to post */
-          <button
-            className="btn btn-primary w-full"
-            onClick={handlePost}
-            disabled={step === "posting" || isPosting || !description.trim() || (serviceType === 9 && !customAmount)}
-          >
-            {(step === "posting" || isPosting) && <span className="loading loading-spinner loading-sm mr-2" />}
-            {(step === "posting" || isPosting) ? "Posting..." : "Post Job 🦞"}
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              className="btn btn-primary btn-lg w-full"
+              onClick={handlePost}
+              disabled={step === "posting" || isPosting || !description.trim() || (serviceType === 9 && !customAmount)}
+            >
+              {(step === "posting" || isPosting) && <span className="loading loading-spinner loading-sm mr-2" />}
+              {(step === "posting" || isPosting) ? "Posting..." : "Step 2 of 2 — Post Job 🦞"}
+            </button>
+            <p className="text-center text-xs opacity-40">Lock CLAWD on-chain and publish your job</p>
+          </div>
         )}
 
         {/* Error display */}
