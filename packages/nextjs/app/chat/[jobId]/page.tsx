@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { useParams, useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
@@ -167,8 +168,11 @@ export default function ChatPage() {
         {messages.map((msg, i) => (
           <div key={i} className={`flex flex-col gap-1 ${msg.role === "user" ? "items-end" : "items-start"}`}>
             <span className="text-xs opacity-40 px-1">{msg.role === "user" ? "You" : "🦞 LeftClaw"}</span>
-            <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm whitespace-pre-wrap ${msg.role === "user" ? "bg-primary text-primary-content" : "bg-base-300 text-base-content"}`}>
-              {msg.content || (isStreaming && i === messages.length - 1 ? "..." : "")}
+            <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${msg.role === "user" ? "bg-primary text-primary-content whitespace-pre-wrap" : "bg-base-300 text-base-content prose prose-sm max-w-none"}`}>
+              {msg.role === "user"
+                ? (msg.content || (isStreaming && i === messages.length - 1 ? "..." : ""))
+                : <ReactMarkdown>{msg.content || (isStreaming && i === messages.length - 1 ? "..." : "")}</ReactMarkdown>
+              }
             </div>
           </div>
         ))}
