@@ -117,6 +117,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     event FeesWithdrawn(address indexed to, uint256 amount);
     event SwapPathUpdated(bytes newPath);
     event ConsultationComplete(uint256 indexed jobId, address indexed client, string gistUrl, ServiceType recommendedBuildType);
+    event JobRejected(uint256 indexed jobId, address indexed client);
 
     // ─── Modifiers ────────────────────────────────────────────────────────────
 
@@ -334,6 +335,21 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         // FIX(L-3): emit DisputeResolved when timeout auto-resolution occurs (executor wins by default)
         if (wasDisputed) emit DisputeResolved(jobId, false);
         emit PaymentClaimed(jobId, msg.sender, payout);
+    }
+
+    /// @notice Executor rejects an OPEN job — refunds client in full
+    function rejectJob(uint256 jobId) external nonReentrant {
+        require(isExecutor[msg.sender], "Not an executor");
+        Job storage job = jobs[jobId];
+        require(job.id != 0, "Job does not exist");
+        require(job.status == JobStatus.OPEN, "Can only reject OPEN jobs");
+
+        job.status = JobStatus.CANCELLED;
+        totalLockedClawd -= job.paymentClawd;
+
+        clawdToken.safeTransfer(job.client, job.paymentClawd);
+
+        emit JobRejected(jobId, job.client);
     }
 
     /// @notice Client cancels an OPEN job (full refund)

@@ -559,6 +559,46 @@ contract LeftClawServicesTest is Test {
         services.burnConsultation(1, "https://gist.github.com/test/456", LeftClawServices.ServiceType.BUILD_M);
     }
 
+    // ─── rejectJob Tests ──────────────────────────────────────────────────
+
+    function test_RejectJob_ExecutorCanRejectOpenJob() public {
+        _postJob(LeftClawServices.ServiceType.CONSULT_S);
+        uint256 price = services.servicePriceInClawd(LeftClawServices.ServiceType.CONSULT_S);
+        uint256 balBefore = IERC20(CLAWD).balanceOf(client);
+
+        vm.prank(executor);
+        services.rejectJob(1);
+
+        uint256 balAfter = IERC20(CLAWD).balanceOf(client);
+        assertEq(balAfter - balBefore, price);
+
+        LeftClawServices.Job memory job = services.getJob(1);
+        assertEq(uint8(job.status), uint8(LeftClawServices.JobStatus.CANCELLED));
+        assertEq(services.totalLockedClawd(), 0);
+    }
+
+    function test_RejectJob_NonExecutorReverts() public {
+        _postJob(LeftClawServices.ServiceType.CONSULT_S);
+
+        vm.prank(nonExecutor);
+        vm.expectRevert("Not an executor");
+        services.rejectJob(1);
+    }
+
+    function test_RejectJob_CannotRejectAcceptedJob() public {
+        _postAndAcceptJob(LeftClawServices.ServiceType.CONSULT_S);
+
+        vm.prank(executor);
+        vm.expectRevert("Can only reject OPEN jobs");
+        services.rejectJob(1);
+    }
+
+    function test_RejectJob_CannotRejectNonExistentJob() public {
+        vm.prank(executor);
+        vm.expectRevert("Job does not exist");
+        services.rejectJob(999);
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     function _postJob(LeftClawServices.ServiceType serviceType) internal {

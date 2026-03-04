@@ -26,7 +26,8 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const MAX_CHARS = 1000;
 
   const { data: job, isLoading: jobLoading } = useScaffoldReadContract({
     contractName: "LeftClawServices",
@@ -199,28 +200,35 @@ export default function ChatPage() {
         {error && (
           <div className="alert alert-error mb-2 py-2 text-sm">{error}</div>
         )}
-        <form
-          onSubmit={e => { e.preventDefault(); sendMessage(input); }}
-          className="flex gap-2"
-        >
-          <input
-            type="text"
-            ref={inputRef}
-            className="input input-bordered flex-1 rounded-md"
-            placeholder="Describe what you want to build..."
-            autoFocus
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            disabled={isStreaming}
-          />
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={isStreaming || !input.trim()}
-          >
-            {isStreaming ? <span className="loading loading-spinner loading-sm" /> : "Send"}
-          </button>
-        </form>
+        <div className="flex flex-col gap-1">
+          <div className="flex gap-2 items-end">
+            <textarea
+              ref={inputRef}
+              className="textarea textarea-bordered flex-1 rounded-md resize-none text-sm"
+              placeholder="Describe what you want to build... (Enter to send, Shift+Enter for new line)"
+              autoFocus
+              rows={3}
+              maxLength={MAX_CHARS}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              disabled={isStreaming}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (input.trim() && !isStreaming) sendMessage(input);
+                }
+              }}
+            />
+            <button
+              className="btn btn-primary"
+              disabled={isStreaming || !input.trim()}
+              onClick={() => sendMessage(input)}
+            >
+              {isStreaming ? <span className="loading loading-spinner loading-sm" /> : "Send"}
+            </button>
+          </div>
+          <div className="text-xs opacity-40 text-right">{input.length}/{MAX_CHARS}</div>
+        </div>
       </div>
     </div>
   );
