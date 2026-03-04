@@ -37,6 +37,19 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "DEAD_ADDRESS",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "DISPUTE_TIMEOUT",
           inputs: [],
           outputs: [
@@ -108,6 +121,29 @@ const deployedContracts = {
               name: "executor",
               type: "address",
               internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
+          name: "burnConsultation",
+          inputs: [
+            {
+              name: "jobId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "gistUrl",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "recommendedBuildType",
+              type: "uint8",
+              internalType: "enum LeftClawServices.ServiceType",
             },
           ],
           outputs: [],
@@ -556,6 +592,19 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "rejectJob",
+          inputs: [
+            {
+              name: "jobId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
+        },
+        {
+          type: "function",
           name: "removeExecutor",
           inputs: [
             {
@@ -766,6 +815,37 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "ConsultationComplete",
+          inputs: [
+            {
+              name: "jobId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "client",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "gistUrl",
+              type: "string",
+              indexed: false,
+              internalType: "string",
+            },
+            {
+              name: "recommendedBuildType",
+              type: "uint8",
+              indexed: false,
+              internalType: "enum LeftClawServices.ServiceType",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "DisputeResolved",
           inputs: [
             {
@@ -949,6 +1029,25 @@ const deployedContracts = {
         },
         {
           type: "event",
+          name: "JobRejected",
+          inputs: [
+            {
+              name: "jobId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "client",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
           name: "OwnershipTransferred",
           inputs: [
             {
@@ -1076,7 +1175,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 42885428,
+      deployedOnBlock: 42900717,
     },
   },
 } as const;
