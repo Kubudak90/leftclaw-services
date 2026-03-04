@@ -36,8 +36,8 @@
   --color-warning: #ffcf72;
   --color-error: #ff8863;
 
-  --radius-field: 9999rem;
-  --radius-box: 1rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
   --tt-tailw: 6px;
 }
 
@@ -61,8 +61,8 @@
   --color-warning: #ffcf72;
   --color-error: #ff8863;
 
-  --radius-field: 9999rem;
-  --radius-box: 1rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
 
   --tt-tailw: 6px;
   --tt-bg: var(--color-primary);
