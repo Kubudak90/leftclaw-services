@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   8453: {
     LeftClawServices: {
-      address: "0x0312d57a3F3845814C8583477c74a101fC5C0702",
+      address: "0xE5956BF527Ccca5713cbF1E118117dD6f870f4c4",
       abi: [
         {
           type: "constructor",
@@ -381,6 +381,37 @@ const deployedContracts = {
         },
         {
           type: "function",
+          name: "getWorkLogs",
+          inputs: [
+            {
+              name: "jobId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "",
+              type: "tuple[]",
+              internalType: "struct LeftClawServices.WorkLog[]",
+              components: [
+                {
+                  name: "note",
+                  type: "string",
+                  internalType: "string",
+                },
+                {
+                  name: "timestamp",
+                  type: "uint256",
+                  internalType: "uint256",
+                },
+              ],
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
           name: "isWorker",
           inputs: [
             {
@@ -486,6 +517,24 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "logWork",
+          inputs: [
+            {
+              name: "jobId",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "note",
+              type: "string",
+              internalType: "string",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",
@@ -814,6 +863,35 @@ const deployedContracts = {
           stateMutability: "nonpayable",
         },
         {
+          type: "function",
+          name: "workLogs",
+          inputs: [
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+            {
+              name: "",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          outputs: [
+            {
+              name: "note",
+              type: "string",
+              internalType: "string",
+            },
+            {
+              name: "timestamp",
+              type: "uint256",
+              internalType: "uint256",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
           type: "event",
           name: "ConsultationComplete",
           inputs: [
@@ -859,32 +937,6 @@ const deployedContracts = {
               type: "bool",
               indexed: false,
               internalType: "bool",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "WorkerAdded",
-          inputs: [
-            {
-              name: "worker",
-              type: "address",
-              indexed: true,
-              internalType: "address",
-            },
-          ],
-          anonymous: false,
-        },
-        {
-          type: "event",
-          name: "WorkerRemoved",
-          inputs: [
-            {
-              name: "worker",
-              type: "address",
-              indexed: true,
-              internalType: "address",
             },
           ],
           anonymous: false,
@@ -1136,6 +1188,57 @@ const deployedContracts = {
           anonymous: false,
         },
         {
+          type: "event",
+          name: "WorkLogged",
+          inputs: [
+            {
+              name: "jobId",
+              type: "uint256",
+              indexed: true,
+              internalType: "uint256",
+            },
+            {
+              name: "worker",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+            {
+              name: "note",
+              type: "string",
+              indexed: false,
+              internalType: "string",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "WorkerAdded",
+          inputs: [
+            {
+              name: "worker",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
+          type: "event",
+          name: "WorkerRemoved",
+          inputs: [
+            {
+              name: "worker",
+              type: "address",
+              indexed: true,
+              internalType: "address",
+            },
+          ],
+          anonymous: false,
+        },
+        {
           type: "error",
           name: "OwnableInvalidOwner",
           inputs: [
@@ -1173,46 +1276,8 @@ const deployedContracts = {
             },
           ],
         },
-        {
-          type: "function",
-          name: "getWorkLogs",
-          inputs: [{ name: "jobId", type: "uint256", internalType: "uint256" }],
-          outputs: [
-            {
-              name: "",
-              type: "tuple[]",
-              internalType: "struct LeftClawServices.WorkLog[]",
-              components: [
-                { name: "note", type: "string", internalType: "string" },
-                { name: "timestamp", type: "uint256", internalType: "uint256" },
-              ],
-            },
-          ],
-          stateMutability: "view",
-        },
-        {
-          type: "function",
-          name: "logWork",
-          inputs: [
-            { name: "jobId", type: "uint256", internalType: "uint256" },
-            { name: "note", type: "string", internalType: "string" },
-          ],
-          outputs: [],
-          stateMutability: "nonpayable",
-        },
-        {
-          type: "event",
-          name: "WorkLogged",
-          inputs: [
-            { name: "jobId", type: "uint256", internalType: "uint256", indexed: true },
-            { name: "worker", type: "address", internalType: "address", indexed: true },
-            { name: "note", type: "string", internalType: "string", indexed: false },
-          ],
-          anonymous: false,
-        },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 42936752,
     },
   },
 } as const;
