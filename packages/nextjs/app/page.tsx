@@ -140,7 +140,7 @@ const Home: NextPage = () => {
 
         {/* Audits */}
         <h3 className="text-lg font-semibold mb-4 opacity-70">🛡️ Audits</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 max-w-2xl mx-auto w-full">
           {SERVICE_TYPES.filter(s => s.tier === "audit").map(s => (
             <ServiceCard key={s.id} service={s} clawdPrice={clawdPrice} />
           ))}
