@@ -6,6 +6,9 @@ import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
 import { Address } from "@scaffold-ui/components";
 import { formatUnits } from "viem";
+import deployedContracts from "~~/contracts/deployedContracts";
+
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address;
 
 const SERVICE_TYPES = [
   { id: 0, name: "Quick Consult", emoji: "💬", desc: "A focused chat session about your idea. Ends with a written build plan.", tier: "consult" },
@@ -174,7 +177,7 @@ const Home: NextPage = () => {
         {/* Contract Info */}
         <div className="mt-16 text-center text-sm">
           <p className="opacity-60 mb-1">Contract on Base:</p>
-          <Address address="0x70BCbd61A797013eDc795408743325323FC2406C" />
+          <Address address={CONTRACT_ADDRESS} />
           <p className="opacity-50 mt-2">Payments in <a href="https://basescan.org/token/0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07" target="_blank" rel="noopener" className="underline">CLAWD</a> — USDC auto-swaps via Uniswap V3</p>
         </div>
       </div>
