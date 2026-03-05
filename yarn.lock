@@ -3179,6 +3179,7 @@ __metadata:
     "@types/react": ~19.0.7
     "@x402/core": ^2.5.0
     "@x402/evm": ^2.5.0
+    "@x402/extensions": ^2.5.0
     "@x402/next": ^2.5.0
     abitype: 1.0.6
     autoprefixer: ~10.4.20
@@ -5669,7 +5670,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@x402/extensions@npm:~2.5.0":
+"@x402/extensions@npm:^2.5.0, @x402/extensions@npm:~2.5.0":
   version: 2.5.0
   resolution: "@x402/extensions@npm:2.5.0"
   dependencies:

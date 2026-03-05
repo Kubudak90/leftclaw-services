@@ -1,5 +1,6 @@
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
+import { bazaarResourceServerExtension } from "@x402/extensions/bazaar";
 import { x402ResourceServer } from "@x402/next";
 
 // clawdbotatg.eth receives USDC payments on Base
@@ -9,7 +10,9 @@ export const BASE_NETWORK = "eip155:8453";
 // Default Coinbase-hosted facilitator (free, no setup)
 const facilitatorClient = new HTTPFacilitatorClient();
 
-export const x402Server = new x402ResourceServer(facilitatorClient).register(BASE_NETWORK, new ExactEvmScheme());
+export const x402Server = new x402ResourceServer(facilitatorClient)
+  .register(BASE_NETWORK, new ExactEvmScheme())
+  .registerExtension(bazaarResourceServerExtension);
 
 // Service pricing in USD (matches contract)
 export const SERVICE_PRICES = {
