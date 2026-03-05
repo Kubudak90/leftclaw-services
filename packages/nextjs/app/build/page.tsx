@@ -36,7 +36,8 @@ function BuildPage() {
   const { address, chainId } = useAccount();
 
   const gistParam = searchParams.get("gist");
-  const [days, setDays] = useState(1);
+  // Default to 2 days when arriving from consultation (any real build is at least 2 days)
+  const [days, setDays] = useState(gistParam ? 2 : 1);
   const [description, setDescription] = useState(searchParams.get("description") ?? "");
   const [step, setStep] = useState<"idle" | "approving" | "posting" | "done">("idle");
   const [txError, setTxError] = useState<string | null>(null);
