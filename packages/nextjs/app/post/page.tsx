@@ -81,10 +81,7 @@ function parseContractError(e: unknown): string {
 const SERVICE_NAMES: Record<number, string> = {
   0: "Quick Consult",
   1: "Deep Consult",
-  2: "Simple Build (~$500)",
-  3: "Standard Build (~$1000)",
-  4: "Complex Build (~$1500)",
-  5: "Enterprise Build (~$2500)",
+  // 2-5: Build tiers deprecated — use /build page (daily rate model)
   6: "QA Report (~$200)",
   7: "AI Audit (~$200/contract)",
 };
@@ -103,12 +100,14 @@ function PostJobPage() {
   const typeParam = searchParams.get("type");
   const gistParam = searchParams.get("gist");
   const isCustom = typeParam === "custom";
-  const initialType = isCustom ? 9 : (typeParam ? parseInt(typeParam) : 2);
+  const initialType = isCustom ? 9 : (typeParam ? parseInt(typeParam) : 6);
 
-  // Consult types have their own page — redirect
+  // Consult and Build types have their own pages — redirect
   useEffect(() => {
     if (initialType === 0 || initialType === 1) {
       router.replace(`/consult?type=${initialType}`);
+    } else if (initialType >= 2 && initialType <= 5) {
+      router.replace("/build");
     }
   }, [initialType, router]);
 
