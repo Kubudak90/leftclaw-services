@@ -7,8 +7,8 @@ import { x402ResourceServer } from "@x402/next";
 export const PAYMENT_ADDRESS = "0x11ce532845cE0eAcdA41f72FDc1C88c335981442";
 export const BASE_NETWORK = "eip155:8453";
 
-// Default Coinbase-hosted facilitator (free, no setup)
-const facilitatorClient = new HTTPFacilitatorClient();
+// PayAI facilitator — supports Base mainnet (eip155:8453) + bazaar extension
+const facilitatorClient = new HTTPFacilitatorClient({ url: "https://facilitator.payai.network" });
 
 export const x402Server = new x402ResourceServer(facilitatorClient)
   .register(BASE_NETWORK, new ExactEvmScheme())
