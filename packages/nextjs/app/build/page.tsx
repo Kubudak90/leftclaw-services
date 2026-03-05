@@ -3,7 +3,7 @@
 import { Suspense, useState, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from "wagmi";
-import { formatUnits, parseUnits } from "viem";
+import { parseUnits } from "viem";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import deployedContracts from "~~/contracts/deployedContracts";
