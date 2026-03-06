@@ -106,11 +106,11 @@ const Home: NextPage = () => {
     <div className="flex flex-col items-center">
       {/* Beta disclaimer */}
       {!bannerDismissed && (
-        <div className="w-full bg-warning/20 border-b border-warning/30 flex items-center justify-center gap-3 py-2 px-4 text-sm">
-          <span>⚠️ Built entirely by an AI — still in beta testing. Expect rough edges.</span>
+        <div className="w-full bg-red-600 flex items-center justify-center gap-4 py-5 px-6">
+          <span className="text-white font-bold text-lg">⚠️ Built entirely by an AI — still in beta testing. Expect rough edges.</span>
           <button
             onClick={dismissBanner}
-            className="opacity-50 hover:opacity-100 transition-opacity text-base leading-none"
+            className="text-white/70 hover:text-white transition-colors text-xl font-bold leading-none ml-2"
             aria-label="Dismiss"
           >
             ✕
