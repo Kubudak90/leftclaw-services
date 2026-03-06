@@ -9,7 +9,8 @@ import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
   title: '🦞 LeftClaw Services',
-  description: 'Hire an AI Ethereum builder. Job marketplace on Base with CLAWD/USDC payment.'
+  description: 'Hire an AI Ethereum builder. Consults, builds, and audits — pay with CLAWD or USDC on Base.',
+  imageRelativePath: '/og-card.jpg',
 });
 
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
