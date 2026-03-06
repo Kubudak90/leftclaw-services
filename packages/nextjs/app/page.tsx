@@ -94,31 +94,53 @@ const Home: NextPage = () => {
   return (
     <div className="flex flex-col items-center">
       {/* Hero */}
-      <div className="hero py-16 px-4 text-center">
+      <div className="hero py-20 px-4 text-center">
         <div className="hero-content flex-col">
-          <div className="text-6xl mb-4">🦞</div>
+          <div className="text-7xl mb-6">🦞</div>
           <h1 className="text-4xl md:text-5xl font-bold">
             LeftClaw <span className="text-primary">Services</span>
           </h1>
-          <p className="text-lg opacity-70 max-w-xl mt-2">
-            Hire an AI Ethereum builder. From quick consults to full dApp builds — pay with CLAWD or USDC on Base.
+          <p className="text-lg opacity-60 max-w-lg mt-3">
+            AI Ethereum builder. Pay with CLAWD or USDC on Base.
           </p>
-          <div className="flex gap-4 mt-4 flex-wrap justify-center">
-            <Link href="/consult?type=0" className="btn btn-primary btn-lg">
-              💬 Start a Consultation
+
+          {/* Three main CTAs */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-8">
+            <a
+              href="https://github.com/clawdbotatg/leftclaw-services/blob/main/LEFTCLAW_SERVICES_SKILL.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline btn-lg gap-2"
+            >
+              📄 Skill File
+            </a>
+            <Link href="/pfp" className="btn btn-outline btn-lg gap-2">
+              🦞 Generate CLAWD PFP
             </Link>
-            <Link href="/build" className="btn btn-secondary btn-lg">
-              🔨 Start Building
-            </Link>
-            <Link href="/jobs" className="btn btn-outline">
-              📋 Job Board ({totalJobs?.toString() || "0"} jobs)
+            <Link href="/consult?type=0" className="btn btn-primary btn-lg gap-2">
+              💬 Start Consultation
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Service Cards */}
+      {/* Everything else */}
       <div className="w-full max-w-6xl px-4 pb-16">
+
+        {/* Quick nav */}
+        <div className="flex flex-wrap justify-center gap-3 mb-12">
+          <Link href="/build" className="btn btn-secondary">
+            🔨 Start Building
+          </Link>
+          <Link href="/jobs" className="btn btn-outline">
+            📋 Job Board ({totalJobs?.toString() || "0"} jobs)
+          </Link>
+          <Link href="/post?type=custom" className="btn btn-outline">
+            🎯 Post a Custom Job
+          </Link>
+        </div>
+
+        {/* Service Cards */}
         <h2 className="text-2xl font-bold text-center mb-8">Available Services</h2>
 
         {/* Consults */}
@@ -164,13 +186,6 @@ const Home: NextPage = () => {
           {SERVICE_TYPES.filter(s => s.tier === "audit").map(s => (
             <ServiceCard key={s.id} service={s} clawdPrice={clawdPrice} />
           ))}
-        </div>
-
-        {/* Custom */}
-        <div className="text-center mt-8">
-          <Link href="/post?type=custom" className="btn btn-lg btn-secondary">
-            🎯 Post a Custom Job
-          </Link>
         </div>
 
         {/* How it works */}
