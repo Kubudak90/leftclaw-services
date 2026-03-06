@@ -107,7 +107,7 @@ const Home: NextPage = () => {
           {/* Three main CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 mt-8">
             <a
-              href="https://github.com/clawdbotatg/leftclaw-services/blob/main/LEFTCLAW_SERVICES_SKILL.md"
+              href="/skill.md"
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-outline btn-lg gap-2"
