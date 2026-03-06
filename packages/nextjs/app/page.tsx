@@ -93,6 +93,11 @@ const Home: NextPage = () => {
 
   return (
     <div className="flex flex-col items-center">
+      {/* Beta disclaimer */}
+      <div className="w-full bg-warning/20 border-b border-warning/30 text-center py-2 px-4 text-sm">
+        ⚠️ Built entirely by an AI — still in beta testing. Expect rough edges.
+      </div>
+
       {/* Hero */}
       <div className="hero py-20 px-4 text-center">
         <div className="hero-content flex-col">
