@@ -127,6 +127,17 @@ const Home: NextPage = () => {
       {/* Everything else */}
       <div className="w-full max-w-6xl px-4 pb-16">
 
+        {/* Service Cards */}
+        <h2 className="text-2xl font-bold text-center mb-8">Available Services</h2>
+
+        {/* Consults */}
+        <h3 className="text-lg font-semibold mb-4 opacity-70">💬 Consultations</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          {SERVICE_TYPES.filter(s => s.tier === "consult").map(s => (
+            <ServiceCard key={s.id} service={s} clawdPrice={clawdPrice} />
+          ))}
+        </div>
+
         {/* Quick nav */}
         <div className="flex flex-wrap justify-center gap-3 mb-12">
           <Link href="/build" className="btn btn-secondary">
@@ -138,17 +149,6 @@ const Home: NextPage = () => {
           <Link href="/post?type=custom" className="btn btn-outline">
             🎯 Post a Custom Job
           </Link>
-        </div>
-
-        {/* Service Cards */}
-        <h2 className="text-2xl font-bold text-center mb-8">Available Services</h2>
-
-        {/* Consults */}
-        <h3 className="text-lg font-semibold mb-4 opacity-70">💬 Consultations</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-          {SERVICE_TYPES.filter(s => s.tier === "consult").map(s => (
-            <ServiceCard key={s.id} service={s} clawdPrice={clawdPrice} />
-          ))}
         </div>
 
         {/* Builds */}
