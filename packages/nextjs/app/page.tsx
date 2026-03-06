@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Address } from "@scaffold-ui/components";
 import type { NextPage } from "next";
@@ -85,7 +86,17 @@ function ServiceCard({ service, clawdPrice }: { service: (typeof SERVICE_TYPES)[
 }
 
 const Home: NextPage = () => {
+  const [bannerDismissed, setBannerDismissed] = useState(true); // start hidden to avoid flash
   const clawdPrice = useCLAWDPrice();
+
+  useEffect(() => {
+    setBannerDismissed(localStorage.getItem("beta-banner-dismissed") === "1");
+  }, []);
+
+  const dismissBanner = () => {
+    localStorage.setItem("beta-banner-dismissed", "1");
+    setBannerDismissed(true);
+  };
   const { data: totalJobs } = useScaffoldReadContract({
     contractName: "LeftClawServices",
     functionName: "getTotalJobs",
@@ -94,9 +105,18 @@ const Home: NextPage = () => {
   return (
     <div className="flex flex-col items-center">
       {/* Beta disclaimer */}
-      <div className="w-full bg-warning/20 border-b border-warning/30 text-center py-2 px-4 text-sm">
-        ⚠️ Built entirely by an AI — still in beta testing. Expect rough edges.
-      </div>
+      {!bannerDismissed && (
+        <div className="w-full bg-warning/20 border-b border-warning/30 flex items-center justify-center gap-3 py-2 px-4 text-sm">
+          <span>⚠️ Built entirely by an AI — still in beta testing. Expect rough edges.</span>
+          <button
+            onClick={dismissBanner}
+            className="opacity-50 hover:opacity-100 transition-opacity text-base leading-none"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Hero */}
       <div className="hero py-20 px-4 text-center">
