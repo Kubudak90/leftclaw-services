@@ -537,4 +537,72 @@ contract LeftClawServicesTest is Test {
         vm.prank(worker);
         services.acceptJob(jobId);
     }
+
+    // ─── CV & ETH Payment Tests ──────────────────────────────────────────────
+
+    function test_PostJobWithCV() public {
+        vm.prank(client);
+        services.postJobWithCV(LeftClawServices.ServiceType.CONSULT_S, 200_000, "QmCVJob");
+
+        LeftClawServices.Job memory job = services.getJob(1);
+        assertEq(job.client, client);
+        assertEq(job.paymentClawd, 0);
+        assertEq(job.cvAmount, 200_000);
+        assertEq(uint256(job.paymentMethod), uint256(LeftClawServices.PaymentMethod.CV));
+        assertEq(uint256(job.serviceType), uint256(LeftClawServices.ServiceType.CONSULT_S));
+        assertEq(services.totalLockedClawd(), 0);
+    }
+
+    function test_PostJobWithCV_ZeroCVReverts() public {
+        vm.prank(client);
+        vm.expectRevert("CV amount required");
+        services.postJobWithCV(LeftClawServices.ServiceType.CONSULT_S, 0, "QmCVJob");
+    }
+
+    function test_PostJobWithETH() public {
+        vm.deal(client, 1 ether);
+        vm.prank(client);
+        services.postJobWithETH{value: 0.01 ether}(LeftClawServices.ServiceType.CONSULT_S, "QmETHJob");
+
+        LeftClawServices.Job memory job = services.getJob(1);
+        assertEq(job.client, client);
+        assertEq(job.paymentClawd, 0);
+        assertEq(uint256(job.paymentMethod), uint256(LeftClawServices.PaymentMethod.ETH));
+        assertEq(address(services).balance, 0.01 ether);
+    }
+
+    function test_PostJobWithETH_ZeroValueReverts() public {
+        vm.prank(client);
+        vm.expectRevert("Must send ETH");
+        services.postJobWithETH(LeftClawServices.ServiceType.CONSULT_S, "QmETHJob");
+    }
+
+    function test_CancelCVJob_NoRefund() public {
+        vm.prank(client);
+        services.postJobWithCV(LeftClawServices.ServiceType.CONSULT_S, 200_000, "QmCVJob");
+
+        vm.prank(client);
+        services.cancelJob(1);
+
+        LeftClawServices.Job memory job = services.getJob(1);
+        assertEq(uint256(job.status), uint256(LeftClawServices.JobStatus.CANCELLED));
+    }
+
+    function test_WithdrawETH() public {
+        vm.deal(client, 1 ether);
+        vm.prank(client);
+        services.postJobWithETH{value: 0.5 ether}(LeftClawServices.ServiceType.CONSULT_S, "QmETHJob");
+
+        address payable recipient = payable(address(0xBEEF));
+        vm.prank(services.owner());
+        services.withdrawETH(recipient);
+        assertEq(recipient.balance, 0.5 ether);
+    }
+
+    function test_CLAWDJobHasCorrectPaymentMethod() public {
+        _postJob(LeftClawServices.ServiceType.CONSULT_S, 1_000e18);
+        LeftClawServices.Job memory job = services.getJob(1);
+        assertEq(uint256(job.paymentMethod), uint256(LeftClawServices.PaymentMethod.CLAWD));
+        assertEq(job.cvAmount, 0);
+    }
 }

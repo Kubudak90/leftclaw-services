@@ -48,6 +48,13 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         DISPUTED     // 4 - client disputed result
     }
 
+    enum PaymentMethod {
+        CLAWD,       // 0 - paid with CLAWD tokens
+        USDC,        // 1 - paid with USDC (auto-swapped to CLAWD)
+        ETH,         // 2 - paid with ETH
+        CV           // 3 - paid with ClawdViction points (off-chain)
+    }
+
     // ─── Structs ──────────────────────────────────────────────────────────────
 
     struct Job {
@@ -66,6 +73,8 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         bool paymentClaimed;
         uint256 feeSnapshot;        // fee locked at completeJob
         uint256 disputedAt;
+        PaymentMethod paymentMethod; // how the job was paid for
+        uint256 cvAmount;           // CV spent (only for CV payments, informational)
     }
 
     struct WorkLog {
@@ -102,7 +111,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
-    event JobPosted(uint256 indexed jobId, address indexed client, ServiceType serviceType, uint256 paymentClawd, uint256 priceUsd, string descriptionCID);
+    event JobPosted(uint256 indexed jobId, address indexed client, ServiceType serviceType, uint256 paymentClawd, uint256 priceUsd, string descriptionCID, PaymentMethod paymentMethod, uint256 cvAmount);
     event JobAccepted(uint256 indexed jobId, address indexed worker);
     event JobCompleted(uint256 indexed jobId, address indexed worker, string resultCID);
     event JobCancelled(uint256 indexed jobId, address indexed client);
@@ -175,7 +184,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
         clawdToken.safeTransferFrom(msg.sender, address(this), clawdAmount);
 
-        _createJob(msg.sender, serviceType, clawdAmount, priceUsd, descriptionCID);
+        _createJob(msg.sender, serviceType, clawdAmount, priceUsd, descriptionCID, PaymentMethod.CLAWD, 0);
     }
 
     /// @notice Post a CUSTOM job with any CLAWD amount and custom USD value
@@ -185,7 +194,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
         clawdToken.safeTransferFrom(msg.sender, address(this), clawdAmount);
 
-        _createJob(msg.sender, ServiceType.CUSTOM, clawdAmount, customPriceUsd, descriptionCID);
+        _createJob(msg.sender, ServiceType.CUSTOM, clawdAmount, customPriceUsd, descriptionCID, PaymentMethod.CLAWD, 0);
     }
 
     /// @notice Post a job paying with USDC — exact USD price charged, auto-swaps to CLAWD
@@ -208,7 +217,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
             })
         );
 
-        _createJob(msg.sender, serviceType, clawdReceived, priceUsd, descriptionCID);
+        _createJob(msg.sender, serviceType, clawdReceived, priceUsd, descriptionCID, PaymentMethod.USDC, 0);
     }
 
     /// @notice Post a CUSTOM job paying with USDC
@@ -229,7 +238,29 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
             })
         );
 
-        _createJob(msg.sender, ServiceType.CUSTOM, clawdReceived, usdcAmount, descriptionCID);
+        _createJob(msg.sender, ServiceType.CUSTOM, clawdReceived, usdcAmount, descriptionCID, PaymentMethod.USDC, 0);
+    }
+
+    /// @notice Post a job paying with ETH — sent as msg.value
+    function postJobWithETH(ServiceType serviceType, string calldata descriptionCID) external payable nonReentrant {
+        require(serviceType != ServiceType.CUSTOM, "Use postJobCustomETH for CUSTOM");
+        require(bytes(descriptionCID).length > 0, "Description required");
+        require(msg.value > 0, "Must send ETH");
+        uint256 priceUsd = servicePriceUsd[serviceType];
+        require(priceUsd > 0, "Service not available");
+
+        _createJob(msg.sender, serviceType, 0, priceUsd, descriptionCID, PaymentMethod.ETH, 0);
+    }
+
+    /// @notice Post a job paying with ClawdViction (CV) — just gas, cvAmount is informational
+    function postJobWithCV(ServiceType serviceType, uint256 cvAmount, string calldata descriptionCID) external nonReentrant {
+        require(serviceType != ServiceType.CUSTOM, "Use postJobCustomCV for CUSTOM");
+        require(bytes(descriptionCID).length > 0, "Description required");
+        require(cvAmount > 0, "CV amount required");
+        uint256 priceUsd = servicePriceUsd[serviceType];
+        require(priceUsd > 0, "Service not available");
+
+        _createJob(msg.sender, serviceType, 0, priceUsd, descriptionCID, PaymentMethod.CV, cvAmount);
     }
 
     // ─── Job Lifecycle ────────────────────────────────────────────────────────
@@ -285,9 +316,11 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         job.status = JobStatus.COMPLETED;
         job.resultCID = gistUrl;
         job.completedAt = block.timestamp;
-        totalLockedClawd -= job.paymentClawd;
 
-        clawdToken.safeTransfer(DEAD_ADDRESS, job.paymentClawd);
+        if (job.paymentClawd > 0) {
+            totalLockedClawd -= job.paymentClawd;
+            clawdToken.safeTransfer(DEAD_ADDRESS, job.paymentClawd);
+        }
 
         emit ConsultationComplete(jobId, job.client, gistUrl, recommendedBuildType);
         emit JobCompleted(jobId, msg.sender, gistUrl);
@@ -311,16 +344,20 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         job.paymentClaimed = true;
         job.status = JobStatus.COMPLETED;
 
-        uint256 fee = job.feeSnapshot;
-        uint256 payout = job.paymentClawd - fee;
+        if (job.paymentClawd > 0) {
+            uint256 fee = job.feeSnapshot;
+            uint256 payout = job.paymentClawd - fee;
 
-        totalLockedClawd -= job.paymentClawd;
-        accumulatedFees += fee;
+            totalLockedClawd -= job.paymentClawd;
+            accumulatedFees += fee;
 
-        clawdToken.safeTransfer(msg.sender, payout);
+            clawdToken.safeTransfer(msg.sender, payout);
+            emit PaymentClaimed(jobId, msg.sender, payout);
+        } else {
+            emit PaymentClaimed(jobId, msg.sender, 0);
+        }
 
         if (wasDisputed) emit DisputeResolved(jobId, false);
-        emit PaymentClaimed(jobId, msg.sender, payout);
     }
 
     function rejectJob(uint256 jobId) external nonReentrant onlyWorker {
@@ -329,9 +366,11 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         require(job.status == JobStatus.OPEN, "Can only reject OPEN jobs");
 
         job.status = JobStatus.CANCELLED;
-        totalLockedClawd -= job.paymentClawd;
 
-        clawdToken.safeTransfer(job.client, job.paymentClawd);
+        if (job.paymentClawd > 0) {
+            totalLockedClawd -= job.paymentClawd;
+            clawdToken.safeTransfer(job.client, job.paymentClawd);
+        }
 
         emit JobRejected(jobId, job.client);
     }
@@ -343,9 +382,11 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         require(job.status == JobStatus.OPEN, "Can only cancel OPEN jobs");
 
         job.status = JobStatus.CANCELLED;
-        totalLockedClawd -= job.paymentClawd;
 
-        clawdToken.safeTransfer(msg.sender, job.paymentClawd);
+        if (job.paymentClawd > 0) {
+            totalLockedClawd -= job.paymentClawd;
+            clawdToken.safeTransfer(msg.sender, job.paymentClawd);
+        }
 
         emit JobCancelled(jobId, msg.sender);
     }
@@ -369,18 +410,22 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         require(job.id != 0, "Job does not exist");
         require(job.status == JobStatus.DISPUTED, "Job not DISPUTED");
 
-        totalLockedClawd -= job.paymentClawd;
-
         if (refundClient) {
             job.status = JobStatus.CANCELLED;
-            clawdToken.safeTransfer(job.client, job.paymentClawd);
+            if (job.paymentClawd > 0) {
+                totalLockedClawd -= job.paymentClawd;
+                clawdToken.safeTransfer(job.client, job.paymentClawd);
+            }
         } else {
-            uint256 fee = job.feeSnapshot;
-            uint256 payout = job.paymentClawd - fee;
-            accumulatedFees += fee;
             job.status = JobStatus.COMPLETED;
             job.paymentClaimed = true;
-            clawdToken.safeTransfer(job.worker, payout);
+            if (job.paymentClawd > 0) {
+                uint256 fee = job.feeSnapshot;
+                uint256 payout = job.paymentClawd - fee;
+                totalLockedClawd -= job.paymentClawd;
+                accumulatedFees += fee;
+                clawdToken.safeTransfer(job.worker, payout);
+            }
         }
 
         emit DisputeResolved(jobId, refundClient);
@@ -428,6 +473,14 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         } else {
             IERC20(token).safeTransfer(to, balance);
         }
+    }
+
+    function withdrawETH(address payable to) external onlyOwner nonReentrant {
+        require(to != address(0), "Zero address");
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ETH to withdraw");
+        (bool sent, ) = to.call{value: balance}("");
+        require(sent, "ETH transfer failed");
     }
 
     function withdrawProtocolFees(address to) external onlyOwner nonReentrant {
@@ -484,11 +537,13 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         ServiceType serviceType,
         uint256 clawdAmount,
         uint256 priceUsd,
-        string calldata descriptionCID
+        string calldata descriptionCID,
+        PaymentMethod method,
+        uint256 cvAmount
     ) internal {
         uint256 jobId = nextJobId++;
 
-        totalLockedClawd += clawdAmount;
+        if (clawdAmount > 0) totalLockedClawd += clawdAmount;
 
         jobs[jobId] = Job({
             id: jobId,
@@ -505,10 +560,12 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
             worker: address(0),
             paymentClaimed: false,
             feeSnapshot: 0,
-            disputedAt: 0
+            disputedAt: 0,
+            paymentMethod: method,
+            cvAmount: cvAmount
         });
 
-        emit JobPosted(jobId, client, serviceType, clawdAmount, priceUsd, descriptionCID);
+        emit JobPosted(jobId, client, serviceType, clawdAmount, priceUsd, descriptionCID, method, cvAmount);
     }
 
     function _getJobsByStatus(JobStatus status) internal view returns (uint256[] memory) {
