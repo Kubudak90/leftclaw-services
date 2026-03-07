@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { parseEther, parseUnits } from "viem";
-import { useAccount, useBalance, usePublicClient, useReadContract, useSignMessage, useWalletClient, useWriteContract, useSendTransaction } from "wagmi";
-import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
+import { useAccount, usePublicClient, useSignMessage, useWalletClient, useWriteContract, useSendTransaction } from "wagmi";
+import { usePaymentContext, PaymentMethod } from "~~/hooks/scaffold-eth/usePaymentContext";
 
 const CLAWD_ADDRESS = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07" as const;
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -26,13 +26,6 @@ const ERC20_ABI = [
     ],
     outputs: [{ type: "bool" }],
   },
-  {
-    name: "balanceOf",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
 ] as const;
 
 const EXAMPLE_PROMPTS = [
@@ -48,8 +41,6 @@ const EXAMPLE_PROMPTS = [
   "as a wizard casting a spell",
 ];
 
-type PaymentMethod = "cv" | "clawd" | "usdc" | "eth";
-
 const PAYMENT_LABELS: Record<PaymentMethod, { icon: string; label: string; desc: string }> = {
   cv: { icon: "⚡", label: "ClawdViction", desc: "Earned by staking" },
   clawd: { icon: "🔥", label: "Burn CLAWD", desc: "Deflationary" },
@@ -62,9 +53,14 @@ export default function PfpPage() {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const { signMessageAsync } = useSignMessage();
-  const clawdPrice = useCLAWDPrice();
   const { writeContractAsync } = useWriteContract();
   const { sendTransactionAsync } = useSendTransaction();
+
+  const {
+    clawdBalance, usdcBalance, ethBalance, cvBalance,
+    clawdPrice, ethPrice,
+    bestPaymentMethod,
+  } = usePaymentContext();
 
   const [prompt, setPrompt] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cv");
@@ -72,79 +68,32 @@ export default function PfpPage() {
   const [error, setError] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<Record<string, any> | null>(null);
-  const [cvBalance, setCvBalance] = useState<number | null>(null);
-  const [cvLoading, setCvLoading] = useState(false);
-  const [ethPrice, setEthPrice] = useState<number | null>(null);
+  const [localCvBalance, setLocalCvBalance] = useState<number | null>(null);
+  const hasSetDefault = useRef(false);
+
+  useEffect(() => {
+    if (!hasSetDefault.current && bestPaymentMethod) {
+      hasSetDefault.current = true;
+      setPaymentMethod(bestPaymentMethod);
+    }
+  }, [bestPaymentMethod]);
+
+  // Use hook CV balance, but allow local override after spending
+  const displayCvBalance = localCvBalance ?? cvBalance;
 
   const isWrongNetwork = !!address && chainId !== BASE_CHAIN_ID;
   const clawdNeeded = clawdPrice ? Math.ceil(PFP_PRICE_USD / clawdPrice) : 0;
   const priceWei = BigInt(clawdNeeded) * BigInt(10) ** BigInt(18);
-  const usdcAmount = parseUnits(PFP_PRICE_USD.toString(), 6); // 6 decimals
+  const usdcAmount = parseUnits(PFP_PRICE_USD.toString(), 6);
   const ethNeeded = ethPrice ? PFP_PRICE_USD / ethPrice : 0;
-
-  const { data: clawdBalance } = useReadContract({
-    address: CLAWD_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const { data: usdcBalance } = useReadContract({
-    address: USDC_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const { data: ethBalanceData } = useBalance({ address, chainId: 8453 });
-  const ethBalance = ethBalanceData?.value;
-
-  // Auto-select payment method with highest USD-equivalent balance
-  const hasAutoSelected = useRef(false);
-  useEffect(() => {
-    if (hasAutoSelected.current || !address || !ethPrice || !clawdPrice) return;
-    if (clawdBalance === undefined && usdcBalance === undefined && ethBalance === undefined && cvBalance === null) return;
-    hasAutoSelected.current = true;
-
-    const balancesUsd: { method: PaymentMethod; usd: number }[] = [
-      { method: "cv", usd: cvBalance !== null ? (cvBalance / PFP_CV_COST) * PFP_PRICE_USD : 0 },
-      { method: "clawd", usd: clawdBalance !== undefined ? Number(clawdBalance / BigInt(10) ** BigInt(18)) * clawdPrice : 0 },
-      { method: "usdc", usd: usdcBalance !== undefined ? Number(usdcBalance) / 1e6 : 0 },
-      { method: "eth", usd: ethBalance !== undefined ? Number(ethBalance) / 1e18 * ethPrice : 0 },
-    ];
-
-    const best = balancesUsd.sort((a, b) => b.usd - a.usd)[0];
-    if (best && best.usd > 0) setPaymentMethod(best.method);
-  }, [address, ethPrice, clawdPrice, clawdBalance, usdcBalance, ethBalance, cvBalance]);
-
-  // Fetch CV balance
-  useEffect(() => {
-    if (!address) { setCvBalance(null); return; }
-    setCvLoading(true);
-    fetch(`/api/cv-balance/${address}`)
-      .then(r => r.json())
-      .then(data => setCvBalance(Number(data.clawdviction) || 0))
-      .catch(() => setCvBalance(null))
-      .finally(() => setCvLoading(false));
-  }, [address]);
-
-  // Fetch ETH price
-  useEffect(() => {
-    fetch("https://api.dexscreener.com/latest/dex/tokens/0x4200000000000000000000000000000000000006")
-      .then(r => r.json())
-      .then(data => setEthPrice(parseFloat(data.pairs?.[0]?.priceUsd || "0")))
-      .catch(() => {});
-  }, []);
 
   const isInsufficient = (() => {
     if (!address) return false;
     switch (paymentMethod) {
-      case "cv": return cvBalance !== null && cvBalance < PFP_CV_COST;
+      case "cv": return displayCvBalance !== null && displayCvBalance < PFP_CV_COST;
       case "clawd": return clawdBalance !== undefined && clawdBalance < priceWei;
       case "usdc": return usdcBalance !== undefined && usdcBalance < usdcAmount;
-      case "eth": return false; // checked at tx time
+      case "eth": return false;
       default: return false;
     }
   })();
@@ -160,7 +109,6 @@ export default function PfpPage() {
       let signature: string | undefined;
 
       if (paymentMethod === "cv") {
-        // Cache CV signature per wallet in localStorage
         const sigKey = `cv-sig-${address.toLowerCase()}`;
         const cached = localStorage.getItem(sigKey);
         if (cached) {
@@ -174,9 +122,7 @@ export default function PfpPage() {
         if (priceWei === BigInt(0)) throw new Error("Price not loaded");
         setStep("paying");
         const hash = await writeContractAsync({
-          address: CLAWD_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "transfer",
+          address: CLAWD_ADDRESS, abi: ERC20_ABI, functionName: "transfer",
           args: [DEAD_ADDRESS, priceWei],
         });
         if (!hash) throw new Error("Transaction failed");
@@ -185,9 +131,7 @@ export default function PfpPage() {
       } else if (paymentMethod === "usdc") {
         setStep("paying");
         const hash = await writeContractAsync({
-          address: USDC_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "transfer",
+          address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "transfer",
           args: [PAY_TO, usdcAmount],
         });
         if (!hash) throw new Error("Transaction failed");
@@ -196,30 +140,19 @@ export default function PfpPage() {
       } else if (paymentMethod === "eth") {
         if (!ethPrice || ethNeeded <= 0) throw new Error("ETH price not loaded");
         setStep("paying");
-        const ethWei = parseEther((ethNeeded * 1.05).toFixed(18)); // 5% buffer
-        const hash = await sendTransactionAsync({
-          to: PAY_TO,
-          value: ethWei,
-        });
+        const ethWei = parseEther((ethNeeded * 1.05).toFixed(18));
+        const hash = await sendTransactionAsync({ to: PAY_TO, value: ethWei });
         if (!hash) throw new Error("Transaction failed");
         await publicClient.waitForTransactionReceipt({ hash });
         txHash = hash;
       }
 
-      // Call the unified generate endpoint
       setStep("generating");
       const res = await fetch("/api/pfp/generate-cv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          method: paymentMethod,
-          wallet: address,
-          signature,
-          txHash,
-        }),
+        body: JSON.stringify({ prompt: prompt.trim(), method: paymentMethod, wallet: address, signature, txHash }),
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Generation failed");
 
@@ -227,9 +160,8 @@ export default function PfpPage() {
       setPaymentInfo(data.payment);
       setStep("done");
 
-      // Refresh CV balance
       if (paymentMethod === "cv") {
-        setCvBalance(data.payment?.newBalance ?? (cvBalance ? cvBalance - PFP_CV_COST : null));
+        setLocalCvBalance(data.payment?.newBalance ?? (displayCvBalance ? displayCvBalance - PFP_CV_COST : null));
       }
     } catch (e: any) {
       setError(e?.shortMessage || e?.message || "Something went wrong");
@@ -267,10 +199,10 @@ export default function PfpPage() {
 
   const balanceDisplay = () => {
     switch (paymentMethod) {
-      case "cv": return cvLoading ? "Loading..." : cvBalance !== null ? `${cvBalance.toLocaleString()} CV` : "—";
+      case "cv": return displayCvBalance !== null ? `${displayCvBalance.toLocaleString()} CV` : "—";
       case "clawd": return clawdBalance !== undefined ? `${Number(clawdBalance / BigInt(10) ** BigInt(18)).toLocaleString()} CLAWD` : "—";
       case "usdc": return usdcBalance !== undefined ? `$${(Number(usdcBalance) / 1e6).toFixed(2)} USDC` : "—";
-      case "eth": return "Check wallet";
+      case "eth": return ethBalance !== undefined ? `${(Number(ethBalance) / 1e18).toFixed(4)} ETH` : "—";
     }
   };
 
@@ -335,10 +267,7 @@ export default function PfpPage() {
               <textarea
                 className="textarea textarea-bordered w-full h-20 text-sm"
                 placeholder='e.g. "wearing a cowboy hat and boots"'
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                disabled={busy}
-                maxLength={500}
+                value={prompt} onChange={e => setPrompt(e.target.value)} disabled={busy} maxLength={500}
               />
             </div>
 
@@ -372,7 +301,6 @@ export default function PfpPage() {
               </div>
             </div>
 
-            {/* Warnings */}
             {!address && <div className="alert alert-warning mb-4"><span>Connect your wallet to start</span></div>}
             {isWrongNetwork && <div className="alert alert-error mb-4"><span>Switch to Base network</span></div>}
             {isInsufficient && (

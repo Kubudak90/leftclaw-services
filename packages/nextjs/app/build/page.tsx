@@ -2,11 +2,11 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { formatUnits, parseEther, parseUnits } from "viem";
-import { useAccount, useBalance, usePublicClient, useReadContract, useWalletClient, useWriteContract } from "wagmi";
+import { parseEther, parseUnits } from "viem";
+import { useAccount, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
-import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
+import { usePaymentContext, PaymentMethod } from "~~/hooks/scaffold-eth/usePaymentContext";
 import { parseContractError } from "~~/utils/parseContractError";
 
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}`;
@@ -16,18 +16,15 @@ const CLAWD_ADDRESS = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07" as const;
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const BASE_CHAIN_ID = 8453;
 const CV_SIGN_MESSAGE = "ClawdViction CV Spend";
-const BUILD_DAILY_TYPE = 2; // ServiceType.BUILD_DAILY
+const BUILD_DAILY_TYPE = 2;
 const DAY_OPTIONS = [1, 2, 3, 4, 5];
 const PRICE_PER_DAY_USD = 1000;
-const CV_PER_DAY = 10_000_000; // 10M CV per build day
+const CV_PER_DAY = 10_000_000;
 
 const ERC20_ABI = [
   { name: "approve", type: "function", stateMutability: "nonpayable" as const, inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
   { name: "allowance", type: "function", stateMutability: "view" as const, inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ type: "uint256" }] },
-  { name: "balanceOf", type: "function", stateMutability: "view" as const, inputs: [{ name: "account", type: "address" }], outputs: [{ type: "uint256" }] },
 ] as const;
-
-type PaymentMethod = "cv" | "clawd" | "usdc" | "eth";
 
 export default function BuildPageWrapper() {
   return (
@@ -45,19 +42,31 @@ function BuildPage() {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
 
+  const {
+    clawdBalance, usdcBalance, ethBalance, cvBalance,
+    clawdPrice, ethPrice,
+    clawdAllowance, refetchAllowance,
+    bestPaymentMethod,
+  } = usePaymentContext();
+
   const gistParam = searchParams.get("gist");
   const [days, setDays] = useState(gistParam ? 2 : 1);
   const [description, setDescription] = useState(searchParams.get("description") ?? "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cv");
   const [step, setStep] = useState<"idle" | "signing" | "approving" | "paying" | "posting" | "done">("idle");
   const [txError, setTxError] = useState<string | null>(null);
-  const [cvBalance, setCvBalance] = useState<number | null>(null);
-  const [ethPrice, setEthPrice] = useState<number | null>(null);
   const postedJobIdRef = useRef<number | null>(null);
+  const hasSetDefault = useRef(false);
+
+  useEffect(() => {
+    if (!hasSetDefault.current && bestPaymentMethod) {
+      hasSetDefault.current = true;
+      setPaymentMethod(bestPaymentMethod);
+    }
+  }, [bestPaymentMethod]);
 
   const isWrongNetwork = !!address && chainId !== BASE_CHAIN_ID;
   const contractAddress = CONTRACT_ADDRESS;
-  const clawdPrice = useCLAWDPrice();
 
   // Prices
   const totalUsd = PRICE_PER_DAY_USD * days;
@@ -66,7 +75,6 @@ function BuildPage() {
   const usdcAmount = parseUnits(totalUsd.toString(), 6);
   const ethNeeded = ethPrice && totalUsd ? totalUsd / ethPrice : 0;
   const cvCost = CV_PER_DAY * days;
-
   const isMultiDay = days > 1;
 
   const { data: nextJobId } = useScaffoldReadContract({
@@ -74,69 +82,7 @@ function BuildPage() {
     functionName: "nextJobId",
   });
 
-  const { data: allowanceRaw, refetch: refetchAllowance } = useReadContract({
-    address: CLAWD_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: address && contractAddress ? [address, contractAddress] : undefined,
-    query: { enabled: !!address && !!contractAddress },
-  });
-
-  const { data: clawdBalance } = useReadContract({
-    address: CLAWD_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const { data: usdcBalance } = useReadContract({
-    address: USDC_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const { data: ethBalanceData } = useBalance({ address, chainId: BASE_CHAIN_ID });
-  const ethBalance = ethBalanceData?.value;
-
-  const needsApproval = paymentMethod === "clawd" && !!address && priceWei > BigInt(0) && (allowanceRaw === undefined || allowanceRaw < priceWei);
-
-  // Auto-select payment method with highest USD-equivalent balance
-  const hasAutoSelected = useRef(false);
-  useEffect(() => {
-    if (hasAutoSelected.current || !address || !ethPrice || !clawdPrice) return;
-    if (clawdBalance === undefined && usdcBalance === undefined && ethBalance === undefined && cvBalance === null) return;
-    hasAutoSelected.current = true;
-
-    const balancesUsd: { method: PaymentMethod; usd: number }[] = [
-      { method: "cv", usd: cvBalance !== null ? (cvBalance / cvCost) * totalUsd : 0 },
-      { method: "clawd", usd: clawdBalance !== undefined ? Number(clawdBalance / BigInt(10) ** BigInt(18)) * clawdPrice : 0 },
-      { method: "usdc", usd: usdcBalance !== undefined ? Number(usdcBalance) / 1e6 : 0 },
-      { method: "eth", usd: ethBalance !== undefined ? Number(ethBalance) / 1e18 * ethPrice : 0 },
-    ];
-
-    const best = balancesUsd.sort((a, b) => b.usd - a.usd)[0];
-    if (best && best.usd > 0) setPaymentMethod(best.method);
-  }, [address, ethPrice, clawdPrice, clawdBalance, usdcBalance, ethBalance, cvBalance, cvCost, totalUsd]);
-
-  // Fetch CV balance
-  useEffect(() => {
-    if (!address) { setCvBalance(null); return; }
-    fetch(`/api/cv-balance/${address}`)
-      .then(r => r.json())
-      .then(data => setCvBalance(Number(data.clawdviction) || 0))
-      .catch(() => setCvBalance(null));
-  }, [address]);
-
-  // Fetch ETH price
-  useEffect(() => {
-    fetch("https://api.dexscreener.com/latest/dex/tokens/0x4200000000000000000000000000000000000006")
-      .then(r => r.json())
-      .then(data => setEthPrice(parseFloat(data.pairs?.[0]?.priceUsd || "0")))
-      .catch(() => {});
-  }, []);
+  const needsApproval = paymentMethod === "clawd" && !!address && priceWei > BigInt(0) && (clawdAllowance === undefined || clawdAllowance < priceWei);
 
   const isInsufficient = (() => {
     if (!address) return false;
@@ -149,7 +95,6 @@ function BuildPage() {
     }
   })();
 
-  // Mobile wallet deep-link
   const openWallet = useCallback(() => {
     if (typeof window === "undefined") return;
     if (!/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.ethereum) return;
@@ -172,7 +117,6 @@ function BuildPage() {
     [openWallet],
   );
 
-  // Redirect after done
   useEffect(() => {
     if (step !== "done" || postedJobIdRef.current === null) return;
     const jobId = postedJobIdRef.current;
@@ -190,17 +134,14 @@ function BuildPage() {
       const jobDesc = description.trim() || `${days}-day build`;
 
       if (paymentMethod === "cv") {
-        // CV: sign + spend off-chain, then post on-chain
         if (!walletClient) throw new Error("Wallet not connected");
         setStep("signing");
-
         const sigKey = `cv-sig-${address.toLowerCase()}`;
         let signature = localStorage.getItem(sigKey);
         if (!signature) {
           signature = await walletClient.signMessage({ message: CV_SIGN_MESSAGE });
           localStorage.setItem(sigKey, signature);
         }
-
         const spendRes = await fetch("/api/cv-spend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -211,7 +152,6 @@ function BuildPage() {
 
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
         setStep("posting");
-
         let txHash;
         if (isMultiDay) {
           const customPriceUsd = parseUnits(totalUsd.toString(), 6);
@@ -230,7 +170,6 @@ function BuildPage() {
         setStep("done");
 
       } else if (paymentMethod === "clawd") {
-        // CLAWD: approve + post (custom for multi-day, standard for 1-day)
         if (needsApproval) {
           setStep("approving");
           await writeAndOpen(() => writeContractAsync({
@@ -240,18 +179,20 @@ function BuildPage() {
           let ok = false;
           for (let i = 0; i < 12; i++) {
             await new Promise(r => setTimeout(r, 1500));
-            const { data } = await refetchAllowance();
-            if (data !== undefined && data >= priceWei) { ok = true; break; }
+            refetchAllowance();
+            const data = await publicClient?.readContract({
+              address: CLAWD_ADDRESS, abi: ERC20_ABI, functionName: "allowance",
+              args: [address, contractAddress],
+            });
+            if (data !== undefined && (data as bigint) >= priceWei) { ok = true; break; }
           }
           if (!ok) { setTxError("Approval didn't confirm — try again"); setStep("idle"); return; }
         }
 
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
         setStep("posting");
-
         let txHash;
         if (isMultiDay) {
-          // Custom job for multi-day
           const customPriceUsd = parseUnits(totalUsd.toString(), 6);
           txHash = await writeAndOpen(() => writeContractAsync({
             address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
@@ -268,7 +209,6 @@ function BuildPage() {
         setStep("done");
 
       } else if (paymentMethod === "usdc") {
-        // USDC: approve + post
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
         setStep("approving");
         await writeAndOpen(() => writeContractAsync({
@@ -304,12 +244,10 @@ function BuildPage() {
         setStep("done");
 
       } else if (paymentMethod === "eth") {
-        // ETH: wraps to WETH, swaps to CLAWD on-chain
         if (!ethPrice || ethNeeded <= 0) throw new Error("ETH price not loaded");
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
         setStep("paying");
-        const ethWei = parseEther((ethNeeded * 1.05).toFixed(18)); // 5% buffer for price movement
-
+        const ethWei = parseEther((ethNeeded * 1.05).toFixed(18));
         let txHash;
         if (isMultiDay) {
           const customPriceUsd = parseUnits(totalUsd.toString(), 6);
@@ -351,7 +289,7 @@ function BuildPage() {
       case "cv": return cvBalance !== null ? `${cvBalance.toLocaleString()} CV` : "—";
       case "clawd": return clawdBalance !== undefined ? `${Number(clawdBalance / BigInt(10) ** BigInt(18)).toLocaleString()} CLAWD` : "—";
       case "usdc": return usdcBalance !== undefined ? `$${(Number(usdcBalance) / 1e6).toFixed(2)} USDC` : "—";
-      case "eth": return "Check wallet";
+      case "eth": return ethBalance !== undefined ? `${(Number(ethBalance) / 1e18).toFixed(4)} ETH` : "—";
     }
   };
 
@@ -421,19 +359,12 @@ function BuildPage() {
           <label className="block text-sm font-medium mb-3">How many days?</label>
           <div className="flex gap-2">
             {DAY_OPTIONS.map(d => (
-              <button
-                key={d}
-                className={`flex-1 btn ${days === d ? "btn-primary" : "btn-outline"}`}
-                onClick={() => setDays(d)}
-                disabled={busy}
-              >
+              <button key={d} className={`flex-1 btn ${days === d ? "btn-primary" : "btn-outline"}`} onClick={() => setDays(d)} disabled={busy}>
                 {d}
               </button>
             ))}
           </div>
-          <p className="text-xs opacity-40 mt-2 text-center">
-            Start with 1 day — you can always add more later
-          </p>
+          <p className="text-xs opacity-40 mt-2 text-center">Start with 1 day — you can always add more later</p>
         </div>
 
         {/* Price & Balance */}
@@ -456,13 +387,10 @@ function BuildPage() {
           <textarea
             className="textarea textarea-bordered w-full h-24 text-sm"
             placeholder="e.g. A staking dApp where users deposit CLAWD and earn ETH rewards..."
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            disabled={busy}
+            value={description} onChange={e => setDescription(e.target.value)} disabled={busy}
           />
         </div>
 
-        {/* Alerts */}
         {!address && <div className="alert alert-warning mb-4"><span>Connect your wallet to start</span></div>}
         {isWrongNetwork && <div className="alert alert-error mb-4"><span>Switch to Base network</span></div>}
         {isInsufficient && (
@@ -476,7 +404,6 @@ function BuildPage() {
           </div>
         )}
 
-        {/* CTA */}
         <button
           className="btn btn-primary btn-lg w-full text-base"
           onClick={handleStart}

@@ -3,10 +3,10 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatUnits, parseEther, parseUnits } from "viem";
-import { useAccount, useBalance, usePublicClient, useReadContract, useWalletClient, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useReadContract, useWalletClient, useWriteContract } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
-import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
+import { usePaymentContext, PaymentMethod } from "~~/hooks/scaffold-eth/usePaymentContext";
 import { parseContractError } from "~~/utils/parseContractError";
 
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}`;
@@ -40,8 +40,6 @@ const ERC20_ABI = [
     outputs: [{ type: "uint256" }],
   },
 ] as const;
-
-type PaymentMethod = "cv" | "contract" | "usdc" | "eth";
 
 const CV_PRICES: Record<number, number> = { 0: 200_000, 1: 300_000 };
 const SERVICE_KEYS: Record<number, string> = { 0: "CONSULT_QUICK", 1: "CONSULT_DEEP" };
@@ -91,13 +89,28 @@ function ConsultPage() {
   const serviceType = typeParam === 1 ? 1 : 0;
   const info = CONSULT_INFO[serviceType as 0 | 1];
 
+  // Payment context — single hook for all balances, prices, allowances
+  const {
+    clawdBalance, usdcBalance, ethBalance, cvBalance,
+    clawdPrice, ethPrice,
+    clawdAllowance, refetchAllowance,
+    bestPaymentMethod,
+  } = usePaymentContext();
+
   const [topic, setTopic] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cv");
   const [step, setStep] = useState<"idle" | "signing" | "approving" | "paying" | "posting" | "done">("idle");
   const [txError, setTxError] = useState<string | null>(null);
-  const [cvBalance, setCvBalance] = useState<number | null>(null);
-  const [ethPrice, setEthPrice] = useState<number | null>(null);
   const postedJobIdRef = useRef<number | null>(null);
+  const hasSetDefault = useRef(false);
+
+  // Set default payment method from hook once
+  useEffect(() => {
+    if (!hasSetDefault.current && bestPaymentMethod) {
+      hasSetDefault.current = true;
+      setPaymentMethod(bestPaymentMethod);
+    }
+  }, [bestPaymentMethod]);
 
   const isWrongNetwork = !!address && chainId !== BASE_CHAIN_ID;
   const contractAddress = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}` | undefined;
@@ -113,7 +126,6 @@ function ConsultPage() {
     functionName: "nextJobId",
   });
 
-  const clawdPrice = useCLAWDPrice();
   const priceUsdRaw = priceRaw ?? BigInt(0);
   const priceUsdNum = Number(formatUnits(priceUsdRaw, 6));
   const priceDisplay = priceUsdNum ? `$${priceUsdNum.toLocaleString()}` : "...";
@@ -123,78 +135,13 @@ function ConsultPage() {
   const ethNeeded = ethPrice && priceUsdNum ? priceUsdNum / ethPrice : 0;
   const cvCost = CV_PRICES[serviceType] || 20_000_000;
 
-  const { data: allowanceRaw, refetch: refetchAllowance } = useReadContract({
-    address: CLAWD_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: address && contractAddress ? [address, contractAddress] : undefined,
-    query: { enabled: !!address && !!contractAddress },
-  });
-
-  const { data: clawdBalance } = useReadContract({
-    address: CLAWD_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const { data: usdcBalance } = useReadContract({
-    address: USDC_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const { data: ethBalanceData } = useBalance({ address, chainId: BASE_CHAIN_ID });
-  const ethBalance = ethBalanceData?.value;
-
-  const needsApproval = paymentMethod === "contract" && !!address && priceWei > BigInt(0) && (allowanceRaw === undefined || allowanceRaw < priceWei);
-
-  // Auto-select payment method with highest USD-equivalent balance
-  const hasAutoSelected = useRef(false);
-  useEffect(() => {
-    if (hasAutoSelected.current || !address || !ethPrice || !clawdPrice) return;
-    // Wait until at least one balance is loaded
-    if (clawdBalance === undefined && usdcBalance === undefined && ethBalance === undefined && cvBalance === null) return;
-    hasAutoSelected.current = true;
-
-    const balancesUsd: { method: PaymentMethod; usd: number }[] = [
-      { method: "cv", usd: cvBalance !== null ? (cvBalance / cvCost) * priceUsdNum : 0 }, // ratio of affordability
-      { method: "contract", usd: clawdBalance !== undefined ? Number(clawdBalance / BigInt(10) ** BigInt(18)) * clawdPrice : 0 },
-      { method: "usdc", usd: usdcBalance !== undefined ? Number(usdcBalance) / 1e6 : 0 },
-      { method: "eth", usd: ethBalance !== undefined ? Number(ethBalance) / 1e18 * ethPrice : 0 },
-    ];
-
-    const best = balancesUsd.sort((a, b) => b.usd - a.usd)[0];
-    if (best && best.usd > 0) setPaymentMethod(best.method);
-  }, [address, ethPrice, clawdPrice, clawdBalance, usdcBalance, ethBalance, cvBalance, cvCost, priceUsdNum]);
-
-  // Fetch CV balance
-  useEffect(() => {
-    if (!address) { setCvBalance(null); return; }
-    
-    fetch(`/api/cv-balance/${address}`)
-      .then(r => r.json())
-      .then(data => setCvBalance(Number(data.clawdviction) || 0))
-      .catch(() => setCvBalance(null))
-      ;
-  }, [address]);
-
-  // Fetch ETH price
-  useEffect(() => {
-    fetch("https://api.dexscreener.com/latest/dex/tokens/0x4200000000000000000000000000000000000006")
-      .then(r => r.json())
-      .then(data => setEthPrice(parseFloat(data.pairs?.[0]?.priceUsd || "0")))
-      .catch(() => {});
-  }, []);
+  const needsApproval = paymentMethod === "clawd" && !!address && priceWei > BigInt(0) && (clawdAllowance === undefined || clawdAllowance < priceWei);
 
   const isInsufficient = (() => {
     if (!address) return false;
     switch (paymentMethod) {
       case "cv": return cvBalance !== null && cvBalance < cvCost;
-      case "contract": return clawdBalance !== undefined && clawdBalance < priceWei;
+      case "clawd": return clawdBalance !== undefined && clawdBalance < priceWei;
       case "usdc": return usdcBalance !== undefined && usdcBalance < usdcAmount;
       case "eth": return false;
       default: return false;
@@ -224,7 +171,7 @@ function ConsultPage() {
     [openWallet],
   );
 
-  // Redirect after done — all payments create on-chain jobs
+  // Redirect after done
   useEffect(() => {
     if (step !== "done" || postedJobIdRef.current === null) return;
     const jobId = postedJobIdRef.current;
@@ -242,19 +189,14 @@ function ConsultPage() {
       const description = topic.trim() || `${info.name} session`;
 
       if (paymentMethod === "cv") {
-        // 1. Sign CV message + spend CV off-chain, then post job on-chain
         if (!walletClient) throw new Error("Wallet not connected");
         setStep("signing");
-
-        // Get or cache CV signature
         const sigKey = `cv-sig-${address.toLowerCase()}`;
         let signature = localStorage.getItem(sigKey);
         if (!signature) {
           signature = await walletClient.signMessage({ message: CV_SIGN_MESSAGE });
           localStorage.setItem(sigKey, signature);
         }
-
-        // Spend CV off-chain
         const spendRes = await fetch("/api/cv-spend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -263,7 +205,6 @@ function ConsultPage() {
         const spendData = await spendRes.json();
         if (!spendRes.ok) throw new Error(spendData.error || "CV spend failed");
 
-        // Post job on-chain (gas only)
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
         setStep("posting");
         const txHash = await writeAndOpen(() => writeContractAsync({
@@ -274,8 +215,7 @@ function ConsultPage() {
         if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
         setStep("done");
 
-      } else if (paymentMethod === "contract") {
-        // CLAWD payment — approve + postJob
+      } else if (paymentMethod === "clawd") {
         if (needsApproval) {
           setStep("approving");
           await writeAndOpen(() => writeContractAsync({
@@ -285,8 +225,13 @@ function ConsultPage() {
           let ok = false;
           for (let i = 0; i < 12; i++) {
             await new Promise(r => setTimeout(r, 1500));
-            const { data } = await refetchAllowance();
-            if (data !== undefined && data >= priceWei) { ok = true; break; }
+            refetchAllowance();
+            // Re-read directly since refetch is async
+            const data = await publicClient?.readContract({
+              address: CLAWD_ADDRESS, abi: ERC20_ABI, functionName: "allowance",
+              args: [address, contractAddress],
+            });
+            if (data !== undefined && (data as bigint) >= priceWei) { ok = true; break; }
           }
           if (!ok) { setTxError("Approval didn't confirm — try again"); setStep("idle"); return; }
         }
@@ -301,7 +246,6 @@ function ConsultPage() {
         setStep("done");
 
       } else if (paymentMethod === "eth") {
-        // ETH payment — postJobWithETH
         if (!ethPrice || ethNeeded <= 0) throw new Error("ETH price not loaded");
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
         setStep("paying");
@@ -316,15 +260,12 @@ function ConsultPage() {
         setStep("done");
 
       } else if (paymentMethod === "usdc") {
-        // USDC payment — postJobWithUsdc (auto-swaps to CLAWD on-chain)
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
         setStep("approving");
-        // Approve USDC to contract
         await writeAndOpen(() => writeContractAsync({
           address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve",
           args: [contractAddress, usdcAmount],
         }));
-        // Wait for approval
         let approveOk = false;
         for (let i = 0; i < 12; i++) {
           await new Promise(r => setTimeout(r, 1500));
@@ -356,7 +297,7 @@ function ConsultPage() {
   const costDisplay = () => {
     switch (paymentMethod) {
       case "cv": return `${cvCost.toLocaleString()} CV`;
-      case "contract": return clawdNeeded > 0 ? `~${clawdNeeded.toLocaleString()} CLAWD` : "...";
+      case "clawd": return clawdNeeded > 0 ? `~${clawdNeeded.toLocaleString()} CLAWD` : "...";
       case "usdc": return `$${priceUsdNum.toFixed(2)} USDC`;
       case "eth": return ethNeeded > 0 ? `~${ethNeeded.toFixed(6)} ETH` : "...";
     }
@@ -365,21 +306,21 @@ function ConsultPage() {
   const balanceDisplay = () => {
     switch (paymentMethod) {
       case "cv": return cvBalance !== null ? `${cvBalance.toLocaleString()} CV` : "—";
-      case "contract": return clawdBalance !== undefined ? `${Number(clawdBalance / BigInt(10) ** BigInt(18)).toLocaleString()} CLAWD` : "—";
+      case "clawd": return clawdBalance !== undefined ? `${Number(clawdBalance / BigInt(10) ** BigInt(18)).toLocaleString()} CLAWD` : "—";
       case "usdc": return usdcBalance !== undefined ? `$${(Number(usdcBalance) / 1e6).toFixed(2)} USDC` : "—";
-      case "eth": return "Check wallet";
+      case "eth": return ethBalance !== undefined ? `${(Number(ethBalance) / 1e18).toFixed(4)} ETH` : "—";
     }
   };
 
   const buttonLabel = () => {
     if (step === "signing") return "Sign message in wallet...";
-    if (step === "approving") return "Approving CLAWD...";
+    if (step === "approving") return "Approving...";
     if (step === "paying") return "Confirm payment...";
     if (step === "posting") return "Starting session...";
     if (step === "done") return "Redirecting to chat...";
     const labels: Record<PaymentMethod, string> = {
       cv: `⚡ Spend ${cvCost.toLocaleString()} CV & Start Chat`,
-      contract: needsApproval ? `Approve & Lock ${priceDisplay} CLAWD` : `🔥 Lock ${costDisplay()} & Start Chat`,
+      clawd: needsApproval ? `Approve & Lock ${priceDisplay} CLAWD` : `🔥 Lock ${costDisplay()} & Start Chat`,
       usdc: `💵 Pay ${costDisplay()} & Start Chat`,
       eth: `⟠ Pay ${costDisplay()} & Start Chat`,
     };
@@ -413,7 +354,7 @@ function ConsultPage() {
           <label className="block text-sm font-medium mb-2">Pay with</label>
           <div className="grid grid-cols-4 gap-1">
             <button className={`btn btn-xs text-xs ${paymentMethod === "cv" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("cv")} disabled={busy}>⚡ CV</button>
-            <button className={`btn btn-xs text-xs ${paymentMethod === "contract" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("contract")} disabled={busy}>🔥 CLAWD</button>
+            <button className={`btn btn-xs text-xs ${paymentMethod === "clawd" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("clawd")} disabled={busy}>🔥 CLAWD</button>
             <button className={`btn btn-xs text-xs ${paymentMethod === "usdc" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("usdc")} disabled={busy}>💵 USDC</button>
             <button className={`btn btn-xs text-xs ${paymentMethod === "eth" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("eth")} disabled={busy}>⟠ ETH</button>
           </div>
@@ -457,7 +398,7 @@ function ConsultPage() {
         {busy && (
           <div className="mt-4 text-center text-sm opacity-60">
             {step === "signing" && "Sign the message to prove wallet ownership"}
-            {step === "approving" && "Step 1/2 — Approve CLAWD in your wallet"}
+            {step === "approving" && `Step 1/2 — Approve ${paymentMethod === "usdc" ? "USDC" : "CLAWD"} in your wallet`}
             {step === "paying" && "Confirm the payment in your wallet"}
             {step === "posting" && "Creating your session..."}
           </div>
@@ -466,7 +407,7 @@ function ConsultPage() {
         {txError && <div className="alert alert-error mt-4"><span>{txError}</span></div>}
 
         <p className="text-center text-xs opacity-40 mt-6">
-          {paymentMethod === "contract" ? "Tokens locked on-chain. CLAWD burned when plan delivered."
+          {paymentMethod === "clawd" ? "Tokens locked on-chain. CLAWD burned when plan delivered."
             : paymentMethod === "cv" ? "ClawdViction earned by staking CLAWD. No tokens burned."
             : "Payment processed on Base."}
         </p>
