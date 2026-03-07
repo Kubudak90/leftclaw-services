@@ -1,0 +1,118 @@
+import { NextRequest, NextResponse } from "next/server";
+import OpenAI, { toFile } from "openai";
+import { verifyMessage } from "viem";
+
+const CV_SPEND_SECRET = process.env.CV_SPEND_SECRET || "878d2dd8ddfd12f8844b6d57716a50d6fe90f42bfffec0ee99650d8b3589e8ec";
+const CV_SPEND_URL = "https://clawdviction.vercel.app/api/cv/spend";
+const CV_SIGN_MESSAGE = "ClawdViction CV Spend";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw-services-nextjs.vercel.app";
+
+// PFP costs 500,000 CV (roughly $0.50 equivalent)
+const PFP_CV_COST = 500_000;
+
+let baseImageCache: Buffer | null = null;
+
+async function getBaseImage(): Promise<Buffer> {
+  if (baseImageCache) return baseImageCache;
+  try {
+    const { readFileSync } = await import("fs");
+    const { join } = await import("path");
+    baseImageCache = readFileSync(join(process.cwd(), "public", "clawd-base.jpg"));
+    return baseImageCache;
+  } catch {
+    const res = await fetch(`${APP_URL}/clawd-base.jpg`);
+    if (!res.ok) throw new Error("Failed to fetch base image");
+    baseImageCache = Buffer.from(await res.arrayBuffer());
+    return baseImageCache;
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { prompt, wallet, signature } = await req.json();
+
+    if (!prompt || typeof prompt !== "string" || prompt.trim().length < 3) {
+      return NextResponse.json({ error: "Prompt required (minimum 3 characters)" }, { status: 400 });
+    }
+    if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet)) {
+      return NextResponse.json({ error: "Valid wallet address required" }, { status: 400 });
+    }
+    if (!signature || !/^0x[0-9a-fA-F]+$/.test(signature)) {
+      return NextResponse.json({ error: "Valid signature required" }, { status: 400 });
+    }
+
+    // Verify signature locally first (fail fast)
+    const valid = await verifyMessage({
+      address: wallet as `0x${string}`,
+      message: CV_SIGN_MESSAGE,
+      signature: signature as `0x${string}`,
+    });
+    if (!valid) {
+      return NextResponse.json({ error: "Invalid signature — sign the message with your wallet" }, { status: 403 });
+    }
+
+    // Spend CV via clawdviction API
+    const spendRes = await fetch(CV_SPEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        wallet,
+        signature,
+        secret: CV_SPEND_SECRET,
+        amount: PFP_CV_COST,
+      }),
+    });
+
+    const spendData = await spendRes.json();
+
+    if (!spendRes.ok || !spendData.success) {
+      const errorMsg = spendData.error || "CV spend failed";
+      const status = spendRes.status === 402 ? 402 : spendRes.status === 404 ? 404 : 400;
+      return NextResponse.json(
+        {
+          error: errorMsg,
+          ...(spendData.balance !== undefined ? { currentBalance: spendData.balance } : {}),
+          required: PFP_CV_COST,
+        },
+        { status },
+      );
+    }
+
+    // CV spent successfully — generate PFP
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 });
+    }
+
+    const baseImageBuffer = await getBaseImage();
+    const openai = new OpenAI({ apiKey });
+
+    const fullPrompt = `Take this character — a red crystalline/geometric Pepe-style creature with an ethereum diamond-shaped head, wearing a black tuxedo with bow tie, holding a teacup — and modify it: ${prompt.trim()}. Keep the same art style (clean anime/cartoon illustration, white/light background, bold outlines). Keep the character recognizable but apply the requested changes. Square format, profile picture crop.`;
+
+    const imageFile = await toFile(baseImageBuffer, "clawd-base.jpg", { type: "image/jpeg" });
+
+    const result = await openai.images.edit({
+      model: "gpt-image-1.5",
+      image: imageFile,
+      prompt: fullPrompt,
+      n: 1,
+      size: "1024x1024",
+    });
+
+    const imageData = result.data?.[0];
+    if (!imageData?.b64_json) {
+      return NextResponse.json({ error: "Image generation failed" }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      image: `data:image/png;base64,${imageData.b64_json}`,
+      prompt: prompt.trim(),
+      cvSpent: PFP_CV_COST,
+      newBalance: spendData.newBalance,
+      message: "🦞 Your custom CLAWD PFP is ready! Paid with ClawdViction.",
+    });
+  } catch (e: any) {
+    console.error("PFP generate-cv error:", e);
+    return NextResponse.json({ error: e.message || "Generation failed" }, { status: 500 });
+  }
+}
