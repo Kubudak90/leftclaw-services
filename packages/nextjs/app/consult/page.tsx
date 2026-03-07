@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatUnits, parseEther, parseUnits } from "viem";
-import { useAccount, usePublicClient, useReadContract, useWalletClient, useWriteContract, useSendTransaction } from "wagmi";
+import { useAccount, usePublicClient, useReadContract, useWalletClient, useWriteContract } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
@@ -86,7 +86,6 @@ function ConsultPage() {
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
-  const { sendTransactionAsync } = useSendTransaction();
 
   const typeParam = Number(searchParams.get("type") ?? "0");
   const serviceType = typeParam === 1 ? 1 : 0;
@@ -99,7 +98,6 @@ function ConsultPage() {
   const [cvBalance, setCvBalance] = useState<number | null>(null);
   const [ethPrice, setEthPrice] = useState<number | null>(null);
   const postedJobIdRef = useRef<number | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
 
   const isWrongNetwork = !!address && chainId !== BASE_CHAIN_ID;
   const contractAddress = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}` | undefined;
@@ -204,35 +202,58 @@ function ConsultPage() {
     [openWallet],
   );
 
-  // Redirect after done
+  // Redirect after done — all payments create on-chain jobs
   useEffect(() => {
-    if (step !== "done") return;
-    if (sessionIdRef.current) {
-      // x402-style session (CV/USDC/ETH payment)
-      const chatUrl = `/chat/x402/${sessionIdRef.current}`;
-      if (topic.trim()) {
-        try { sessionStorage.setItem(`consult-topic-${sessionIdRef.current}`, topic.trim()); } catch {}
-      }
-      router.push(chatUrl);
-    } else if (postedJobIdRef.current !== null) {
-      // On-chain contract job
-      if (topic.trim()) {
-        try { sessionStorage.setItem(`consult-topic-${postedJobIdRef.current}`, topic.trim()); } catch {}
-      }
-      const chatBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-      if (chatBaseUrl) { window.location.href = `${chatBaseUrl}/chat/${postedJobIdRef.current}`; }
-      else { router.push(`/chat/${postedJobIdRef.current}`); }
+    if (step !== "done" || postedJobIdRef.current === null) return;
+    const jobId = postedJobIdRef.current;
+    if (topic.trim()) {
+      try { sessionStorage.setItem(`consult-topic-${jobId}`, topic.trim()); } catch {}
     }
+    router.push(`/chat/${jobId}`);
   }, [step, router, topic]);
 
   const handleStart = async () => {
-    if (!address || isWrongNetwork || isInsufficient) return;
+    if (!address || isWrongNetwork || isInsufficient || !contractAddress) return;
     setTxError(null);
 
     try {
-      if (paymentMethod === "contract") {
-        // Original on-chain contract flow
-        if (!contractAddress) return;
+      const description = topic.trim() || `${info.name} session`;
+
+      if (paymentMethod === "cv") {
+        // 1. Sign CV message + spend CV off-chain, then post job on-chain
+        if (!walletClient) throw new Error("Wallet not connected");
+        setStep("signing");
+
+        // Get or cache CV signature
+        const sigKey = `cv-sig-${address.toLowerCase()}`;
+        let signature = localStorage.getItem(sigKey);
+        if (!signature) {
+          signature = await walletClient.signMessage({ message: CV_SIGN_MESSAGE });
+          localStorage.setItem(sigKey, signature);
+        }
+
+        // Spend CV off-chain
+        const spendRes = await fetch("/api/cv-spend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wallet: address, signature, amount: cvCost }),
+        });
+        const spendData = await spendRes.json();
+        if (!spendRes.ok) throw new Error(spendData.error || "CV spend failed");
+
+        // Post job on-chain (gas only)
+        postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
+        setStep("posting");
+        const txHash = await writeAndOpen(() => writeContractAsync({
+          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
+          functionName: "postJobWithCV", args: [serviceType, BigInt(cvCost), description],
+        }));
+        if (!txHash) { setTxError("Transaction failed"); setStep("idle"); return; }
+        if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
+        setStep("done");
+
+      } else if (paymentMethod === "contract") {
+        // CLAWD payment — approve + postJob
         if (needsApproval) {
           setStep("approving");
           await writeAndOpen(() => writeContractAsync({
@@ -249,7 +270,6 @@ function ConsultPage() {
         }
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
         setStep("posting");
-        const description = topic.trim() || `${info.name} session`;
         const txHash = await writeAndOpen(() => writeContractAsync({
           address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
           functionName: "postJob", args: [serviceType, priceWei, description],
@@ -257,52 +277,50 @@ function ConsultPage() {
         if (!txHash) { setTxError("Transaction failed"); setStep("idle"); return; }
         if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
         setStep("done");
-      } else {
-        // CV / USDC / ETH → unified /api/pay → creates session
-        let txHash: string | undefined;
-        let signature: string | undefined;
 
-        if (paymentMethod === "cv") {
-          if (!walletClient) throw new Error("Wallet not connected");
-          setStep("signing");
-          signature = await walletClient.signMessage({ message: CV_SIGN_MESSAGE });
-        } else if (paymentMethod === "usdc") {
-          setStep("paying");
-          const hash = await writeAndOpen(() => writeContractAsync({
-            address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "transfer",
-            args: [PAY_TO, usdcAmount],
-          }));
-          if (!hash) throw new Error("Transaction failed");
-          if (publicClient) await publicClient.waitForTransactionReceipt({ hash });
-          txHash = hash;
-        } else if (paymentMethod === "eth") {
-          if (!ethPrice || ethNeeded <= 0) throw new Error("ETH price not loaded");
-          setStep("paying");
-          const ethWei = parseEther((ethNeeded * 1.05).toFixed(18));
-          const hash = await writeAndOpen(() => sendTransactionAsync({ to: PAY_TO, value: ethWei }));
-          if (!hash) throw new Error("Transaction failed");
-          if (publicClient) await publicClient.waitForTransactionReceipt({ hash });
-          txHash = hash;
+      } else if (paymentMethod === "eth") {
+        // ETH payment — postJobWithETH
+        if (!ethPrice || ethNeeded <= 0) throw new Error("ETH price not loaded");
+        postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
+        setStep("paying");
+        const ethWei = parseEther((ethNeeded * 1.05).toFixed(18));
+        const txHash = await writeAndOpen(() => writeContractAsync({
+          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
+          functionName: "postJobWithETH", args: [serviceType, description],
+          value: ethWei,
+        }));
+        if (!txHash) { setTxError("Transaction failed"); setStep("idle"); return; }
+        if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
+        setStep("done");
+
+      } else if (paymentMethod === "usdc") {
+        // USDC payment — postJobWithUsdc (auto-swaps to CLAWD on-chain)
+        postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
+        setStep("approving");
+        // Approve USDC to contract
+        await writeAndOpen(() => writeContractAsync({
+          address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve",
+          args: [contractAddress, usdcAmount],
+        }));
+        // Wait for approval
+        let approveOk = false;
+        for (let i = 0; i < 12; i++) {
+          await new Promise(r => setTimeout(r, 1500));
+          const bal = await publicClient?.readContract({
+            address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "allowance",
+            args: [address, contractAddress],
+          });
+          if (bal !== undefined && (bal as bigint) >= usdcAmount) { approveOk = true; break; }
         }
+        if (!approveOk) { setTxError("USDC approval didn't confirm"); setStep("idle"); return; }
 
         setStep("posting");
-        const res = await fetch("/api/pay", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            serviceType: SERVICE_KEYS[serviceType],
-            method: paymentMethod === "cv" ? "cv" : paymentMethod,
-            wallet: address,
-            signature,
-            txHash,
-            description: topic.trim() || `${info.name} session`,
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Payment failed");
-
-        sessionIdRef.current = data.sessionId;
+        const txHash = await writeAndOpen(() => writeContractAsync({
+          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
+          functionName: "postJobWithUsdc", args: [serviceType, description, BigInt(1)],
+        }));
+        if (!txHash) { setTxError("Transaction failed"); setStep("idle"); return; }
+        if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
         setStep("done");
       }
     } catch (e: any) {

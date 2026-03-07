@@ -1,0 +1,46 @@
+import { NextRequest, NextResponse } from "next/server";
+import { verifyMessage } from "viem";
+
+const CV_SIGN_MESSAGE = "ClawdViction CV Spend";
+const CV_SPEND_URL = "https://clawdviction.vercel.app/api/cv/spend";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { wallet, signature, amount } = await req.json();
+
+    if (!wallet || !signature || !amount) {
+      return NextResponse.json({ error: "Missing wallet, signature, or amount" }, { status: 400 });
+    }
+
+    // Verify signature
+    const valid = await verifyMessage({
+      address: wallet as `0x${string}`,
+      message: CV_SIGN_MESSAGE,
+      signature: signature as `0x${string}`,
+    });
+    if (!valid) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+
+    // Spend CV via clawdviction API
+    const secret = process.env.CV_SPEND_SECRET;
+    if (!secret) {
+      return NextResponse.json({ error: "CV spend not configured" }, { status: 500 });
+    }
+
+    const res = await fetch(CV_SPEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet, signature, secret, amount }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return NextResponse.json({ error: data.error || "CV spend failed" }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, newBalance: data.newBalance });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Internal error" }, { status: 500 });
+  }
+}
