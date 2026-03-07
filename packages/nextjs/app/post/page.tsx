@@ -490,16 +490,16 @@ function PostJobPage() {
         {/* Payment method */}
         <div className="mb-4">
           <label className="block text-sm font-medium mb-2">Pay with</label>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-4 gap-1">
             <button
-              className={`btn btn-sm ${paymentMethod === "cv" ? "btn-primary" : "btn-outline"}`}
+              className={`btn btn-xs text-xs ${paymentMethod === "cv" ? "btn-primary" : "btn-outline"}`}
               onClick={() => setPaymentMethod("cv")}
               disabled={busy || cvDisabled}
               title={cvDisabled ? "CV not available for custom jobs" : undefined}
             >⚡ CV</button>
-            <button className={`btn btn-sm ${paymentMethod === "contract" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("contract")} disabled={busy}>🔥 CLAWD</button>
-            <button className={`btn btn-sm ${paymentMethod === "usdc" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("usdc")} disabled={busy}>💵 USDC</button>
-            <button className={`btn btn-sm ${paymentMethod === "eth" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("eth")} disabled={busy}>⟠ ETH</button>
+            <button className={`btn btn-xs text-xs ${paymentMethod === "contract" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("contract")} disabled={busy}>🔥 CLAWD</button>
+            <button className={`btn btn-xs text-xs ${paymentMethod === "usdc" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("usdc")} disabled={busy}>💵 USDC</button>
+            <button className={`btn btn-xs text-xs ${paymentMethod === "eth" ? "btn-primary" : "btn-outline"}`} onClick={() => setPaymentMethod("eth")} disabled={busy}>⟠ ETH</button>
           </div>
         </div>
 

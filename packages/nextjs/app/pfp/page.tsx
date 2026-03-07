@@ -324,11 +324,11 @@ export default function PfpPage() {
             {/* Payment method */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Pay with</label>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-4 gap-1">
                 {(["cv", "clawd", "usdc", "eth"] as PaymentMethod[]).map(m => (
                   <button
                     key={m}
-                    className={`btn btn-sm ${paymentMethod === m ? "btn-primary" : "btn-outline"}`}
+                    className={`btn btn-xs text-xs ${paymentMethod === m ? "btn-primary" : "btn-outline"}`}
                     onClick={() => setPaymentMethod(m)}
                     disabled={busy}
                   >
