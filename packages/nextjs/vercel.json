@@ -1,4 +1,3 @@
 {
-  "installCommand": "yarn install",
-  "nodeVersion": "22.x"
+  "installCommand": "yarn install"
 }
