@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAccount } from "wagmi";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { formatUnits } from "viem";
 
@@ -15,94 +16,126 @@ const STATUS_LABELS: Record<number, { label: string; badge: string }> = {
 const SERVICE_NAMES: Record<number, string> = {
   0: "Quick Consult",
   1: "Deep Consult",
-  2: "Build",
-  3: "Build",
-  4: "Build",
-  5: "Build",
+  2: "Build (1 day)",
+  3: "Build (Multi-day)",
+  4: "Build (Large)",
+  5: "Build (XL)",
   6: "QA Report",
   7: "AI Audit",
-  8: "AI Audit (Multi-Contract)",
+  8: "AI Audit (Multi)",
   9: "Custom",
 };
 
-function JobRow({ jobId }: { jobId: number }) {
+function JobCard({ jobId }: { jobId: number }) {
   const { data: job } = useScaffoldReadContract({
     contractName: "LeftClawServices",
     functionName: "getJob",
     args: [BigInt(jobId)],
   });
 
-  if (!job) return <tr><td colSpan={5} className="text-center opacity-50">Loading...</td></tr>;
+  if (!job) return (
+    <div className="card bg-base-200 animate-pulse">
+      <div className="card-body py-4 px-5">
+        <div className="h-4 bg-base-300 rounded w-1/2" />
+        <div className="h-3 bg-base-300 rounded w-1/3 mt-2" />
+      </div>
+    </div>
+  );
 
   const serviceType = Number(job.serviceType);
-  // Hide consultation jobs from the board
-  if (serviceType <= 1) return null;
-
   const status = STATUS_LABELS[Number(job.status)] || { label: "Unknown", badge: "" };
   const price = formatUnits(job.paymentClawd, 18);
+  const isConsult = serviceType <= 1;
+  const cvAmount = job.cvAmount ? Number(job.cvAmount) : 0;
+
+  // Determine the right action link
+  const actionLink = isConsult ? `/chat/${jobId}` : `/jobs/${jobId}`;
+  const actionLabel = isConsult
+    ? (Number(job.status) === 0 ? "Continue Chat →" : "View Chat →")
+    : "View Details →";
 
   return (
-    <tr className="hover">
-      <td className="font-mono">#{jobId}</td>
-      <td>{SERVICE_NAMES[serviceType] || "Unknown"}</td>
-      <td>
-        <span className="font-mono text-sm">{Number(price).toLocaleString()} CLAWD</span>
-      </td>
-      <td>
-        <span className={`badge ${status.badge} badge-sm`}>{status.label}</span>
-      </td>
-      <td>
-        <Link href={`/jobs/${jobId}`} className="btn btn-xs btn-outline">
-          View →
-        </Link>
-      </td>
-    </tr>
+    <Link href={actionLink} className="card bg-base-200 hover:bg-base-300 transition-colors cursor-pointer">
+      <div className="card-body py-4 px-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm opacity-60">#{jobId}</span>
+            <span className="font-semibold">{SERVICE_NAMES[serviceType] || "Unknown"}</span>
+          </div>
+          <span className={`badge ${status.badge} badge-sm`}>{status.label}</span>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-sm opacity-60">
+            {Number(price) > 0 ? `${Number(price).toLocaleString()} CLAWD` : ""}
+            {cvAmount > 0 ? `${cvAmount.toLocaleString()} CV` : ""}
+            {Number(price) === 0 && cvAmount === 0 ? "Paid" : ""}
+          </span>
+          <span className="text-xs text-primary">{actionLabel}</span>
+        </div>
+      </div>
+    </Link>
   );
 }
 
 export default function JobsPage() {
+  const { address } = useAccount();
+
+  const { data: clientJobIds } = useScaffoldReadContract({
+    contractName: "LeftClawServices",
+    functionName: "getJobsByClient",
+    args: [address || "0x0000000000000000000000000000000000000000"],
+  });
+
   const { data: totalJobs } = useScaffoldReadContract({
     contractName: "LeftClawServices",
     functionName: "getTotalJobs",
   });
 
+  const myJobs = clientJobIds ? [...clientJobIds].map(Number).reverse() : [];
   const jobCount = totalJobs ? Number(totalJobs) : 0;
-  const jobIds = Array.from({ length: jobCount }, (_, i) => jobCount - i);
+  const allJobIds = Array.from({ length: jobCount }, (_, i) => jobCount - i);
 
   return (
-    <div className="flex flex-col items-center py-10 px-4">
-      <h1 className="text-3xl font-bold mb-2">📋 Job Board</h1>
-      <p className="opacity-70 mb-8">{jobCount} total jobs posted (consultations are private)</p>
+    <div className="flex flex-col items-center py-8 px-4 min-h-screen">
+      <h1 className="text-3xl font-bold mb-2">📋 Jobs</h1>
 
-      <div className="flex gap-4 mb-8">
-        <Link href="/post" className="btn btn-primary btn-sm">Post a Job</Link>
-        <Link href="/" className="btn btn-outline btn-sm">← Services</Link>
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        <Link href="/consult" className="btn btn-primary btn-sm">💬 New Consult</Link>
+        <Link href="/build" className="btn btn-outline btn-sm">🔨 New Build</Link>
+        <Link href="/post" className="btn btn-outline btn-sm">📝 Post Job</Link>
+        <Link href="/" className="btn btn-ghost btn-sm">← Services</Link>
       </div>
 
-      {jobCount === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-6xl mb-4">📭</div>
-          <p className="text-lg opacity-70">No jobs posted yet</p>
-          <Link href="/post" className="btn btn-primary mt-4">Be the first →</Link>
+      {/* My Jobs */}
+      {!address ? (
+        <div className="text-center py-12 w-full max-w-lg">
+          <div className="text-5xl mb-3">🔗</div>
+          <p className="text-lg opacity-70 mb-2">Connect your wallet to see your jobs</p>
+          <p className="text-sm opacity-50">Your consultations, builds, and audits will appear here</p>
+        </div>
+      ) : myJobs.length === 0 ? (
+        <div className="text-center py-12 w-full max-w-lg">
+          <div className="text-5xl mb-3">📭</div>
+          <p className="text-lg opacity-70 mb-2">No jobs yet</p>
+          <p className="text-sm opacity-50">Start a consultation or post a job to get going</p>
         </div>
       ) : (
-        <div className="w-full max-w-4xl overflow-x-auto">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Service</th>
-                <th>Payment</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobIds.map(id => (
-                <JobRow key={id} jobId={id} />
-              ))}
-            </tbody>
-          </table>
+        <div className="w-full max-w-lg space-y-3 mb-8">
+          <h2 className="text-lg font-semibold opacity-70">My Jobs ({myJobs.length})</h2>
+          {myJobs.map(id => (
+            <JobCard key={id} jobId={id} />
+          ))}
+        </div>
+      )}
+
+      {/* All jobs (public board) */}
+      {jobCount > 0 && (
+        <div className="w-full max-w-lg space-y-3">
+          <h2 className="text-lg font-semibold opacity-70">All Jobs ({jobCount})</h2>
+          {allJobIds.map(id => (
+            <JobCard key={`all-${id}`} jobId={id} />
+          ))}
         </div>
       )}
     </div>
