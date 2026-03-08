@@ -36,6 +36,7 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [planGistUrl, setPlanGistUrl] = useState<string | null>(null);
   const [planDescription, setPlanDescription] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const MAX_CHARS = 1000;
@@ -277,13 +278,14 @@ export default function ChatPage() {
           <button
             className="btn btn-outline btn-sm flex-1"
             onClick={() => {
-              navigator.clipboard.writeText(planGistUrl);
-              const btn = document.activeElement as HTMLButtonElement;
-              const orig = btn?.textContent;
-              if (btn) { btn.textContent = "✓ Copied!"; setTimeout(() => { btn.textContent = orig || ""; }, 1500); }
+              if (planGistUrl) {
+                navigator.clipboard.writeText(planGistUrl);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }
             }}
           >
-            🔗 Copy Plan Link
+            {copied ? "✓ Copied!" : "🔗 Copy Plan Link"}
           </button>
           <button
             className="btn btn-primary btn-sm flex-1"
