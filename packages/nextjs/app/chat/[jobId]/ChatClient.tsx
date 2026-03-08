@@ -73,7 +73,8 @@ export default function ChatPage() {
       });
 
       if (!res.ok) {
-        setError("Failed to get response");
+        const errBody = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
+        setError(errBody.error || `Failed to get response (${res.status})`);
         setIsStreaming(false);
         return;
       }
