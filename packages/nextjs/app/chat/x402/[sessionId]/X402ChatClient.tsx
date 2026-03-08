@@ -215,7 +215,7 @@ export default function X402ChatClient() {
   const minsLeft = Math.ceil(timeLeft / 60000);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] max-w-3xl mx-auto">
+    <div className="flex flex-col h-[calc(100vh-80px)] max-w-3xl mx-auto overflow-x-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-base-300 flex items-center justify-between">
         <div>
@@ -239,10 +239,10 @@ export default function X402ChatClient() {
           <div key={i} className={`flex flex-col gap-1 ${msg.role === "user" ? "items-end" : "items-start"}`}>
             <span className="text-xs opacity-40 px-1">{msg.role === "user" ? "You" : "🦞 LeftClaw"}</span>
             <div
-              className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${
+              className={`max-w-[85%] sm:max-w-[80%] px-4 py-2.5 rounded-2xl text-sm break-words overflow-hidden ${
                 msg.role === "user"
                   ? "bg-primary text-primary-content whitespace-pre-wrap"
-                  : "bg-base-300 text-base-content prose prose-sm max-w-none"
+                  : "bg-base-300 text-base-content prose prose-sm max-w-none [&_pre]:overflow-x-auto [&_code]:break-all"
               }`}
             >
               {msg.role === "user" ? (
