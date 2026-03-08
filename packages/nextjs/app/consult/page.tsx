@@ -204,7 +204,11 @@ function ConsultPage() {
           body: JSON.stringify({ wallet: address, signature, amount: cvCost }),
         });
         const spendData = await spendRes.json();
-        if (!spendRes.ok) throw new Error(spendData.error || "CV spend failed");
+        if (!spendRes.ok) {
+          // Clear cached sig if auth failed
+          if (spendRes.status === 401) localStorage.removeItem(sigKey);
+          throw new Error(spendData.error || "CV spend failed");
+        }
 
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
         setStep("posting");
@@ -212,7 +216,7 @@ function ConsultPage() {
           address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
           functionName: "postJobWithCV", args: [serviceType, BigInt(cvCost), description],
         }));
-        if (!txHash) { setTxError("Transaction failed"); setStep("idle"); return; }
+        if (!txHash) { setTxError("On-chain transaction returned no hash"); setStep("idle"); return; }
         if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
         setStep("done");
 
@@ -288,7 +292,9 @@ function ConsultPage() {
         setStep("done");
       }
     } catch (e: any) {
-      setTxError(parseContractError(e) || e?.message || "Something went wrong");
+      console.error("Payment error:", e);
+      const parsed = parseContractError(e);
+      setTxError(parsed || e?.shortMessage || e?.message || "Something went wrong");
       setStep("idle");
     }
   };
