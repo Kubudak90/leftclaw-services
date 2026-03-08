@@ -279,7 +279,7 @@ export default function X402ChatClient() {
           <div className="flex gap-2 items-end">
             <textarea
               ref={inputRef}
-              className="textarea textarea-bordered flex-1 min-w-0 rounded-md resize-none text-sm"
+              className="textarea textarea-bordered flex-1 min-w-0 rounded-md resize-none text-base"
               placeholder="Describe what you want to build... (Enter to send, Shift+Enter for new line)"
               autoFocus
               rows={3}

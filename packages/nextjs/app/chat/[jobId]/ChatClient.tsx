@@ -276,7 +276,7 @@ export default function ChatPage() {
         <div className="flex gap-2 items-end">
           <textarea
             ref={inputRef}
-            className="textarea textarea-bordered flex-1 min-w-0 rounded-md resize-none text-sm leading-snug py-2 min-h-0"
+            className="textarea textarea-bordered flex-1 min-w-0 rounded-md resize-none text-base leading-snug py-2 min-h-0"
             placeholder="What do you want to build?"
             autoFocus
             rows={1}
