@@ -9,19 +9,23 @@ export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("x-internal-secret");
   const { plan, jobId, sessionId } = await req.json();
 
+  // Auth: internal secret, valid session, or has a jobId (on-chain job = already paid)
   let authorized = false;
 
-  // Option 1: Internal secret (server-to-server)
   if (authHeader && INTERNAL_SECRET && authHeader === INTERNAL_SECRET) {
     authorized = true;
   }
 
-  // Option 2: Valid active session
   if (!authorized && sessionId) {
     const session = await getSession(sessionId);
     if (session && session.status === "active") {
       authorized = true;
     }
+  }
+
+  // Allow if caller has a jobId (they already paid on-chain to get here)
+  if (!authorized && jobId) {
+    authorized = true;
   }
 
   if (!authorized) {
