@@ -12,7 +12,7 @@ const client = createPublicClient({
     : undefined),
 });
 
-const STAGES = ["accepted", "create_plan", "create_user_journey", "prototype", "contract_audit", "contract_fix", "frontend_audit", "frontend_fix", "full_audit", "full_audit_fix", "deploy_contract", "livecontract_fix", "deploy_app", "liveapp_fix", "ready"] as const;
+const STAGES = ["accepted", "create_plan", "create_user_journey", "prototype", "contract_audit", "contract_fix", "frontend_audit", "frontend_fix", "full_audit", "full_audit_fix", "deploy_contract", "livecontract_fix", "deploy_app", "liveapp_fix", "liveuserjourney", "readme", "ready"] as const;
 
 function parseStage(logs: readonly { note: string; timestamp: bigint }[]): string {
   for (let i = logs.length - 1; i >= 0; i--) {

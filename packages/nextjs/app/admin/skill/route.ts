@@ -51,6 +51,8 @@ OPEN → acceptJob → IN_PROGRESS
   → [STAGE:livecontract_fix] fix any issues from live contract testing
   → [STAGE:deploy_app]      deploy app to BGIPFS, test live
   → [STAGE:liveapp_fix]     fix any issues from live app testing
+  → [STAGE:liveuserjourney] follow USERJOURNEY.md as a real user with live app
+  → [STAGE:readme]          write full README
   → [STAGE:ready]           STOP — send live app link to Austin on Telegram for review
 \`\`\`
 
@@ -123,6 +125,19 @@ List open GitHub issues labeled \`job-{id}\` + \`deploy-contract\`. Fix each one
 
 ### [STAGE:liveapp_fix] — Fix Live App Issues
 List open GitHub issues labeled \`job-{id}\` + \`deploy-app\`. Fix each one and close with a commit reference.
+
+### [STAGE:liveuserjourney] — Live User Journey Test
+- Open the live deployed app in a browser with your wallet
+- Follow the \`USERJOURNEY.md\` doc step by step as a real user
+- Actually click through every flow, connect wallet, do transactions
+- If ANYTHING doesn't match the user journey or is broken, go back to \`[STAGE:liveapp_fix]\` and file GitHub issues
+- Only advance if the entire user journey works end-to-end
+
+### [STAGE:readme] — Write README
+- Write a full \`README.md\` for the repo
+- Avoid slop — just document what an LLM or human doesn't already know
+- Contract addresses, deployment info, how to run locally, architecture decisions
+- Don't explain what React or Solidity is. Don't pad with generic text.
 
 ### [STAGE:ready] — Human Review
 Log that all stages are complete. Send the live working app URL to Austin on Telegram (id: 672968601).
