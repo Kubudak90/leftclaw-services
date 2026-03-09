@@ -1,12 +1,17 @@
 import { NextRequest } from "next/server";
-import { checkSanitization, getSanitization } from "~~/lib/sanitize";
+import { checkSanitization, deleteSanitization, getSanitization } from "~~/lib/sanitize";
 
 export async function POST(req: NextRequest) {
   try {
-    const { jobId, description } = await req.json();
+    const { jobId, description, force } = await req.json();
 
     if (!jobId || !description) {
       return Response.json({ error: "jobId and description required" }, { status: 400 });
+    }
+
+    // Clear cached result if force re-check
+    if (force) {
+      await deleteSanitization(String(jobId));
     }
 
     // Check if already sanitized
