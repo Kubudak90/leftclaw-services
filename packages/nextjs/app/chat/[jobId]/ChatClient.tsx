@@ -51,6 +51,34 @@ export default function ChatPage() {
   const isAuthorized = !jobExists || (address && job && job.client.toLowerCase() === address.toLowerCase());
   const totalMessages = messages.length;
 
+  // Sanitization gate
+  const [sanitized, setSanitized] = useState<boolean | null>(null);
+  const [sanitizeError, setSanitizeError] = useState<string | null>(null);
+  const sanitizeRef = useRef(false);
+
+  useEffect(() => {
+    if (!jobExists || sanitizeRef.current) return;
+    sanitizeRef.current = true;
+
+    // First check if already sanitized
+    fetch(`/api/job/sanitize?jobId=${jobId}`)
+      .then(res => {
+        if (res.ok) return res.json().then(d => { setSanitized(d.safe); if (!d.safe) setSanitizeError(d.reason); });
+        // Not yet sanitized — trigger check with description from the topic
+        const topicKey = `consult-topic-${jobId}`;
+        let desc = "";
+        try { desc = localStorage.getItem(topicKey) || ""; } catch {}
+        if (!desc) desc = job?.descriptionCID || `Job #${jobId}`;
+        return fetch("/api/job/sanitize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId, description: desc }),
+        }).then(r => r.json()).then(d => { setSanitized(d.safe); if (!d.safe) setSanitizeError(d.reason); });
+      })
+      .catch(() => { setSanitized(false); setSanitizeError("Failed to verify job safety"); });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobExists]);
+
   useEffect(() => {
     if (messages.length > 0) {
       try { localStorage.setItem(storageKey, JSON.stringify(messages)); } catch {}
@@ -177,6 +205,7 @@ export default function ChatPage() {
     if (!storageLoaded) return;
     if (jobLoading) return;
     if (!jobExists) return;
+    if (sanitized !== true) return; // wait for sanitization
     if (messages.length > 0) return; // returning user — don't re-trigger
     if (autoSentRef.current) return;
 
@@ -193,7 +222,7 @@ export default function ChatPage() {
       greetUser();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageLoaded, jobLoading, jobExists]);
+  }, [storageLoaded, jobLoading, jobExists, sanitized]);
 
   const handleGeneratePlan = () => {
     sendMessage("Please finalize the build plan based on our discussion.");
@@ -203,6 +232,27 @@ export default function ChatPage() {
     return (
       <div className="flex justify-center py-20">
         <span className="loading loading-spinner loading-lg" />
+      </div>
+    );
+  }
+
+  if (sanitized === null && jobExists) {
+    return (
+      <div className="flex flex-col items-center py-20 gap-3">
+        <span className="loading loading-spinner loading-lg" />
+        <p className="text-sm opacity-60">Reviewing your request...</p>
+      </div>
+    );
+  }
+
+  if (sanitized === false) {
+    return (
+      <div className="flex flex-col items-center py-20 gap-3">
+        <p className="text-2xl">🛡️</p>
+        <p className="text-lg font-bold">Request Flagged for Review</p>
+        <p className="text-sm opacity-60 max-w-md text-center">
+          {sanitizeError || "Your request has been flagged for manual review. A human will check it shortly."}
+        </p>
       </div>
     );
   }

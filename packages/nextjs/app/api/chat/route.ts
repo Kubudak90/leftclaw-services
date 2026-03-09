@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getSanitization } from "~~/lib/sanitize";
 import { addMessage, getSession } from "~~/lib/sessionStore";
 
 const SYSTEM_PROMPT = `You are LeftClaw, an expert Ethereum/Web3 builder and consultant. You work under the CLAWD brand — a builder-first community in the Ethereum ecosystem created by Austin Griffith.
@@ -159,10 +160,22 @@ Output EXACTLY this — no variations, no extra markers:
 The ---PLAN START--- and ---PLAN END--- markers must be EXACTLY on their own lines, unchanged.`;
 
 export async function POST(req: NextRequest) {
-  const { messages, isOpening, isGreeting, sessionId } = await req.json();
+  const { messages, isOpening, isGreeting, sessionId, jobId } = await req.json();
 
   if (!messages || !Array.isArray(messages)) {
     return new Response(JSON.stringify({ error: "messages required" }), { status: 400 });
+  }
+
+  // Sanitization gate — on-chain jobs must pass security review before AI responds
+  if (jobId && !sessionId) {
+    const sanitization = await getSanitization(String(jobId));
+    if (!sanitization || !sanitization.safe) {
+      const reason = sanitization?.reason || "Job has not been reviewed yet";
+      return new Response(
+        JSON.stringify({ error: `Job blocked: ${reason}. Please wait for security review.` }),
+        { status: 403 },
+      );
+    }
   }
 
   // x402 session validation
