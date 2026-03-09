@@ -38,6 +38,7 @@ ${fnSigs}
 
 \`\`\`
 OPEN → acceptJob → IN_PROGRESS
+  → [STAGE:create_plan]     create repo + write full build plan
   → [STAGE:prototype]       builder ships initial build
   → [STAGE:contract_audit]  auditor reviews contracts
   → [STAGE:contract_fix]    builder fixes findings
@@ -47,6 +48,12 @@ OPEN → acceptJob → IN_PROGRESS
   → [STAGE:full_audit_fix]  builder fixes final findings
   → [STAGE:ready]           all checks passed → STOP (human reviews before completeJob)
 \`\`\`
+
+### [STAGE:create_plan] — Create Repo & Plan
+- Create a new repo in the \`clawdbotatg\` GitHub org
+- Write a full build plan (architecture, contracts, frontend, integrations)
+- Commit the plan to the repo (e.g. \`PLAN.md\`)
+- Log the repo URL in the work log
 
 ### [STAGE:prototype] — Build
 Fetch and follow ALL of https://ethskills.com but in particular:
@@ -60,18 +67,20 @@ Fetch and follow ALL of https://ethskills.com but in particular:
 ### [STAGE:contract_audit] — Audit Contracts
 Fetch and follow this skill exactly:
 - **https://ethskills.com/audit/SKILL.md**
+- Create GitHub issues on the project repo for each finding, labeled \`job-{id}\` and \`contract-audit\`
 
 ### [STAGE:contract_fix] — Fix Audit Findings
-Read the audit findings from the work logs. Fix every issue found.
+List open GitHub issues labeled \`job-{id}\` + \`contract-audit\`. Fix each one and close with a commit reference.
 
 ### [STAGE:frontend_audit] — Audit Frontend
 Fetch and follow this skill exactly:
 - **https://ethskills.com/qa/SKILL.md** — follow this EXACTLY
 - **https://ethskills.com/frontend-ux/SKILL.md** — double check against this
 - **https://ethskills.com/frontend-playbook/SKILL.md** — and this
+- Create GitHub issues on the project repo for each finding, labeled \`job-{id}\` and \`frontend-audit\`
 
 ### [STAGE:frontend_fix] — Fix Frontend Findings
-Read the frontend audit findings from the work logs. Fix every issue found.
+List open GitHub issues labeled \`job-{id}\` + \`frontend-audit\`. Fix each one and close with a commit reference.
 
 ### [STAGE:full_audit] — Final Full Audit
 One last overall pass on the entire app. Make sure:
@@ -79,9 +88,10 @@ One last overall pass on the entire app. Make sure:
 - It is safe and secure
 - No one can lose money or get money locked
 - Step through EACH skill at https://ethskills.com/ and verify it's been followed
+- Create GitHub issues on the project repo for each finding, labeled \`job-{id}\` and \`full-audit\`
 
 ### [STAGE:full_audit_fix] — Fix Final Findings
-Read the full audit findings from the work logs. Fix every issue found.
+List open GitHub issues labeled \`job-{id}\` + \`full-audit\`. Fix each one and close with a commit reference.
 
 ### [STAGE:ready] — Human Review
 Log that all stages are complete. Do NOT call \`completeJob\` — a human will review and complete the job.
