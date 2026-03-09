@@ -39,7 +39,8 @@ ${fnSigs}
 \`\`\`
 OPEN → acceptJob → IN_PROGRESS
   → [STAGE:create_plan]     create repo + write full build plan
-  → [STAGE:prototype]       builder ships initial build
+  → [STAGE:create_user_journey] write USERJOURNEY.md
+  → [STAGE:prototype]       builder ships initial build (biggest task)
   → [STAGE:contract_audit]  auditor reviews contracts
   → [STAGE:contract_fix]    builder fixes findings
   → [STAGE:frontend_audit]  auditor reviews frontend
@@ -59,7 +60,15 @@ OPEN → acceptJob → IN_PROGRESS
 - Commit the plan to the repo (e.g. \`PLAN.md\`)
 - Log the repo URL in the work log
 
+### [STAGE:create_user_journey] — User Journey Doc
+- Write a \`USERJOURNEY.md\` in the repo
+- Explain step by step how a user will work through the app
+- What they see on each page, what they click, what happens
+- Cover the happy path and edge cases (wrong network, insufficient balance, etc.)
+- This doc guides the prototype builder AND the auditors later
+
 ### [STAGE:prototype] — Build
+This is the biggest task and will take the most time and focus.
 Fetch and follow ALL of https://ethskills.com but in particular:
 - **https://ethskills.com/orchestration/SKILL.md** — the three-phase build process:
   - Phase 1: Contracts + UI on localhost (fully local dev)
