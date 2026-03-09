@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Address } from "@scaffold-ui/components";
@@ -85,6 +85,16 @@ export default function JobDetailClient() {
     functionName: "getWorkLogs",
     args: [BigInt(jobId || "0")],
   });
+
+  // Sanitization status
+  const [sanitization, setSanitization] = useState<{ safe: boolean; reason: string; checkedAt: string } | null>(null);
+  useEffect(() => {
+    if (!jobId) return;
+    fetch(`/api/job/sanitize?jobId=${jobId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setSanitization(d); })
+      .catch(() => {});
+  }, [jobId]);
 
   const clawdPrice = useCLAWDPrice();
   const { writeContractAsync } = useWriteContract();
@@ -217,7 +227,16 @@ export default function JobDetailClient() {
           <div className="card-body">
             <div className="flex justify-between items-start">
               <h1 className="card-title text-2xl">Job #{jobId}</h1>
-              <span className={`badge ${status.badge}`}>{status.label}</span>
+              <div className="flex gap-2 items-center">
+                <span className={`badge ${status.badge}`}>{status.label}</span>
+                {sanitization ? (
+                  sanitization.safe
+                    ? <span className="badge badge-success badge-outline" title={`Checked ${new Date(sanitization.checkedAt).toLocaleString()}`}>🛡️ Sanitized</span>
+                    : <span className="badge badge-error badge-outline" title={sanitization.reason}>⚠️ Flagged</span>
+                ) : (
+                  <span className="badge badge-ghost badge-outline">⏳ Pending review</span>
+                )}
+              </div>
             </div>
 
             <p className="text-sm opacity-60">{status.desc}</p>
