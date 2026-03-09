@@ -8,6 +8,7 @@ export interface SanitizationResult {
 }
 
 const memStore = new Map<string, SanitizationResult>();
+const inFlight = new Map<string, Promise<SanitizationResult>>();
 
 function kvKey(jobId: string): string {
   return `sanitize:${jobId}`;
@@ -50,6 +51,17 @@ Respond with ONLY valid JSON, no other text:
 {"safe": true} or {"safe": false, "reason": "brief explanation"}`;
 
 export async function checkSanitization(jobId: string, text: string): Promise<SanitizationResult> {
+  // Deduplicate concurrent calls for the same job
+  const existing = inFlight.get(jobId);
+  if (existing) return existing;
+
+  const promise = _doCheck(jobId, text);
+  inFlight.set(jobId, promise);
+  promise.finally(() => inFlight.delete(jobId));
+  return promise;
+}
+
+async function _doCheck(jobId: string, text: string): Promise<SanitizationResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     // Fail open in dev, fail closed in prod
