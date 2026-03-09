@@ -63,7 +63,10 @@ Fetch and follow this skill exactly:
 Read the audit findings from the work logs. Fix every issue found.
 
 ### [STAGE:frontend_audit] — Audit Frontend
-Review frontend code, UX, and mobile responsiveness.
+Fetch and follow this skill exactly:
+- **https://ethskills.com/qa/SKILL.md** — follow this EXACTLY
+- **https://ethskills.com/frontend-ux/SKILL.md** — double check against this
+- **https://ethskills.com/frontend-playbook/SKILL.md** — and this
 
 ### [STAGE:frontend_fix] — Fix Frontend Findings
 Read the frontend audit findings from the work logs. Fix every issue found.
