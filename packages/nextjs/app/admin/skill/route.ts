@@ -45,7 +45,7 @@ OPEN → acceptJob → IN_PROGRESS
   → [STAGE:frontend_fix]    builder fixes findings
   → [STAGE:full_audit]      last-pass audit of everything
   → [STAGE:full_audit_fix]  builder fixes final findings
-  → [STAGE:ready]           all checks passed → completeJob
+  → [STAGE:ready]           all checks passed → STOP (human reviews before completeJob)
 \`\`\`
 
 ### [STAGE:prototype] — Build
@@ -83,8 +83,8 @@ One last overall pass on the entire app. Make sure:
 ### [STAGE:full_audit_fix] — Fix Final Findings
 Read the full audit findings from the work logs. Fix every issue found.
 
-### [STAGE:ready] — Final Check
-Verify everything is good, then call \`completeJob\`.
+### [STAGE:ready] — Human Review
+Log that all stages are complete. Do NOT call \`completeJob\` — a human will review and complete the job.
 
 ## Your Job
 1. Check the API for work at your stage
@@ -92,7 +92,7 @@ Verify everything is good, then call \`completeJob\`.
 3. Fetch and follow the skill files for your stage
 4. Do the work
 5. Log it with the appropriate \`[STAGE:xxx]\` tag
-6. If you're the last stage, call \`completeJob\`
+6. Never call \`completeJob\` — that's for a human to do after review
 
 Don't skip stages. Read the logs before you start.
 `;
