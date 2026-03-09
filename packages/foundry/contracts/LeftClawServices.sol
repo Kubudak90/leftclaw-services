@@ -307,7 +307,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         Job storage job = jobs[jobId];
         require(job.id != 0, "Job does not exist");
         require(job.status == JobStatus.IN_PROGRESS, "Job not IN_PROGRESS");
-        require(job.worker == msg.sender, "Not the assigned worker");
+        
         require(bytes(resultCID).length > 0, "Result CID required");
 
         job.status = JobStatus.COMPLETED;
@@ -322,7 +322,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         Job storage job = jobs[jobId];
         require(job.id != 0, "Job does not exist");
         require(job.status == JobStatus.IN_PROGRESS, "Job not IN_PROGRESS");
-        require(job.worker == msg.sender, "Not the assigned worker");
+        
         require(bytes(note).length > 0, "Note required");
         require(bytes(note).length <= 500, "Note too long (max 500 chars)");
         workLogs[jobId].push(WorkLog({ note: note, timestamp: block.timestamp }));
@@ -334,7 +334,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         require(job.id != 0, "Job does not exist");
         require(job.serviceType == ServiceType.CONSULT_S || job.serviceType == ServiceType.CONSULT_L, "Not a consultation job");
         require(job.status == JobStatus.IN_PROGRESS, "Job not IN_PROGRESS");
-        require(job.worker == msg.sender, "Not the assigned worker");
+        
         require(bytes(gistUrl).length > 0, "Gist URL required");
         require(!job.paymentClaimed, "Already claimed");
 
@@ -355,7 +355,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     function claimPayment(uint256 jobId) external nonReentrant {
         Job storage job = jobs[jobId];
         require(job.id != 0, "Job does not exist");
-        require(job.worker == msg.sender, "Not the worker");
+        
         require(!job.paymentClaimed, "Already claimed");
 
         bool wasDisputed = job.status == JobStatus.DISPUTED;
