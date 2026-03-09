@@ -230,8 +230,16 @@ export default function JobDetailClient() {
               </div>
               <div>
                 <span className="text-sm opacity-50">Payment</span>
-                <p className="font-mono font-bold">{Number(price).toLocaleString()} CLAWD</p>
-                {priceUsd && <p className="text-xs opacity-50">~${priceUsd} USD</p>}
+                {Number(price) > 0 ? (
+                  <>
+                    <p className="font-mono font-bold">{Number(price).toLocaleString()} CLAWD</p>
+                    {priceUsd && <p className="text-xs opacity-50">~${priceUsd} USD</p>}
+                  </>
+                ) : job.cvAmount && Number(job.cvAmount) > 0 ? (
+                  <p className="font-mono font-bold">{Number(job.cvAmount).toLocaleString()} CV</p>
+                ) : (
+                  <p className="font-mono font-bold">Paid (ETH/USDC)</p>
+                )}
               </div>
               <div>
                 <span className="text-sm opacity-50">Client</span>
