@@ -43,6 +43,8 @@ OPEN → acceptJob → IN_PROGRESS
   → [STAGE:contract_fix]    builder fixes findings
   → [STAGE:frontend_audit]  auditor reviews frontend
   → [STAGE:frontend_fix]    builder fixes findings
+  → [STAGE:full_audit]      last-pass audit of everything
+  → [STAGE:full_audit_fix]  builder fixes final findings
   → [STAGE:ready]           all checks passed → completeJob
 \`\`\`
 
@@ -70,6 +72,16 @@ Fetch and follow this skill exactly:
 
 ### [STAGE:frontend_fix] — Fix Frontend Findings
 Read the frontend audit findings from the work logs. Fix every issue found.
+
+### [STAGE:full_audit] — Final Full Audit
+One last overall pass on the entire app. Make sure:
+- There aren't glaring problems
+- It is safe and secure
+- No one can lose money or get money locked
+- Step through EACH skill at https://ethskills.com/ and verify it's been followed
+
+### [STAGE:full_audit_fix] — Fix Final Findings
+Read the full audit findings from the work logs. Fix every issue found.
 
 ### [STAGE:ready] — Final Check
 Verify everything is good, then call \`completeJob\`.
