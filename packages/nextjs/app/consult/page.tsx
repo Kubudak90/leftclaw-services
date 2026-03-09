@@ -176,9 +176,16 @@ function ConsultPage() {
   useEffect(() => {
     if (step !== "done" || postedJobIdRef.current === null) return;
     const jobId = postedJobIdRef.current;
-    if (topic.trim()) {
-      try { localStorage.setItem(`consult-topic-${jobId}`, topic.trim()); } catch {}
+    const desc = topic.trim() || "Consultation session";
+    if (desc) {
+      try { localStorage.setItem(`consult-topic-${jobId}`, desc); } catch {}
     }
+    // Trigger sanitization immediately (fire-and-forget)
+    fetch("/api/job/sanitize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId: String(jobId), description: desc }),
+    }).catch(() => {});
     router.push(`/chat/${jobId}`);
   }, [step, router, topic]);
 

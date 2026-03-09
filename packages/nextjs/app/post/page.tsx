@@ -309,6 +309,18 @@ function PostJobPage() {
     return labels[paymentMethod];
   };
 
+  // Trigger sanitization when job is done
+  useEffect(() => {
+    if (step !== "done" || postedJobIdRef.current === null) return;
+    const jobId = postedJobIdRef.current;
+    const desc = description.trim() || "Custom job";
+    fetch("/api/job/sanitize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId: String(jobId), description: desc }),
+    }).catch(() => {});
+  }, [step, description]);
+
   if (step === "done") {
     return (
       <div className="flex flex-col items-center py-16">

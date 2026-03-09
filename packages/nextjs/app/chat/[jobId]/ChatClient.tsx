@@ -60,17 +60,13 @@ export default function ChatPage() {
     if (!jobExists || sanitizeRef.current) return;
     sanitizeRef.current = true;
 
-    // First check if already sanitized
+    // Check sanitization status (triggered at job creation, not here)
     fetch(`/api/job/sanitize?jobId=${jobId}`)
       .then(res => {
         if (res.ok) return res.json().then(d => { setSanitized(d.safe); if (!d.safe) setSanitizeError(d.reason); });
-        // Not yet sanitized — trigger check with on-chain description
-        const desc = job?.descriptionCID || `Job #${jobId}`;
-        return fetch("/api/job/sanitize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jobId, description: desc }),
-        }).then(r => r.json()).then(d => { setSanitized(d.safe); if (!d.safe) setSanitizeError(d.reason); });
+        // Not yet sanitized — poll until it is (should be triggered by payment page)
+        setSanitized(false);
+        setSanitizeError("Job is pending security review. Please wait...");
       })
       .catch(() => { setSanitized(false); setSanitizeError("Failed to verify job safety"); });
   // eslint-disable-next-line react-hooks/exhaustive-deps

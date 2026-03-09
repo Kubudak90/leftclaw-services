@@ -86,15 +86,23 @@ export default function JobDetailClient() {
     args: [BigInt(jobId || "0")],
   });
 
-  // Sanitization status
+  // Sanitization status — check first, trigger if missing (for pre-existing jobs)
   const [sanitization, setSanitization] = useState<{ safe: boolean; reason: string; checkedAt: string } | null>(null);
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId || !job) return;
     fetch(`/api/job/sanitize?jobId=${jobId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setSanitization(d); })
+      .then(r => {
+        if (r.ok) return r.json().then(d => setSanitization(d));
+        // Not yet sanitized — trigger it (covers pre-existing jobs)
+        const desc = job.descriptionCID || `Job #${jobId}`;
+        return fetch("/api/job/sanitize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId: String(jobId), description: desc }),
+        }).then(r2 => r2.json()).then(d => setSanitization(d));
+      })
       .catch(() => {});
-  }, [jobId]);
+  }, [jobId, job]);
 
   const clawdPrice = useCLAWDPrice();
   const { writeContractAsync } = useWriteContract();

@@ -121,11 +121,17 @@ function BuildPage() {
   useEffect(() => {
     if (step !== "done" || postedJobIdRef.current === null) return;
     const jobId = postedJobIdRef.current;
-    if (description.trim()) {
-      try { sessionStorage.setItem(`build-desc-${jobId}`, description.trim()); } catch {}
+    const desc = description.trim() || `${days}-day build`;
+    if (desc) {
+      try { sessionStorage.setItem(`build-desc-${jobId}`, desc); } catch {}
     }
+    fetch("/api/job/sanitize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId: String(jobId), description: desc }),
+    }).catch(() => {});
     router.push(`/jobs/${jobId}`);
-  }, [step, router, description]);
+  }, [step, router, description, days]);
 
   const handleStart = async () => {
     if (!address || isWrongNetwork || isInsufficient || !contractAddress) return;
