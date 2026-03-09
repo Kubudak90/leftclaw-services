@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
 import { useAccount, usePublicClient, useReadContract, useReadContracts, useWriteContract } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
@@ -69,6 +69,124 @@ function timeAgo(ts: number) {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
+}
+
+// ─── Pipeline Dashboard ──────────────────────────────────────────────────────
+
+const PIPELINE_STAGES = [
+  "create_plan", "create_user_journey", "prototype", "contract_audit", "contract_fix",
+  "frontend_audit", "frontend_fix", "full_audit", "full_audit_fix",
+  "deploy_contract", "livecontract_fix", "deploy_app", "liveapp_fix",
+  "liveuserjourney", "readme", "ready",
+];
+
+function PipelineDashboard() {
+  const [workers, setWorkers] = useState<{ address: string; activeJobs: number[] }[]>([]);
+  const [pipeline, setPipeline] = useState<any[]>([]);
+  const [readyJobs, setReadyJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/job/workers").then(r => r.json()).catch(() => ({ workers: [] })),
+      fetch("/api/job/pipeline").then(r => r.json()).catch(() => ({ jobs: [] })),
+      fetch("/api/job/ready").then(r => r.json()).catch(() => ({ jobs: [] })),
+    ]).then(([w, p, r]) => {
+      setWorkers(w.workers || []);
+      setPipeline(p.jobs || []);
+      setReadyJobs(r.jobs || []);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) return <div className="card bg-base-200 mb-8"><div className="card-body"><span className="loading loading-spinner" /></div></div>;
+
+  return (
+    <>
+      {/* Workers */}
+      <div className="card bg-base-200 mb-4">
+        <div className="card-body">
+          <h2 className="font-bold mb-3">🤖 Workers ({workers.length})</h2>
+          {workers.length === 0 ? (
+            <p className="text-sm opacity-50">No workers registered</p>
+          ) : (
+            <div className="space-y-2">
+              {workers.map(w => (
+                <div key={w.address} className="flex items-center justify-between bg-base-300 rounded-lg px-4 py-2">
+                  <span className="font-mono text-sm">{w.address}</span>
+                  <div>
+                    {w.activeJobs.length > 0 ? (
+                      <span className="badge badge-warning badge-sm">Working: #{w.activeJobs.join(", #")}</span>
+                    ) : (
+                      <span className="badge badge-ghost badge-sm">Idle</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Pipeline */}
+      <div className="card bg-base-200 mb-8">
+        <div className="card-body">
+          <h2 className="font-bold mb-3">🔧 Pipeline</h2>
+
+          {/* Open jobs waiting */}
+          {readyJobs.length > 0 && (
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold opacity-60 mb-2">⏳ Open — Waiting for a bot to accept</h3>
+              {readyJobs.map(j => (
+                <div key={j.id} className="bg-base-300 rounded-lg px-4 py-2 mb-1 text-sm">
+                  <span className="font-bold">Job #{j.id}</span> — {j.description?.slice(0, 80)}{j.description?.length > 80 ? "..." : ""}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* In-progress jobs by stage */}
+          {pipeline.length > 0 ? (
+            <div className="space-y-2">
+              {pipeline.map(j => {
+                const stageIdx = PIPELINE_STAGES.indexOf(j.stage);
+                const nextStage = stageIdx >= 0 && stageIdx < PIPELINE_STAGES.length - 1
+                  ? PIPELINE_STAGES[stageIdx + 1] : null;
+                return (
+                  <div key={j.id} className="bg-base-300 rounded-lg px-4 py-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-sm">Job #{j.id}</span>
+                      <div className="flex gap-2">
+                        <span className="badge badge-info badge-sm">✅ {j.stage}</span>
+                        {nextStage && <span className="badge badge-warning badge-sm">⏭️ {nextStage}</span>}
+                      </div>
+                    </div>
+                    <p className="text-xs opacity-50">{j.description?.slice(0, 100)}{j.description?.length > 100 ? "..." : ""}</p>
+                    {/* Progress bar */}
+                    <div className="w-full bg-base-100 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-primary rounded-full h-2 transition-all"
+                        style={{ width: `${((stageIdx + 1) / PIPELINE_STAGES.length) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs opacity-40 mt-1">{stageIdx + 1}/{PIPELINE_STAGES.length} stages</p>
+                    {/* Last work log */}
+                    {j.workLogs?.length > 0 && (
+                      <p className="text-xs opacity-50 mt-1 italic">
+                        Last log: {j.workLogs[j.workLogs.length - 1].note.slice(0, 120)}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            readyJobs.length === 0 && <p className="text-sm opacity-50">No jobs in pipeline</p>
+          )}
+        </div>
+      </div>
+    </>
+  );
 }
 
 // ─── Job Card ────────────────────────────────────────────────────────────────
@@ -544,6 +662,9 @@ export default function AdminPage() {
         <p className="opacity-50 text-sm mb-8">
           CLAWD price: {clawdPrice ? `$${clawdPrice.toFixed(8)}` : "loading..."}
         </p>
+
+        {/* ─── Pipeline Dashboard ──────────────────────────────────── */}
+        <PipelineDashboard />
 
         {/* ─── Job Management ──────────────────────────────────────── */}
         <div className="card bg-base-200 mb-8">
