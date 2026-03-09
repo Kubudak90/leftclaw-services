@@ -46,7 +46,11 @@ OPEN → acceptJob → IN_PROGRESS
   → [STAGE:frontend_fix]    builder fixes findings
   → [STAGE:full_audit]      last-pass audit of everything
   → [STAGE:full_audit_fix]  builder fixes final findings
-  → [STAGE:ready]           all checks passed → STOP (human reviews before completeJob)
+  → [STAGE:deploy_contract] deploy contract to live chain, test app on localhost
+  → [STAGE:livecontract_fix] fix any issues from live contract testing
+  → [STAGE:deploy_app]      deploy app to BGIPFS, test live
+  → [STAGE:liveapp_fix]     fix any issues from live app testing
+  → [STAGE:ready]           STOP — send live app link to Austin on Telegram for review
 \`\`\`
 
 ### [STAGE:create_plan] — Create Repo & Plan
@@ -93,8 +97,27 @@ One last overall pass on the entire app. Make sure:
 ### [STAGE:full_audit_fix] — Fix Final Findings
 List open GitHub issues labeled \`job-{id}\` + \`full-audit\`. Fix each one and close with a commit reference.
 
+### [STAGE:deploy_contract] — Deploy Contract & Test Locally
+- Deploy the contract to the live chain specified in the job (default: Base)
+- Verify the contract on the block explorer
+- Run the app on localhost against the live contract
+- Test all flows end-to-end
+- Create GitHub issues for any problems, labeled \`job-{id}\` and \`deploy-contract\`
+
+### [STAGE:livecontract_fix] — Fix Live Contract Issues
+List open GitHub issues labeled \`job-{id}\` + \`deploy-contract\`. Fix each one and close with a commit reference.
+
+### [STAGE:deploy_app] — Deploy App to BGIPFS & Test Live
+- Deploy the frontend to BGIPFS (\`yarn ipfs\`)
+- Test the fully live app (live contract + live frontend)
+- Create GitHub issues for any problems, labeled \`job-{id}\` and \`deploy-app\`
+
+### [STAGE:liveapp_fix] — Fix Live App Issues
+List open GitHub issues labeled \`job-{id}\` + \`deploy-app\`. Fix each one and close with a commit reference.
+
 ### [STAGE:ready] — Human Review
-Log that all stages are complete. Do NOT call \`completeJob\` — a human will review and complete the job.
+Log that all stages are complete. Send the live working app URL to Austin on Telegram (id: 672968601).
+Do NOT call \`completeJob\` — Austin will review and complete the job.
 
 ## Your Job
 1. Check the API for work at your stage
