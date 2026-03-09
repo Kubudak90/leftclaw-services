@@ -22,10 +22,10 @@ export default function ChatPage() {
   const [storageLoaded, setStorageLoaded] = useState(false);
   const autoSentRef = useRef(false);
 
-  // Load from sessionStorage after hydration
+  // Load from localStorage after hydration
   useEffect(() => {
     try {
-      const saved = sessionStorage.getItem(storageKey);
+      const saved = localStorage.getItem(storageKey);
       if (saved) setMessages(JSON.parse(saved));
     } catch {}
     setStorageLoaded(true);
@@ -53,7 +53,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (messages.length > 0) {
-      try { sessionStorage.setItem(storageKey, JSON.stringify(messages)); } catch {}
+      try { localStorage.setItem(storageKey, JSON.stringify(messages)); } catch {}
     }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -184,10 +184,10 @@ export default function ChatPage() {
 
     const topicKey = `consult-topic-${jobId}`;
     let savedTopic = "";
-    try { savedTopic = sessionStorage.getItem(topicKey) || ""; } catch {}
+    try { savedTopic = localStorage.getItem(topicKey) || ""; } catch {}
 
     if (savedTopic) {
-      try { sessionStorage.removeItem(topicKey); } catch {}
+      try { localStorage.removeItem(topicKey); } catch {}
       sendMessage(savedTopic, { isOpening: true });
     } else {
       greetUser();
