@@ -214,7 +214,11 @@ function ConsultPage() {
         if (!spendRes.ok) {
           // Clear cached sig if auth failed
           if (spendRes.status === 401) localStorage.removeItem(sigKey);
-          throw new Error(spendData.error || "CV spend failed");
+          throw new Error(
+            spendData.detail
+              ? `${spendData.error}: ${spendData.detail}`
+              : spendData.error || "CV spend failed",
+          );
         }
 
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
