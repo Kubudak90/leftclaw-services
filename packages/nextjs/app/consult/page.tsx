@@ -201,10 +201,19 @@ function ConsultPage() {
         setStep("signing");
         const sigKey = `cv-sig-${address.toLowerCase()}`;
         let signature = localStorage.getItem(sigKey);
+        let usedCached = !!signature;
         if (!signature) {
           signature = await walletClient.signMessage({ message: CV_SIGN_MESSAGE });
           localStorage.setItem(sigKey, signature);
+          usedCached = false;
         }
+        console.log("[cv-pay] sending cv-spend request", {
+          wallet: address,
+          sigLength: signature?.length,
+          sigPrefix: signature?.slice(0, 20),
+          usedCached,
+          amount: cvCost,
+        });
         const spendRes = await fetch("/api/cv-spend", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -212,13 +221,13 @@ function ConsultPage() {
         });
         const spendData = await spendRes.json();
         if (!spendRes.ok) {
-          // Clear cached sig if auth failed
-          if (spendRes.status === 401) localStorage.removeItem(sigKey);
-          throw new Error(
-            spendData.detail
-              ? `${spendData.error}: ${spendData.detail}`
-              : spendData.error || "CV spend failed",
-          );
+          // Always clear cached sig on any failure — stale sigs cause loops
+          localStorage.removeItem(sigKey);
+          const parts = [spendData.error || "CV spend failed"];
+          if (spendData.detail) parts.push(spendData.detail);
+          if (spendData.source) parts.push(`(source: ${spendData.source})`);
+          if (usedCached) parts.push("Cached signature cleared — please try again.");
+          throw new Error(parts.join(" — "));
         }
 
         postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
@@ -305,9 +314,14 @@ function ConsultPage() {
     } catch (e: any) {
       console.error("Payment error:", e);
       const raw = e?.shortMessage || e?.message || String(e);
-      const parsed = parseContractError(e);
-      // Show parsed + raw so we can debug
-      setTxError(parsed !== "Transaction failed — please try again" ? parsed : `Error: ${raw.slice(0, 200)}`);
+      // For CV payment errors, show the raw message directly (it already has good detail)
+      // For contract errors, try parsing the revert reason
+      if (paymentMethod === "cv") {
+        setTxError(raw.slice(0, 500));
+      } else {
+        const parsed = parseContractError(e);
+        setTxError(parsed !== "Transaction failed — please try again" ? parsed : `Error: ${raw.slice(0, 300)}`);
+      }
       setStep("idle");
     }
   };
