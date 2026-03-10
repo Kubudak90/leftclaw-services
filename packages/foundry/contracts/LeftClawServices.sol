@@ -300,6 +300,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         job.status = JobStatus.IN_PROGRESS;
         job.worker = msg.sender;
         job.startedAt = block.timestamp;
+        job.currentStage = "accepted";
 
         emit JobAccepted(jobId, msg.sender);
     }

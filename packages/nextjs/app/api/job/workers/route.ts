@@ -15,17 +15,21 @@ const client = createPublicClient({
 export async function GET(_req: NextRequest) {
   try {
     // Scan WorkerAdded/WorkerRemoved events to build current worker set
+    // Get contract creation block (approximate — scan last 1M blocks)
+    const latestBlock = await client.getBlockNumber();
+    const fromBlock = latestBlock > 1_000_000n ? latestBlock - 1_000_000n : 0n;
+
     const addedLogs = await client.getLogs({
       address,
       event: parseAbiItem("event WorkerAdded(address indexed worker)"),
-      fromBlock: 0n,
+      fromBlock,
       toBlock: "latest",
     });
 
     const removedLogs = await client.getLogs({
       address,
       event: parseAbiItem("event WorkerRemoved(address indexed worker)"),
-      fromBlock: 0n,
+      fromBlock,
       toBlock: "latest",
     });
 

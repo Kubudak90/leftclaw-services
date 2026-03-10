@@ -10,8 +10,11 @@ export interface SanitizationResult {
 const memStore = new Map<string, SanitizationResult>();
 const inFlight = new Map<string, Promise<SanitizationResult>>();
 
+import deployedContracts from "~~/contracts/deployedContracts";
+const CONTRACT_ADDR = deployedContracts[8453]?.LeftClawServices?.address || "default";
+
 function kvKey(jobId: string): string {
-  return `sanitize:${jobId}`;
+  return `sanitize:${CONTRACT_ADDR}:${jobId}`;
 }
 
 export async function getSanitization(jobId: string): Promise<SanitizationResult | null> {

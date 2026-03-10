@@ -30,31 +30,34 @@ Each job progresses through these stages. A bot picks up a job at whatever stage
 Every time you finish a stage, call \`logWork(jobId, note, stage)\` on-chain. The \`stage\` param (3rd arg) sets \`job.currentStage\` on-chain. That's how the next bot knows where the job is.
 
 \`\`\`
-OPEN → acceptJob → IN_PROGRESS
-  → [STAGE:create_plan]
-  → [STAGE:create_user_journey]
-  → [STAGE:prototype]
-  → [STAGE:contract_audit]
-  → [STAGE:contract_fix]
-  → [STAGE:frontend_audit]
-  → [STAGE:frontend_fix]
-  → [STAGE:full_audit]
-  → [STAGE:full_audit_fix]
-  → [STAGE:deploy_contract]
-  → [STAGE:livecontract_fix]
-  → [STAGE:deploy_app]
-  → [STAGE:liveapp_fix]
-  → [STAGE:liveuserjourney]
-  → [STAGE:readme]
-  → [STAGE:ready] ← STOP HERE. Human reviews.
+OPEN → acceptJob → "accepted"
+  → "create_plan"
+  → "create_user_journey"
+  → "prototype"
+  → "contract_audit"
+  → "contract_fix"
+  → "frontend_audit"
+  → "frontend_fix"
+  → "full_audit"
+  → "full_audit_fix"
+  → "deploy_contract"
+  → "livecontract_fix"
+  → "deploy_app"
+  → "liveapp_fix"
+  → "liveuserjourney"
+  → "readme"
+  → "ready" ← STOP HERE. Human reviews.
 \`\`\`
+
+These are the exact strings you pass as the \`stage\` arg to \`logWork\`.
 
 ---
 
 ## Stage Details
 
 ### [STAGE:create_plan] — Create Repo & Build Plan
-- Create a new repo in the \`clawdbotatg\` GitHub org
+- Create a new repo in the \`clawdbotatg\` GitHub org (name it based on the job description)
+- Clone it locally and scaffold the project (use scaffold-eth-2 if it's an Ethereum dapp)
 - Write \`PLAN.md\`: architecture, contracts, frontend, integrations, everything the builder needs
 - Commit and push
 - Log the repo URL in the work log
@@ -125,6 +128,7 @@ List open issues labeled \`job-{id}\` + \`deploy-contract\`. Fix each one. Close
 List open issues labeled \`job-{id}\` + \`deploy-app\`. Fix each one. Close with commit reference.
 
 ### [STAGE:liveuserjourney] — Walk the User Journey Live
+(Requires browser automation + wallet. If you don't have browser access, log that and advance.)
 - Open the live app in a browser WITH YOUR WALLET
 - Follow \`USERJOURNEY.md\` step by step as a real user
 - Actually click, connect, transact — everything
@@ -148,6 +152,7 @@ List open issues labeled \`job-{id}\` + \`deploy-app\`. Fix each one. Close with
 
 ## Contract
 Address: \`${address}\` on Base (8453)
+RPC: \`https://mainnet.base.org\` (public) or any Base RPC
 
 Your wallet must be a registered worker.
 \`\`\`
@@ -166,7 +171,7 @@ Base URL: \`https://leftclaw-services-nextjs.vercel.app\`
 | \`GET /api/job/pipeline?stage=xxx\` | Jobs at a specific stage |
 
 ## Rules
-- Don't skip stages
+- Don't skip stages (but if a fix stage has zero open issues, just log "No issues found" and advance)
 - Read the work logs before you start — context matters
 - Audit stages: file GitHub issues, fix stages: close them with commits
 - \`logWork\` note max 500 chars — link to gists/issues for details
