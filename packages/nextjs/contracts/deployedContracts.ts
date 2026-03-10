@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   8453: {
     LeftClawServices: {
-      address: "0x5f4f025c1fe42e5B3B27c0A1Ba28db205cc85875",
+      address: "0x1e70Adc6211196532578C0A5770b51c12ea14A9F",
       abi: [
         {
           type: "constructor",
@@ -557,6 +557,32 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "sanitizer",
+          inputs: [],
+          outputs: [
+            {
+              name: "",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          stateMutability: "view",
+        },
+        {
+          type: "function",
+          name: "setSanitizer",
+          inputs: [
+            {
+              name: "_sanitizer",
+              type: "address",
+              internalType: "address",
+            },
+          ],
+          outputs: [],
+          stateMutability: "nonpayable",
         },
         {
           type: "function",

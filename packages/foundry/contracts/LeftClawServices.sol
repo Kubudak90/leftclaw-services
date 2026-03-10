@@ -112,6 +112,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     bytes public swapPath;
 
     address public constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    address public sanitizer;
 
     uint256 public constant DISPUTE_WINDOW = 7 days;
     uint256 public constant MAX_FEE_BPS = 1000;
@@ -488,7 +489,12 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         emit ProtocolFeeUpdated(feeBps);
     }
 
-    function markSanitized(uint256 jobId) external onlyOwner {
+    function setSanitizer(address _sanitizer) external onlyOwner {
+        sanitizer = _sanitizer;
+    }
+
+    function markSanitized(uint256 jobId) external {
+        require(msg.sender == sanitizer || msg.sender == owner(), "!sanitizer");
         Job storage job = jobs[jobId];
         require(job.id != 0, "!job");
         require(!job.sanitized, "sanitized");
