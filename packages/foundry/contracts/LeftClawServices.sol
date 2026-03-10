@@ -82,6 +82,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         PaymentMethod paymentMethod; // how the job was paid for
         uint256 cvAmount;           // CV spent (only for CV payments, informational)
         string currentStage;        // current pipeline stage (e.g. "prototype", "contract_audit")
+        bool sanitized;             // true once job description passes sanitization check
     }
 
     struct WorkLog {
@@ -134,6 +135,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     event ConsultationComplete(uint256 indexed jobId, address indexed client, string gistUrl, ServiceType recommendedBuildType);
     event JobRejected(uint256 indexed jobId, address indexed client);
     event WorkLogged(uint256 indexed jobId, address indexed worker, string note);
+    event JobSanitized(uint256 indexed jobId);
 
     // ─── Modifiers ────────────────────────────────────────────────────────────
 
@@ -150,10 +152,10 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
         address _uniswapRouter,
         address _weth
     ) Ownable(msg.sender) {
-        require(_clawdToken != address(0), "Zero CLAWD address");
-        require(_usdcToken != address(0), "Zero USDC address");
-        require(_uniswapRouter != address(0), "Zero router address");
-        require(_weth != address(0), "Zero WETH address");
+        require(_clawdToken != address(0), "!addr");
+        require(_usdcToken != address(0), "!addr");
+        require(_uniswapRouter != address(0), "!addr");
+        require(_weth != address(0), "!addr");
 
         clawdToken = IERC20(_clawdToken);
         usdcToken = IERC20(_usdcToken);
@@ -183,11 +185,11 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     /// @notice Post a job paying with CLAWD. Frontend calculates clawdAmount from USD price / CLAWD market price.
     function postJob(ServiceType serviceType, uint256 clawdAmount, string calldata descriptionCID) external nonReentrant {
-        require(serviceType != ServiceType.CUSTOM, "Use postJobCustom for CUSTOM");
-        require(bytes(descriptionCID).length > 0, "No desc");
+        require(serviceType != ServiceType.CUSTOM, "!custom");
+        require(bytes(descriptionCID).length > 0, "!desc");
         uint256 priceUsd = servicePriceUsd[serviceType];
-        require(priceUsd > 0, "Service not available");
-        require(clawdAmount >= 1e18, "Min 1 CLAWD");
+        require(priceUsd > 0, "!svc");
+        require(clawdAmount >= 1e18, "!min");
 
         clawdToken.safeTransferFrom(msg.sender, address(this), clawdAmount);
 
@@ -196,8 +198,8 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     /// @notice Post a CUSTOM job with any CLAWD amount and custom USD value
     function postJobCustom(uint256 clawdAmount, uint256 customPriceUsd, string calldata descriptionCID) external nonReentrant {
-        require(clawdAmount >= 1e18, "Min 1 CLAWD");
-        require(bytes(descriptionCID).length > 0, "No desc");
+        require(clawdAmount >= 1e18, "!min");
+        require(bytes(descriptionCID).length > 0, "!desc");
 
         clawdToken.safeTransferFrom(msg.sender, address(this), clawdAmount);
 
@@ -206,11 +208,11 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     /// @notice Post a job paying with USDC — exact USD price charged, auto-swaps to CLAWD
     function postJobWithUsdc(ServiceType serviceType, string calldata descriptionCID, uint256 minClawdOut) external nonReentrant {
-        require(serviceType != ServiceType.CUSTOM, "Use postJobCustomUsdc for CUSTOM");
-        require(bytes(descriptionCID).length > 0, "No desc");
+        require(serviceType != ServiceType.CUSTOM, "!custom");
+        require(bytes(descriptionCID).length > 0, "!desc");
         uint256 priceUsd = servicePriceUsd[serviceType];
-        require(priceUsd > 0, "Service not available");
-        require(minClawdOut >= 1e18, "Min 1 CLAWD out");
+        require(priceUsd > 0, "!svc");
+        require(minClawdOut >= 1e18, "!min");
 
         usdcToken.safeTransferFrom(msg.sender, address(this), priceUsd);
         usdcToken.forceApprove(address(uniswapRouter), priceUsd);
@@ -229,9 +231,9 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     /// @notice Post a CUSTOM job paying with USDC
     function postJobCustomUsdc(uint256 usdcAmount, string calldata descriptionCID, uint256 minClawdOut) external nonReentrant {
-        require(usdcAmount > 0, "USDC amount must be > 0");
-        require(bytes(descriptionCID).length > 0, "No desc");
-        require(minClawdOut >= 1e18, "Min 1 CLAWD out");
+        require(usdcAmount > 0, "!amt");
+        require(bytes(descriptionCID).length > 0, "!desc");
+        require(minClawdOut >= 1e18, "!min");
 
         usdcToken.safeTransferFrom(msg.sender, address(this), usdcAmount);
         usdcToken.forceApprove(address(uniswapRouter), usdcAmount);
@@ -250,11 +252,11 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     /// @notice Post a job paying with ETH — wraps to WETH, swaps to CLAWD, locks CLAWD
     function postJobWithETH(ServiceType serviceType, string calldata descriptionCID) external payable nonReentrant {
-        require(serviceType != ServiceType.CUSTOM, "Use postJobCustomETH for CUSTOM");
-        require(bytes(descriptionCID).length > 0, "No desc");
-        require(msg.value > 0, "Must send ETH");
+        require(serviceType != ServiceType.CUSTOM, "!custom");
+        require(bytes(descriptionCID).length > 0, "!desc");
+        require(msg.value > 0, "!eth");
         uint256 priceUsd = servicePriceUsd[serviceType];
-        require(priceUsd > 0, "Service not available");
+        require(priceUsd > 0, "!svc");
 
         uint256 clawdReceived = _swapETHToClawd(msg.value);
         _createJob(msg.sender, serviceType, clawdReceived, priceUsd, descriptionCID, PaymentMethod.ETH, 0);
@@ -262,9 +264,9 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     /// @notice Post a CUSTOM job paying with ETH — wraps to WETH, swaps to CLAWD, locks CLAWD
     function postJobCustomETH(uint256 customPriceUsd, string calldata descriptionCID) external payable nonReentrant {
-        require(msg.value > 0, "Must send ETH");
-        require(bytes(descriptionCID).length > 0, "No desc");
-        require(customPriceUsd > 0, "Price required");
+        require(msg.value > 0, "!eth");
+        require(bytes(descriptionCID).length > 0, "!desc");
+        require(customPriceUsd > 0, "!price");
 
         uint256 clawdReceived = _swapETHToClawd(msg.value);
         _createJob(msg.sender, ServiceType.CUSTOM, clawdReceived, customPriceUsd, descriptionCID, PaymentMethod.ETH, 0);
@@ -272,20 +274,20 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     /// @notice Post a job paying with ClawdViction (CV) — just gas, cvAmount is informational
     function postJobWithCV(ServiceType serviceType, uint256 cvAmount, string calldata descriptionCID) external nonReentrant {
-        require(serviceType != ServiceType.CUSTOM, "Use postJobCustomCV for CUSTOM");
-        require(bytes(descriptionCID).length > 0, "No desc");
-        require(cvAmount > 0, "CV amount required");
+        require(serviceType != ServiceType.CUSTOM, "!custom");
+        require(bytes(descriptionCID).length > 0, "!desc");
+        require(cvAmount > 0, "!cv");
         uint256 priceUsd = servicePriceUsd[serviceType];
-        require(priceUsd > 0, "Service not available");
+        require(priceUsd > 0, "!svc");
 
         _createJob(msg.sender, serviceType, 0, priceUsd, descriptionCID, PaymentMethod.CV, cvAmount);
     }
 
     /// @notice Post a CUSTOM job paying with CV — cvAmount is informational
     function postJobCustomCV(uint256 cvAmount, uint256 customPriceUsd, string calldata descriptionCID) external nonReentrant {
-        require(cvAmount > 0, "CV amount required");
-        require(bytes(descriptionCID).length > 0, "No desc");
-        require(customPriceUsd > 0, "Price required");
+        require(cvAmount > 0, "!cv");
+        require(bytes(descriptionCID).length > 0, "!desc");
+        require(customPriceUsd > 0, "!price");
 
         _createJob(msg.sender, ServiceType.CUSTOM, 0, customPriceUsd, descriptionCID, PaymentMethod.CV, cvAmount);
     }
@@ -294,8 +296,8 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     function acceptJob(uint256 jobId) external nonReentrant onlyWorker {
         Job storage job = jobs[jobId];
-        require(job.id != 0, "No job");
-        require(job.status == JobStatus.OPEN, "Not open");
+        require(job.id != 0, "!job");
+        require(job.status == JobStatus.OPEN, "!open");
 
         job.status = JobStatus.IN_PROGRESS;
         job.worker = msg.sender;
@@ -307,10 +309,10 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     function completeJob(uint256 jobId, string calldata resultCID) external nonReentrant onlyWorker {
         Job storage job = jobs[jobId];
-        require(job.id != 0, "No job");
-        require(job.status == JobStatus.IN_PROGRESS, "Not active");
+        require(job.id != 0, "!job");
+        require(job.status == JobStatus.IN_PROGRESS, "!active");
         
-        require(bytes(resultCID).length > 0, "No result");
+        require(bytes(resultCID).length > 0, "!result");
 
         job.status = JobStatus.COMPLETED;
         job.resultCID = resultCID;
@@ -322,11 +324,11 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     function logWork(uint256 jobId, string calldata note, string calldata stage) external nonReentrant onlyWorker {
         Job storage job = jobs[jobId];
-        require(job.id != 0, "No job");
-        require(job.status == JobStatus.IN_PROGRESS, "Not active");
+        require(job.id != 0, "!job");
+        require(job.status == JobStatus.IN_PROGRESS, "!active");
         
-        require(bytes(note).length > 0, "No note");
-        require(bytes(note).length <= 500, "Too long");
+        require(bytes(note).length > 0, "!note");
+        require(bytes(note).length <= 500, "!len");
         if (bytes(stage).length > 0) {
             job.currentStage = stage;
         }
@@ -336,12 +338,12 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     function burnConsultation(uint256 jobId, string calldata gistUrl, ServiceType recommendedBuildType) external nonReentrant onlyWorker {
         Job storage job = jobs[jobId];
-        require(job.id != 0, "No job");
-        require(job.serviceType == ServiceType.CONSULT_S || job.serviceType == ServiceType.CONSULT_L, "Not a consultation job");
-        require(job.status == JobStatus.IN_PROGRESS, "Not active");
+        require(job.id != 0, "!job");
+        require(job.serviceType == ServiceType.CONSULT_S || job.serviceType == ServiceType.CONSULT_L, "!consult");
+        require(job.status == JobStatus.IN_PROGRESS, "!active");
         
-        require(bytes(gistUrl).length > 0, "No gist");
-        require(!job.paymentClaimed, "Already claimed");
+        require(bytes(gistUrl).length > 0, "!gist");
+        require(!job.paymentClaimed, "claimed");
 
         job.paymentClaimed = true;
         job.status = JobStatus.COMPLETED;
@@ -359,17 +361,17 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     function claimPayment(uint256 jobId) external nonReentrant {
         Job storage job = jobs[jobId];
-        require(job.id != 0, "No job");
+        require(job.id != 0, "!job");
         
-        require(!job.paymentClaimed, "Already claimed");
+        require(!job.paymentClaimed, "claimed");
 
         bool wasDisputed = job.status == JobStatus.DISPUTED;
         if (job.status == JobStatus.COMPLETED) {
-            require(block.timestamp > job.completedAt + DISPUTE_WINDOW, "Dispute window active");
+            require(block.timestamp > job.completedAt + DISPUTE_WINDOW, "!window");
         } else if (wasDisputed) {
-            require(block.timestamp > job.disputedAt + DISPUTE_TIMEOUT, "Dispute timeout not reached");
+            require(block.timestamp > job.disputedAt + DISPUTE_TIMEOUT, "!timeout");
         } else {
-            revert("Job not claimable");
+            revert("!claim");
         }
 
         job.paymentClaimed = true;
@@ -393,8 +395,8 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     function rejectJob(uint256 jobId) external nonReentrant onlyWorker {
         Job storage job = jobs[jobId];
-        require(job.id != 0, "No job");
-        require(job.status == JobStatus.OPEN, "Not open");
+        require(job.id != 0, "!job");
+        require(job.status == JobStatus.OPEN, "!open");
 
         job.status = JobStatus.CANCELLED;
 
@@ -408,9 +410,9 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     function cancelJob(uint256 jobId) external nonReentrant {
         Job storage job = jobs[jobId];
-        require(job.id != 0, "No job");
+        require(job.id != 0, "!job");
         require(job.client == msg.sender, "!client");
-        require(job.status == JobStatus.OPEN, "Not open");
+        require(job.status == JobStatus.OPEN, "!open");
 
         job.status = JobStatus.CANCELLED;
 
@@ -424,11 +426,11 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     function disputeJob(uint256 jobId) external nonReentrant {
         Job storage job = jobs[jobId];
-        require(job.id != 0, "No job");
+        require(job.id != 0, "!job");
         require(job.client == msg.sender, "!client");
-        require(job.status == JobStatus.COMPLETED, "Not done");
-        require(!job.paymentClaimed, "Claimed");
-        require(block.timestamp <= job.completedAt + DISPUTE_WINDOW, "Window closed");
+        require(job.status == JobStatus.COMPLETED, "!done");
+        require(!job.paymentClaimed, "claimed");
+        require(block.timestamp <= job.completedAt + DISPUTE_WINDOW, "!window");
 
         job.status = JobStatus.DISPUTED;
         job.disputedAt = block.timestamp;
@@ -438,8 +440,8 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
 
     function resolveDispute(uint256 jobId, bool refundClient) external onlyOwner nonReentrant {
         Job storage job = jobs[jobId];
-        require(job.id != 0, "No job");
-        require(job.status == JobStatus.DISPUTED, "Not disputed");
+        require(job.id != 0, "!job");
+        require(job.status == JobStatus.DISPUTED, "!disputed");
 
         if (refundClient) {
             job.status = JobStatus.CANCELLED;
@@ -470,7 +472,7 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     }
 
     function addWorker(address worker) external onlyOwner {
-        require(worker != address(0), "Zero address");
+        require(worker != address(0), "!addr");
         isWorker[worker] = true;
         emit WorkerAdded(worker);
     }
@@ -481,25 +483,33 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     }
 
     function setProtocolFee(uint256 feeBps) external onlyOwner {
-        require(feeBps <= MAX_FEE_BPS, "Fee too high");
+        require(feeBps <= MAX_FEE_BPS, "!fee");
         protocolFeeBps = feeBps;
         emit ProtocolFeeUpdated(feeBps);
     }
 
+    function markSanitized(uint256 jobId) external onlyOwner {
+        Job storage job = jobs[jobId];
+        require(job.id != 0, "!job");
+        require(!job.sanitized, "sanitized");
+        job.sanitized = true;
+        emit JobSanitized(jobId);
+    }
+
     function setSwapPath(bytes calldata newPath) external onlyOwner {
-        require(newPath.length >= 43, "Invalid path");
+        require(newPath.length >= 43, "!path");
         swapPath = newPath;
         emit SwapPathUpdated(newPath);
     }
 
     function withdrawStuckTokens(address token, address to) external onlyOwner nonReentrant {
-        require(to != address(0), "Zero address");
+        require(to != address(0), "!addr");
         uint256 balance = IERC20(token).balanceOf(address(this));
-        require(balance > 0, "No tokens to withdraw");
+        require(balance > 0, "!bal");
 
         if (token == address(clawdToken)) {
             uint256 locked = totalLockedClawd + accumulatedFees;
-            require(balance > locked, "No surplus CLAWD to withdraw");
+            require(balance > locked, "!surplus");
             IERC20(token).safeTransfer(to, balance - locked);
         } else {
             IERC20(token).safeTransfer(to, balance);
@@ -507,17 +517,17 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
     }
 
     function withdrawETH(address payable to) external onlyOwner nonReentrant {
-        require(to != address(0), "Zero address");
+        require(to != address(0), "!addr");
         uint256 balance = address(this).balance;
-        require(balance > 0, "No ETH to withdraw");
+        require(balance > 0, "!bal");
         (bool sent, ) = to.call{value: balance}("");
-        require(sent, "ETH transfer failed");
+        require(sent, "!send");
     }
 
     function withdrawProtocolFees(address to) external onlyOwner nonReentrant {
-        require(to != address(0), "Zero address");
+        require(to != address(0), "!addr");
         uint256 amount = accumulatedFees;
-        require(amount > 0, "No fees to withdraw");
+        require(amount > 0, "!fees");
         accumulatedFees = 0;
         clawdToken.safeTransfer(to, amount);
         emit FeesWithdrawn(to, amount);
@@ -612,7 +622,8 @@ contract LeftClawServices is Ownable, ReentrancyGuard {
             disputedAt: 0,
             paymentMethod: method,
             cvAmount: cvAmount,
-            currentStage: ""
+            currentStage: "",
+            sanitized: false
         });
 
         emit JobPosted(jobId, client, serviceType, clawdAmount, priceUsd, descriptionCID, method, cvAmount);
