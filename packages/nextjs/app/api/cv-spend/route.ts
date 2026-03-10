@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyMessage } from "viem";
 
 const CV_SIGN_MESSAGE = "ClawdViction CV Spend";
-const CV_SPEND_URL = "https://clawdviction.vercel.app/api/cv/spend";
+const CV_SPEND_URL = "https://larv.ai/api/cv/spend";
 
 export async function POST(req: NextRequest) {
   try {
