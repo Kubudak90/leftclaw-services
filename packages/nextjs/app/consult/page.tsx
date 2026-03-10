@@ -103,7 +103,7 @@ function ConsultPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cv");
   const [step, setStep] = useState<"idle" | "signing" | "approving" | "paying" | "posting" | "done">("idle");
   const [txError, setTxError] = useState<string | null>(null);
-  const postedJobIdRef = useRef<number | null>(null);
+  const postedJobIdRef = useRef<number | string | null>(null);
   const hasSetDefault = useRef(false);
 
   // Set default payment method from hook once
@@ -177,16 +177,20 @@ function ConsultPage() {
   useEffect(() => {
     if (step !== "done" || postedJobIdRef.current === null) return;
     const jobId = postedJobIdRef.current;
+    const isCvJob = String(jobId).startsWith("cv-");
     const desc = topic.trim() || "Consultation session";
     if (desc) {
       try { localStorage.setItem(`consult-topic-${jobId}`, desc); } catch {}
     }
-    // Trigger sanitization immediately (fire-and-forget)
-    fetch("/api/job/sanitize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId: String(jobId), description: desc }),
-    }).catch(() => {});
+    // Trigger sanitization for on-chain jobs (fire-and-forget).
+    // CV jobs already have sanitization auto-passed at payment time.
+    if (!isCvJob) {
+      fetch("/api/job/sanitize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: String(jobId), description: desc }),
+      }).catch(() => {});
+    }
     router.push(`/chat/${jobId}`);
   }, [step, router, topic]);
 
@@ -234,14 +238,18 @@ function ConsultPage() {
           throw new Error(parts.join(" — "));
         }
 
-        postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
-        setStep("posting");
-        const txHash = await writeAndOpen(() => writeContractAsync({
-          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
-          functionName: "postJobWithCV", args: [serviceType, BigInt(cvCost), description],
-        }));
-        if (!txHash) { setTxError("On-chain transaction returned no hash"); setStep("idle"); return; }
-        if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
+        // CV payment is off-chain only — no on-chain tx needed.
+        // Generate a synthetic job ID and auto-pass sanitization.
+        const cvJobId = `cv-${Date.now()}`;
+        postedJobIdRef.current = cvJobId;
+
+        // Auto-pass sanitization for CV consults (fire-and-forget)
+        fetch("/api/job/sanitize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId: cvJobId, description, cvAutoPass: true }),
+        }).catch(() => {});
+
         setStep("done");
 
       } else if (paymentMethod === "clawd") {

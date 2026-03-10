@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base } from "viem/chains";
-import { checkSanitization } from "~~/lib/sanitize";
+import { checkSanitization, setSanitization } from "~~/lib/sanitize";
 import deployedContracts from "~~/contracts/deployedContracts";
 
 const { address, abi } = deployedContracts[8453].LeftClawServices;
@@ -15,10 +15,22 @@ const client = createPublicClient({ chain: base, transport });
 
 export async function POST(req: NextRequest) {
   try {
-    const { jobId, description, force } = await req.json();
+    const { jobId, description, force, cvAutoPass } = await req.json();
 
     if (!jobId || !description) {
       return Response.json({ error: "jobId and description required" }, { status: 400 });
+    }
+
+    // CV consults auto-pass sanitization — off-chain payment, no gate needed
+    if (cvAutoPass && String(jobId).startsWith("cv-")) {
+      const result = {
+        jobId: String(jobId),
+        safe: true,
+        reason: "CV consultation — auto-passed",
+        checkedAt: new Date().toISOString(),
+      };
+      await setSanitization(result);
+      return Response.json({ ...result, onChain: false });
     }
 
     // Check on-chain flag first
@@ -58,6 +70,16 @@ export async function GET(req: NextRequest) {
   const jobId = req.nextUrl.searchParams.get("jobId");
   if (!jobId) {
     return Response.json({ error: "jobId required" }, { status: 400 });
+  }
+
+  // CV jobs are off-chain — check KV store instead of on-chain
+  if (jobId.startsWith("cv-")) {
+    const { getSanitization } = await import("~~/lib/sanitize");
+    const result = await getSanitization(jobId);
+    if (result) {
+      return Response.json({ jobId, safe: result.safe, reason: result.reason, onChain: false });
+    }
+    return Response.json({ error: "CV job not found", safe: false }, { status: 404 });
   }
 
   try {

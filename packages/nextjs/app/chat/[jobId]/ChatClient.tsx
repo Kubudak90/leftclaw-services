@@ -16,6 +16,7 @@ export default function ChatPage() {
   const router = useRouter();
   const jobId = params.jobId as string;
   const { address } = useAccount();
+  const isCvJob = jobId.startsWith("cv-");
 
   const storageKey = `chat-messages-${jobId}`;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -41,22 +42,25 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const MAX_CHARS = 1000;
 
+  // On-chain job read — skip for CV jobs (they're off-chain)
   const { data: job, isLoading: jobLoading } = useScaffoldReadContract({
     contractName: "LeftClawServices",
     functionName: "getJob",
-    args: [BigInt(jobId || "0")],
+    args: [BigInt(isCvJob ? "0" : (jobId || "0"))],
   });
 
-  const jobExists = job && job.id > 0n;
-  const isAuthorized = !jobExists || (address && job && job.client.toLowerCase() === address.toLowerCase());
+  // CV jobs are always valid (paid off-chain via ClawdViction)
+  const jobExists = isCvJob || (job && job.id > 0n);
+  const isAuthorized = isCvJob || !jobExists || (address && job && job.client.toLowerCase() === address.toLowerCase());
   const totalMessages = messages.length;
 
-  // Sanitization gate
-  const [sanitized, setSanitized] = useState<boolean | null>(null);
+  // Sanitization gate — CV jobs auto-pass (set at payment time)
+  const [sanitized, setSanitized] = useState<boolean | null>(isCvJob ? true : null);
   const [sanitizeError, setSanitizeError] = useState<string | null>(null);
-  const sanitizeRef = useRef(false);
+  const sanitizeRef = useRef(isCvJob);
 
   useEffect(() => {
+    if (isCvJob) return; // CV jobs skip sanitization gate entirely
     if (!jobExists || sanitizeRef.current) return;
     sanitizeRef.current = true;
 
@@ -196,9 +200,9 @@ export default function ChatPage() {
   // - if no topic (direct nav) → bot greets first with no user message shown
   useEffect(() => {
     if (!storageLoaded) return;
-    if (jobLoading) return;
+    if (!isCvJob && jobLoading) return; // CV jobs skip on-chain loading
     if (!jobExists) return;
-    if (sanitized !== true) return; // wait for sanitization
+    if (sanitized !== true) return; // wait for sanitization (CV jobs start with true)
     if (messages.length > 0) return; // returning user — don't re-trigger
     if (autoSentRef.current) return;
 
@@ -221,7 +225,7 @@ export default function ChatPage() {
     sendMessage("Please finalize the build plan based on our discussion.");
   };
 
-  if (jobLoading) {
+  if (!isCvJob && jobLoading) {
     return (
       <div className="flex justify-center py-20">
         <span className="loading loading-spinner loading-lg" />

@@ -166,8 +166,10 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "messages required" }), { status: 400 });
   }
 
-  // Sanitization gate — on-chain jobs must pass security review before AI responds
-  if (jobId && !sessionId) {
+  // Sanitization gate — on-chain jobs must pass security review before AI responds.
+  // CV jobs (off-chain payment via ClawdViction) skip sanitization — payment is the gate.
+  const isCvJob = jobId && String(jobId).startsWith("cv-");
+  if (jobId && !sessionId && !isCvJob) {
     const sanitization = await getSanitization(String(jobId));
     if (!sanitization || !sanitization.safe) {
       const reason = sanitization?.reason || "Job has not been reviewed yet";
