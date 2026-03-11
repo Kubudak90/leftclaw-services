@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAccount } from "wagmi";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
+import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { formatUnits } from "viem";
 
 const STATUS_LABELS: Record<number, { label: string; badge: string }> = {
@@ -111,7 +112,7 @@ export default function JobsPage() {
       {!address ? (
         <div className="text-center py-12 w-full max-w-lg">
           <div className="text-5xl mb-3">🔗</div>
-          <p className="text-lg opacity-70 mb-2">Connect your wallet to see your jobs</p>
+          <div className="mb-3"><RainbowKitCustomConnectButton /></div>
           <p className="text-sm opacity-50">Your consultations, builds, and audits will appear here</p>
         </div>
       ) : myJobs.length === 0 ? (

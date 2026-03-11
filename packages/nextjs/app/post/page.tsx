@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatUnits, parseEther, parseUnits } from "viem";
-import { useAccount, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useWalletClient, useWriteContract, useSwitchChain } from "wagmi";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { PaymentMethodSelector, formatBalance } from "~~/components/payment";
 import deployedContracts from "~~/contracts/deployedContracts";
@@ -50,6 +50,7 @@ function PostJobPage() {
   }, [initialType, router]);
 
   const { address, chainId } = useAccount();
+  const { switchChain } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
@@ -427,7 +428,7 @@ function PostJobPage() {
         {!address ? (
           <div className="flex justify-center"><RainbowKitCustomConnectButton /></div>
         ) : isWrongNetwork ? (
-          <div className="alert alert-error mb-4"><span>Switch to Base network to continue</span></div>
+          <button className="btn btn-error btn-lg w-full mb-4" onClick={() => switchChain({ chainId: BASE_CHAIN_ID })}>⚠️ Switch to Base Network</button>
         ) : (
           <div className="flex flex-col gap-2">
             <button

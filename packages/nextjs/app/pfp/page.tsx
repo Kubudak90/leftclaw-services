@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { parseEther, parseUnits } from "viem";
-import { useAccount, usePublicClient, useSignMessage, useWalletClient, useWriteContract, useSendTransaction } from "wagmi";
+import { useAccount, usePublicClient, useSignMessage, useWalletClient, useWriteContract, useSendTransaction, useSwitchChain } from "wagmi";
+import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { PaymentMethodSelector, formatBalance } from "~~/components/payment";
 import { usePaymentContext, PaymentMethod } from "~~/hooks/scaffold-eth/usePaymentContext";
 
@@ -51,6 +52,7 @@ const PAYMENT_LABELS: Record<PaymentMethod, { icon: string; label: string; desc:
 
 export default function PfpPage() {
   const { address, chainId } = useAccount();
+  const { switchChain } = useSwitchChain();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const { signMessageAsync } = useSignMessage();
@@ -280,8 +282,8 @@ export default function PfpPage() {
               </div>
             </div>
 
-            {!address && <div className="alert alert-warning mb-4"><span>Connect your wallet to start</span></div>}
-            {isWrongNetwork && <div className="alert alert-error mb-4"><span>Switch to Base network</span></div>}
+            {!address && <div className="flex justify-center mb-4"><RainbowKitCustomConnectButton /></div>}
+            {isWrongNetwork && <button className="btn btn-error btn-lg w-full mb-4" onClick={() => switchChain({ chainId: BASE_CHAIN_ID })}>⚠️ Switch to Base Network</button>}
             {isInsufficient && (
               <div className="alert alert-error mb-4">
                 <span>

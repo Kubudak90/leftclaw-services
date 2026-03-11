@@ -3,9 +3,10 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { parseEther, parseUnits } from "viem";
-import { useAccount, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useWalletClient, useWriteContract, useSwitchChain } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
+import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { PaymentMethodSelector, formatBalance } from "~~/components/payment";
 import { usePaymentContext, PaymentMethod } from "~~/hooks/scaffold-eth/usePaymentContext";
 import { parseContractError } from "~~/utils/parseContractError";
@@ -39,6 +40,7 @@ function BuildPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { address, chainId } = useAccount();
+  const { switchChain } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
@@ -382,8 +384,8 @@ function BuildPage() {
           />
         </div>
 
-        {!address && <div className="alert alert-warning mb-4"><span>Connect your wallet to start</span></div>}
-        {isWrongNetwork && <div className="alert alert-error mb-4"><span>Switch to Base network</span></div>}
+        {!address && <div className="flex justify-center mb-4"><RainbowKitCustomConnectButton /></div>}
+        {isWrongNetwork && <button className="btn btn-error btn-lg w-full mb-4" onClick={() => switchChain({ chainId: BASE_CHAIN_ID })}>⚠️ Switch to Base Network</button>}
         {isInsufficient && (
           <div className="alert alert-error mb-4">
             <span>

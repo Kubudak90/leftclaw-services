@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { useParams, useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
+import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 
 interface Message {
   role: "user" | "assistant";
@@ -258,6 +259,7 @@ export default function ChatPage() {
     return (
       <div className="flex flex-col items-center py-20">
         <p className="text-xl mb-4">🔒 Connect your wallet to access the consultation</p>
+        <RainbowKitCustomConnectButton />
       </div>
     );
   }
