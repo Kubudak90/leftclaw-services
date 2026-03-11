@@ -103,16 +103,26 @@ function BuildPage() {
     if (!/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.ethereum) return;
     let wcWallet = "";
     try {
-      const wcKey = Object.keys(localStorage).find(k => k.startsWith("wc@2:client"));
-      if (wcKey) wcWallet = (localStorage.getItem(wcKey) || "").toLowerCase();
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith("wc@2:client") || key.startsWith("wagmi")) {
+          const val = (localStorage.getItem(key) || "").toLowerCase();
+          if (val.includes("metamask") || val.includes("rainbow") || val.includes("coinbase") || val.includes("trust") || val.includes("walletconnect")) {
+            wcWallet = val;
+            break;
+          }
+        }
+      }
     } catch {}
     const schemes: [string[], string][] = [
-      [["rainbow"], "rainbow://"], [["metamask"], "metamask://"],
-      [["coinbase", "cbwallet"], "cbwallet://"], [["trust"], "trust://"],
+      [["metamask"], "https://metamask.app.link/"],
+      [["coinbase", "cbwallet"], "https://go.cb-w.com/"],
+      [["rainbow"], "https://rnbwapp.com/"],
+      [["trust"], "https://link.trustwallet.com/"],
     ];
     for (const [kws, scheme] of schemes) {
       if (kws.some(k => wcWallet.includes(k))) { window.location.href = scheme; return; }
     }
+    if (wcWallet) window.location.href = "https://metamask.app.link/";
   }, []);
 
   const writeAndOpen = useCallback(
@@ -285,8 +295,9 @@ function BuildPage() {
   const busy = step === "approving" || step === "posting" || step === "signing" || step === "paying";
 
   const costDisplay = () => {
+    const usdHint = totalUsd > 0 ? ` (~$${totalUsd.toLocaleString()})` : "";
     switch (paymentMethod) {
-      case "cv": return `${cvCost.toLocaleString()} CV`;
+      case "cv": return `${cvCost.toLocaleString()} CV${usdHint}`;
       case "clawd": return clawdNeeded > 0 ? `~${clawdNeeded.toLocaleString()} CLAWD` : "...";
       case "usdc": return `$${totalUsd.toLocaleString()} USDC`;
       case "eth": return ethNeeded > 0 ? `~${ethNeeded.toFixed(4)} ETH` : "...";

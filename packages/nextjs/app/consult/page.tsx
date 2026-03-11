@@ -158,16 +158,27 @@ function ConsultPage() {
     if (!/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.ethereum) return;
     let wcWallet = "";
     try {
-      const wcKey = Object.keys(localStorage).find(k => k.startsWith("wc@2:client"));
-      if (wcKey) wcWallet = (localStorage.getItem(wcKey) || "").toLowerCase();
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith("wc@2:client") || key.startsWith("wagmi")) {
+          const val = (localStorage.getItem(key) || "").toLowerCase();
+          if (val.includes("metamask") || val.includes("rainbow") || val.includes("coinbase") || val.includes("trust") || val.includes("walletconnect")) {
+            wcWallet = val;
+            break;
+          }
+        }
+      }
     } catch {}
     const schemes: [string[], string][] = [
-      [["rainbow"], "rainbow://"], [["metamask"], "metamask://"],
-      [["coinbase", "cbwallet"], "cbwallet://"], [["trust"], "trust://"],
+      [["metamask"], "https://metamask.app.link/"],
+      [["coinbase", "cbwallet"], "https://go.cb-w.com/"],
+      [["rainbow"], "https://rnbwapp.com/"],
+      [["trust"], "https://link.trustwallet.com/"],
     ];
     for (const [kws, scheme] of schemes) {
       if (kws.some(k => wcWallet.includes(k))) { window.location.href = scheme; return; }
     }
+    // Generic fallback: try metamask universal link (most common mobile wallet)
+    if (wcWallet) window.location.href = "https://metamask.app.link/";
   }, []);
 
   const writeAndOpen = useCallback(
@@ -342,12 +353,13 @@ function ConsultPage() {
 
   const busy = step === "approving" || step === "posting" || step === "signing" || step === "paying";
 
-  const costDisplay = () => {
+  const costDisplay = (withUsd = false) => {
+    const usdSuffix = withUsd && priceUsdNum > 0 ? ` (~$${priceUsdNum.toLocaleString()})` : "";
     switch (paymentMethod) {
-      case "cv": return `${cvCost.toLocaleString()} CV`;
-      case "clawd": return clawdNeeded > 0 ? `~${clawdNeeded.toLocaleString()} CLAWD` : "...";
+      case "cv": return `${cvCost.toLocaleString()} CV${usdSuffix}`;
+      case "clawd": return clawdNeeded > 0 ? `~${clawdNeeded.toLocaleString()} CLAWD${usdSuffix}` : "...";
       case "usdc": return `$${priceUsdNum.toFixed(2)} USDC`;
-      case "eth": return ethNeeded > 0 ? `~${ethNeeded.toFixed(6)} ETH` : "...";
+      case "eth": return ethNeeded > 0 ? `~${ethNeeded.toFixed(6)} ETH${usdSuffix}` : "...";
     }
   };
 
@@ -398,6 +410,9 @@ function ConsultPage() {
           <div>
             <p className="text-sm opacity-60">Total cost</p>
             <p className="text-2xl font-mono font-bold">{costDisplay()}</p>
+            {paymentMethod !== "usdc" && priceUsdNum > 0 && (
+              <p className="text-sm opacity-60">~${priceUsdNum.toLocaleString()} USD</p>
+            )}
             <p className="text-sm opacity-50">Balance: {balanceStr()}</p>
           </div>
           <div className="text-right text-sm opacity-60">
