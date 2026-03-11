@@ -167,17 +167,15 @@ function PostJobPage() {
         const spendData = await spendRes.json();
         if (!spendRes.ok) throw new Error(spendData.error || "CV spend failed");
 
-        // CV payment is off-chain only — no on-chain tx needed.
-        const cvJobId = `cv-${Date.now()}`;
-        postedJobIdRef.current = cvJobId;
-
-        // Auto-pass sanitization for CV posts (fire-and-forget)
-        fetch("/api/job/sanitize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jobId: cvJobId, description: jobDesc, cvAutoPass: true }),
-        }).catch(() => {});
-
+        // Record job on-chain (gas only — no token transfer)
+        postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
+        setStep("posting");
+        const txHash = await writeAndOpen(() => writeContractAsync({
+          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
+          functionName: "postJobWithCV", args: [serviceType, BigInt(cvCost), jobDesc],
+        }));
+        if (!txHash) { setTxError("Transaction was not submitted — please try again"); setStep("idle"); return; }
+        if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
         setStep("done");
 
       } else if (paymentMethod === "clawd") {
