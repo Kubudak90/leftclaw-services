@@ -17,7 +17,7 @@ export async function GET() {
         name: "Quick Consultation",
         description: "A focused 15-message chat session about your idea. Returns a written build plan.",
         price: SERVICE_PRICES.CONSULT_QUICK,
-        responseType: "async",
+        responseType: "session",
       },
       {
         endpoint: "/api/consult/deep",
@@ -25,7 +25,7 @@ export async function GET() {
         name: "Deep Consultation",
         description: "A 30-message deep-dive on complex architecture, protocol design, or strategy.",
         price: SERVICE_PRICES.CONSULT_DEEP,
-        responseType: "async",
+        responseType: "session",
       },
       {
         endpoint: "/api/qa",
@@ -33,7 +33,7 @@ export async function GET() {
         name: "QA Report",
         description: "Pre-ship dApp quality audit. Send your dApp URL or contract address.",
         price: SERVICE_PRICES.QA_REPORT,
-        responseType: "async",
+        responseType: "session",
       },
       {
         endpoint: "/api/audit",
@@ -42,18 +42,22 @@ export async function GET() {
         description:
           "Security review of a smart contract. Send contract address (verified on Basescan/Etherscan) or source code.",
         price: SERVICE_PRICES.AUDIT_QUICK,
-        responseType: "async",
+        responseType: "session",
+      },
+      {
+        endpoint: "/api/pfp",
+        method: "POST",
+        name: "CLAWD PFP Generator",
+        description:
+          "Custom CLAWD mascot profile picture. Describe how to modify the character, get a 1024x1024 PNG inline.",
+        price: SERVICE_PRICES.PFP_GENERATE,
+        responseType: "inline",
       },
     ],
-    polling: {
-      endpoint: "/api/job/{jobId}",
-      method: "GET",
-      description: "Poll for job status and results (free, no payment required)",
-    },
     clientExample: {
       note: "Use @x402/fetch for automatic payment handling",
       install: "npm install @x402/core @x402/evm @x402/fetch",
-      code: `import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";\nimport { ExactEvmScheme } from "@x402/evm";\nimport { privateKeyToAccount } from "viem/accounts";\n\nconst account = privateKeyToAccount("0xYourPrivateKey");\nconst fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {\n  schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(account) }],\n});\n\nconst response = await fetchWithPayment("https://leftclaw.services/api/consult/quick", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({ description: "I want to build a token dashboard" }),\n});\nconst { jobId } = await response.json();\n// Poll /api/job/{jobId} for results`,
+      code: `import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";\nimport { ExactEvmScheme } from "@x402/evm";\nimport { privateKeyToAccount } from "viem/accounts";\n\nconst account = privateKeyToAccount("0xYourPrivateKey");\nconst fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {\n  schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(account) }],\n});\n\n// Consult/QA/Audit → returns a chat session\nconst res = await fetchWithPayment("https://leftclaw.services/api/consult/quick", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({ description: "I want to build a token dashboard" }),\n});\nconst { sessionId, chatUrl } = await res.json();\n// Visit chatUrl to start your session\n\n// PFP → returns image inline\nconst pfp = await fetchWithPayment("https://leftclaw.services/api/pfp", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({ prompt: "wearing a cowboy hat" }),\n});\nconst { image } = await pfp.json();\n// image → "data:image/png;base64,..."`,
     },
   });
 }
