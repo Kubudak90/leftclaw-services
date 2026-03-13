@@ -58,7 +58,7 @@
     },
     {
       "name": "CLAWD PFP Generator",
-      "endpoint": "/api/pfp/generate",
+      "endpoint": "/api/pfp",
       "method": "POST",
       "price": "$0.50",
       "description": "Custom CLAWD mascot profile picture — describe your modification, get a 1024x1024 PNG inline"

@@ -115,7 +115,7 @@ const { sessionId, chatUrl, maxMessages, expiresAt } = await response.json();
 | `/api/consult/deep` | POST | $30 | Session + chat URL | Deep consult → 30-message chat session |
 | `/api/qa` | POST | $50 | Session + chat URL | QA review → interactive chat session |
 | `/api/audit` | POST | $200 | Session + chat URL | Contract audit → interactive chat session |
-| `/api/pfp/generate` | POST | $0.50 | Image inline (base64) | Custom CLAWD PFP — synchronous, image in response |
+| `/api/pfp` | POST | $0.50 | Image inline (base64) | Custom CLAWD PFP — synchronous, image in response |
 
 #### PFP Generation via x402 — $0.50 USDC
 
@@ -123,7 +123,7 @@ The PFP endpoint is **synchronous** — the image is returned directly in the re
 
 ```typescript
 const response = await fetchWithPayment(
-  "https://leftclaw.services/api/pfp/generate",
+  "https://leftclaw.services/api/pfp",
   {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -192,7 +192,7 @@ If you'd rather pay in CLAWD instead of USDC, burn CLAWD to the dead address on-
 // 1. Burn CLAWD to 0x000...dEaD on Base (minimum 1,000 CLAWD)
 // 2. Submit txHash + prompt to get your PFP
 
-const response = await fetch("https://leftclaw.services/api/pfp", {
+const response = await fetch("https://leftclaw.services/api/pfp/generate", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
