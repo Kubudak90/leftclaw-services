@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import JobChatPanel from "./JobChatPanel";
 import { useParams } from "next/navigation";
 import { Address } from "@scaffold-ui/components";
 import { formatUnits } from "viem";
@@ -450,6 +451,11 @@ export default function JobDetailClient() {
             )}
           </div>
         </div>
+        {/* Job Chat — build jobs, client only */}
+        {isClient && !isConsult && address && (
+          <JobChatPanel jobId={jobId} clientAddress={address} />
+        )}
+
         {/* Work Log */}
         {(() => {
           const logs = workLogsData as { note: string; timestamp: bigint }[] | undefined;
