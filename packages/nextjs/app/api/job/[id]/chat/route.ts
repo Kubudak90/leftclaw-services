@@ -45,6 +45,59 @@ function recordUsage(jobId: string, clientAddress: string) {
   rateLimits.set(key, timestamps);
 }
 
+const SERVICE_TYPE_NAMES: Record<number, string> = {
+  0: "CV-Based Consult (answer questions about crypto/web3/ETH)",
+  1: "AI Code Review (automated code review via bot)",
+  2: "CV-Based Build (custom dev work paid in CLAWD tokens)",
+  3: "Daily Build (recurring build subscription)",
+  4: "PFP Generation",
+};
+
+async function fetchDescriptionContent(descriptionCID: string): Promise<string> {
+  if (!descriptionCID) return "No description provided";
+  try {
+    let url: string;
+    if (descriptionCID.startsWith("http://") || descriptionCID.startsWith("https://")) {
+      url = descriptionCID;
+    } else if (descriptionCID.startsWith("Qm") || descriptionCID.startsWith("bafy")) {
+      url = `https://ipfs.io/ipfs/${descriptionCID}`;
+    } else {
+      return descriptionCID; // Plain text description
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return `Description URL returned ${res.status}: ${url}`;
+    let text = await res.text();
+    // Strip HTML tags if present
+    text = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    return text.slice(0, 3000) || "Empty description";
+  } catch {
+    return `Could not fetch description from: ${descriptionCID}`;
+  }
+}
+
+async function fetchSkillMd(jobId: string): Promise<string | null> {
+  // Try job repo first
+  const jobSkill = await fetchGitHubFile(jobId, "SKILL.md");
+  if (jobSkill) return jobSkill.slice(0, 4000);
+  // Fall back to main repo
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch("https://raw.githubusercontent.com/clawdbotatg/leftclaw-services/main/SKILL.md", {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text.slice(0, 4000);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchGitHubFile(jobId: string, path: string): Promise<string | null> {
   const token = process.env.GITHUB_TOKEN;
   if (!token) return null;
@@ -122,11 +175,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Fetch context
   const numericId = jobId.startsWith("cv-") ? BigInt(jobId.slice(3)) : BigInt(jobId);
-  const [workLogsRaw, messages, planMd, userJourneyMd] = await Promise.all([
+  const [workLogsRaw, messages, planMd, userJourneyMd, descriptionContent, skillMd] = await Promise.all([
     viemClient.readContract({ address, abi, functionName: "getWorkLogs", args: [numericId] }).catch(() => [] as any[]),
     getMessages(jobId),
     fetchGitHubFile(jobId, "PLAN.md"),
     fetchGitHubFile(jobId, "USERJOURNEY.md"),
+    fetchDescriptionContent(job.descriptionCID || ""),
+    fetchSkillMd(jobId),
   ]);
 
   const workLogs = (workLogsRaw as any[]).map((l: any) => ({ note: l.note, timestamp: Number(l.timestamp) }));
@@ -139,35 +194,60 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await addJobMessage(jobId, { type: "client_message", from: "client", content: message });
   recordUsage(jobId, clientAddress);
 
-  const systemPrompt = `You are the project manager for a LeftClaw Services build job. You have full context on this job and can answer questions, explain architectural decisions, review progress, and help the client resolve blockers.
+  const serviceTypeName = SERVICE_TYPE_NAMES[Number(job.serviceType)] || `Unknown (${Number(job.serviceType)})`;
+  const cvAmount = Number(job.paymentClawd) / 1e18;
+  const cvFormatted =
+    cvAmount >= 1_000_000
+      ? `${(cvAmount / 1_000_000).toFixed(1)}M CV`
+      : cvAmount >= 1_000
+        ? `${(cvAmount / 1_000).toFixed(1)}K CV`
+        : `${cvAmount} CV`;
 
-Job ID: ${jobId}
-Current stage: ${job.currentStage}
-Service type: ${Number(job.serviceType)}
-Price: $${Number(job.priceUsd)}
-Worker: ${job.worker}
-Created: ${new Date(Number(job.createdAt) * 1000).toISOString()}
+  const systemPrompt = `You are the project manager for a LeftClaw Services build job. You have full context on this job and can answer any question the client asks — about what's being built, the current status, architectural decisions, blockers, or next steps.
 
-## Work Log (what the bot has done)
-${workLogs.map((l: any) => `[${new Date(l.timestamp * 1000).toISOString()}] ${l.note}`).join("\n") || "No logs yet"}
+## About LeftClaw Services
+LeftClaw Services is an AI-powered Ethereum builder marketplace where clients hire CLAWD worker bots to build onchain apps, smart contracts, and web3 projects. Jobs are posted on-chain on Base (contract: 0x1e70Adc6211196532578C0A5770b51c12ea14A9F). Payment is in CLAWD tokens (the project's conviction token) or USDC. Workers are AI bots (leftclaw.eth, rightclaw.eth, clawdheart.eth, clawdgut.eth) that build autonomously through stages: create_plan → create_repo → setup_scaffold → develop → test → deploy → ready.
 
-## Build Plan (PLAN.md)
-${planMd || "Not yet created"}
+## About CLAWD Tokens (CV)
+CLAWD is the conviction token for the project. When a client pays in CLAWD (CV), the amount signals their conviction level:
+- Under 100K CV: casual interest
+- 100K–1M CV: serious commitment
+- 1M–10M CV: high conviction — this client believes strongly in the project
+- 10M+ CV: maximum conviction — this is a major bet on the outcome
 
-## User Journey (USERJOURNEY.md)
+The more CV a client pays, the more skin they have in the game. High CV jobs are prioritized and signal strong alignment between client and project.
+
+## This Job
+- **Job ID:** ${jobId}
+- **Client:** ${job.client}
+- **Service:** ${serviceTypeName}
+- **Price:** ${cvFormatted} + $${Number(job.priceUsd)} USD
+- **Status:** ${job.status} | **Stage:** ${job.currentStage || "not started"}
+- **Created:** ${new Date(Number(job.createdAt) * 1000).toISOString()}
+- **Worker:** ${job.worker || "unassigned"}
+
+## Project Description
+${descriptionContent}
+
+## Build Process (SKILL.md)
+${skillMd || "Not available"}
+
+## Work Log (what the bot has done so far)
+${workLogs.map((l: any) => `[${new Date(l.timestamp * 1000).toISOString()}] ${l.note}`).join("\n") || "No work started yet"}
+
+## Build Plan (PLAN.md from repo)
+${planMd || "Not yet created — the bot hasn't started the build plan stage yet"}
+
+## User Journey (USERJOURNEY.md from repo)
 ${userJourneyMd || "Not yet created"}
 
-## Message History (escalations + prior chat)
+## Message History
 ${messages.map(m => `[${m.type}] ${m.from}: ${m.content}`).join("\n") || "No prior messages"}
 
-## Pending Escalations
-${pendingEscalations.length > 0 ? pendingEscalations.map(e => `BLOCKED: ${(e.metadata as any)?.question}\nDetails: ${e.content}`).join("\n") : "None"}
+## Pending Escalations (blocking the bot)
+${pendingEscalations.length > 0 ? pendingEscalations.map(e => `BLOCKED: ${(e.metadata as any)?.question}\nDetails: ${e.content}`).join("\n") : "None — bot is not blocked"}
 
-You have the following capabilities:
-- Answer any question about the job using the context above
-- If the client answers a pending escalation, use the answer_escalation tool to store their answer — the bot will be unblocked
-- If the client wants to roll back to a previous stage, confirm and use the request_stage_rollback tool
-- Use read_file to fetch additional files from the repo if needed`;
+You can use your tools to read additional repo files, answer escalations, or request a stage rollback. Be direct and specific — the client wants to know what's actually happening with their build, not generic platitudes.`;
 
   const tools: Anthropic.Messages.Tool[] = [
     {
