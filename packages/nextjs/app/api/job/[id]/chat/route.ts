@@ -232,6 +232,23 @@ ${descriptionContent}
 ## Build Process (SKILL.md)
 ${skillMd || "Not available"}
 
+## Build Standards (ethskills.com)
+The CLAWD worker bot builds according to ethskills.com — a library of SKILL.md files covering every aspect of building on Ethereum. Before starting any task, the bot fetches the relevant skill file and follows it exactly. No shortcuts. No assumptions.
+
+Key skill files the bot uses:
+- Ship process: https://ethskills.com/ship/SKILL.md
+- Security: https://ethskills.com/security/SKILL.md
+- Testing: https://ethskills.com/testing/SKILL.md
+- Solidity standards: https://ethskills.com/standards/SKILL.md
+- Tools (Foundry, Scaffold-ETH): https://ethskills.com/tools/SKILL.md
+- Frontend: https://ethskills.com/frontend-playbook/SKILL.md
+- DeFi/money legos: https://ethskills.com/building-blocks/SKILL.md
+- QA pre-ship: https://ethskills.com/qa/SKILL.md
+- Audit: https://ethskills.com/audit/SKILL.md
+- All skills index: https://ethskills.com/SKILL.md
+
+If the client asks why something was built a certain way, the answer is probably in one of these skill files. You can reference them when explaining decisions.
+
 ## Work Log (what the bot has done so far)
 ${workLogs.map((l: any) => `[${new Date(l.timestamp * 1000).toISOString()}] ${l.note}`).join("\n") || "No work started yet"}
 
@@ -281,6 +298,20 @@ You can use your tools to read additional repo files, answer escalations, or req
           reason: { type: "string" },
         },
         required: ["stage", "reason"],
+      },
+    },
+    {
+      name: "fetch_ethskill",
+      description: "Fetch a skill file from ethskills.com to answer a client question about standards, tools, security, or best practices",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          skill: {
+            type: "string",
+            description: "The skill path, e.g. 'security', 'testing', 'standards', 'tools', 'ship', 'frontend-playbook', 'qa', 'audit', 'building-blocks', 'l2s', 'gas', 'wallets', 'indexing', 'frontend-ux', 'orchestration', 'addresses', 'concepts', 'why'",
+          },
+        },
+        required: ["skill"],
       },
     },
   ];
@@ -335,6 +366,15 @@ You can use your tools to read additional repo files, answer escalations, or req
           metadata: { stage: input.stage },
         });
         result = `Rollback to ${input.stage} requested. The bot will honor this when it resumes.`;
+      } else if (tu.name === "fetch_ethskill") {
+        try {
+          const res = await fetch(`https://ethskills.com/${input.skill}/SKILL.md`, { signal: AbortSignal.timeout(5000) });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const text = await res.text();
+          result = text.slice(0, 4000);
+        } catch (e: any) {
+          result = `Failed to fetch ethskills.com/${input.skill}/SKILL.md: ${e.message}`;
+        }
       } else {
         result = "Unknown tool";
       }
