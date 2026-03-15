@@ -55,27 +55,42 @@ const SERVICE_TYPE_NAMES: Record<number, string> = {
 
 async function fetchDescriptionContent(descriptionCID: string): Promise<string> {
   if (!descriptionCID) return "No description provided";
-  try {
-    let url: string;
-    if (descriptionCID.startsWith("http://") || descriptionCID.startsWith("https://")) {
-      url = descriptionCID;
-    } else if (descriptionCID.startsWith("Qm") || descriptionCID.startsWith("bafy")) {
-      url = `https://ipfs.io/ipfs/${descriptionCID}`;
-    } else {
-      return descriptionCID; // Plain text description
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return `Description URL returned ${res.status}: ${url}`;
-    let text = await res.text();
-    // Strip HTML tags if present
-    text = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-    return text.slice(0, 3000) || "Empty description";
-  } catch {
-    return `Could not fetch description from: ${descriptionCID}`;
+
+  const parts: string[] = [`Raw description: ${descriptionCID}`];
+
+  // Extract all URLs from the description text
+  const urlMatches: string[] = descriptionCID.match(/https?:\/\/[^\s<>"]+/g) || [];
+
+  // Also handle bare IPFS CIDs
+  if (descriptionCID.startsWith("Qm") || descriptionCID.startsWith("bafy")) {
+    urlMatches.push(`https://ipfs.io/ipfs/${descriptionCID}`);
   }
+
+  const uniqueUrls = [...new Set(urlMatches)].slice(0, 3);
+
+  for (const url of uniqueUrls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) {
+        parts.push(`[${url}]: HTTP ${res.status}`);
+        continue;
+      }
+      const contentType = res.headers.get("content-type") || "";
+      let text = await res.text();
+      // Strip HTML tags if HTML response
+      if (contentType.includes("html")) {
+        text = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      }
+      parts.push(`[Content from ${url}]:\n${text.slice(0, 2000)}`);
+    } catch (e: any) {
+      parts.push(`[${url}]: Failed to fetch (${e.message})`);
+    }
+  }
+
+  return parts.join("\n\n");
 }
 
 async function fetchSkillMd(jobId: string): Promise<string | null> {
@@ -301,6 +316,17 @@ You can use your tools to read additional repo files, answer escalations, or req
       },
     },
     {
+      name: "fetch_url",
+      description: "Fetch and read any URL — GitHub gists, documentation, external resources, or any link the client mentions",
+      input_schema: {
+        type: "object" as const,
+        properties: {
+          url: { type: "string", description: "The full URL to fetch" },
+        },
+        required: ["url"],
+      },
+    },
+    {
       name: "fetch_ethskill",
       description: "Fetch a skill file from ethskills.com to answer a client question about standards, tools, security, or best practices",
       input_schema: {
@@ -366,6 +392,22 @@ You can use your tools to read additional repo files, answer escalations, or req
           metadata: { stage: input.stage },
         });
         result = `Rollback to ${input.stage} requested. The bot will honor this when it resumes.`;
+      } else if (tu.name === "fetch_url") {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 5000);
+          const res = await fetch(input.url, { signal: controller.signal });
+          clearTimeout(timeout);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const contentType = res.headers.get("content-type") || "";
+          let text = await res.text();
+          if (contentType.includes("html")) {
+            text = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+          }
+          result = text.slice(0, 4000);
+        } catch (e: any) {
+          result = `Failed to fetch ${input.url}: ${e.message}`;
+        }
       } else if (tu.name === "fetch_ethskill") {
         try {
           const res = await fetch(`https://ethskills.com/${input.skill}/SKILL.md`, { signal: AbortSignal.timeout(5000) });
