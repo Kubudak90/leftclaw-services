@@ -39,6 +39,7 @@ export default function ChatPage() {
   const [planGistUrl, setPlanGistUrl] = useState<string | null>(null);
   const [planDescription, setPlanDescription] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [routeSuggestion, setRouteSuggestion] = useState<{ type: "AUDIT" | "QA" | "PFP" | "BUILD"; summary: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const MAX_CHARS = 1000;
@@ -133,6 +134,12 @@ export default function ChatPage() {
         if (planMatch) {
           await createGistAndRedirect(planMatch[1].trim());
         }
+      }
+
+      // Check for route markers
+      const routeMatch = assistantContent.match(/---ROUTE:\s*(AUDIT|QA|PFP|BUILD)---\s*([\s\S]*?)---ROUTE END---/);
+      if (routeMatch) {
+        setRouteSuggestion({ type: routeMatch[1] as "AUDIT" | "QA" | "PFP" | "BUILD", summary: routeMatch[2].trim() });
       }
     } catch (e) {
       setError("Network error");
@@ -295,7 +302,7 @@ export default function ChatPage() {
         {messages.length === 0 && !isStreaming && (
           <div className="text-center py-10 opacity-60">
             <p className="text-4xl mb-2">🦞</p>
-            <p>Tell me what you want to build and I&apos;ll help you find the right way to do it.</p>
+            <p>Tell me what you need help with — builds, audits, QA reports, or anything else.</p>
           </div>
         )}
         {messages.map((msg, i) => (
@@ -320,6 +327,30 @@ export default function ChatPage() {
         <div ref={bottomRef} />
        </div>
       </div>
+
+      {/* Route suggestion buttons */}
+      {routeSuggestion && routeSuggestion.type !== "BUILD" && (
+        <div className="px-3 sm:px-4 py-3 border-t border-base-300 flex gap-2">
+          <button
+            className="btn btn-ghost btn-sm flex-1"
+            onClick={() => setRouteSuggestion(null)}
+          >
+            💬 Continue chatting
+          </button>
+          <button
+            className="btn btn-primary btn-sm flex-1"
+            onClick={() => {
+              if (routeSuggestion.type === "AUDIT") router.push("/post?type=7");
+              else if (routeSuggestion.type === "QA") router.push("/post?type=6");
+              else if (routeSuggestion.type === "PFP") router.push("/pfp");
+            }}
+          >
+            {routeSuggestion.type === "AUDIT" && "🛡️ Go to Audit Service →"}
+            {routeSuggestion.type === "QA" && "🔍 Go to QA Service →"}
+            {routeSuggestion.type === "PFP" && "🦞 Generate My PFP →"}
+          </button>
+        </div>
+      )}
 
       {/* Plan buttons */}
       {planGistUrl && (
@@ -354,7 +385,7 @@ export default function ChatPage() {
           <textarea
             ref={inputRef}
             className="textarea textarea-bordered flex-1 min-w-0 rounded-md resize-none text-base leading-snug py-2 min-h-0"
-            placeholder="What do you want to build?"
+            placeholder="What do you need help with?"
             autoFocus
             rows={1}
             maxLength={MAX_CHARS}
