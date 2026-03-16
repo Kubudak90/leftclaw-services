@@ -8,13 +8,16 @@ interface Props {
   usdcBalance?: bigint;
   ethBalance?: bigint;
   cvBalance: number | null;
+  cvDisplayBalance?: number | null;
 }
 
 export function formatBalance(props: Props): string {
-  const { method, clawdBalance, usdcBalance, ethBalance, cvBalance } = props;
+  const { method, clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance } = props;
   switch (method) {
-    case "cv":
-      return cvBalance !== null ? `${cvBalance.toLocaleString()} CV` : "—";
+    case "cv": {
+      const display = cvDisplayBalance ?? cvBalance;
+      return display !== null && display !== undefined ? `${display.toLocaleString()} CV` : "—";
+    }
     case "clawd":
       return clawdBalance !== undefined
         ? `${Number(clawdBalance / BigInt(10) ** BigInt(18)).toLocaleString()} CLAWD`

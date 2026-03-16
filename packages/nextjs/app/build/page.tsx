@@ -46,7 +46,7 @@ function BuildPage() {
   const { writeContractAsync } = useWriteContract();
 
   const {
-    clawdBalance, usdcBalance, ethBalance, cvBalance,
+    clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance,
     clawdPrice, ethPrice,
     clawdAllowance, refetchAllowance,
     bestPaymentMethod,
@@ -305,7 +305,7 @@ function BuildPage() {
     }
   };
 
-  const balanceStr = () => formatBalance({ method: paymentMethod, clawdBalance, usdcBalance, ethBalance, cvBalance });
+  const balanceStr = () => formatBalance({ method: paymentMethod, clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance });
 
   const buttonLabel = () => {
     if (step === "signing") return "Sign message in wallet...";

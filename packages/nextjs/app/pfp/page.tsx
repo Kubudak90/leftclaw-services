@@ -60,7 +60,7 @@ export default function PfpPage() {
   const { sendTransactionAsync } = useSendTransaction();
 
   const {
-    clawdBalance, usdcBalance, ethBalance, cvBalance,
+    clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance,
     clawdPrice, ethPrice,
     bestPaymentMethod,
   } = usePaymentContext();
@@ -200,7 +200,7 @@ export default function PfpPage() {
     }
   };
 
-  const balanceStr = () => formatBalance({ method: paymentMethod, clawdBalance, usdcBalance, ethBalance, cvBalance: displayCvBalance });
+  const balanceStr = () => formatBalance({ method: paymentMethod, clawdBalance, usdcBalance, ethBalance, cvBalance: displayCvBalance, cvDisplayBalance });
 
   return (
     <div className="flex flex-col items-center py-10 px-4 min-h-screen">

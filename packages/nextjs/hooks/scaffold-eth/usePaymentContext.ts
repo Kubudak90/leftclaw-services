@@ -47,6 +47,7 @@ interface PaymentContext {
   usdcBalance: bigint | undefined;
   ethBalance: bigint | undefined;
   cvBalance: number | null;
+  cvDisplayBalance: number | null;
 
   // Prices
   clawdPrice: number | null;
@@ -105,16 +106,26 @@ export function usePaymentContext(): PaymentContext {
   const ethBalance = ethBalanceData?.value;
 
   // --- CV balance (off-chain API, cached) ---
+  // cvBalance = spendable DB value (balance) — used for spend gating
+  // cvDisplayBalance = optimistic real-time estimate (clawdviction) — display only
   const [cvBalance, setCvBalance] = useState<number | null>(null);
+  const [cvDisplayBalance, setCvDisplayBalance] = useState<number | null>(null);
   useEffect(() => {
     if (!address) {
       setCvBalance(null);
+      setCvDisplayBalance(null);
       return;
     }
     fetch(`/api/cv-balance/${address}`)
       .then(r => r.json())
-      .then(data => setCvBalance(Number(data.clawdviction) || 0))
-      .catch(() => setCvBalance(null));
+      .then(data => {
+        setCvBalance(Number(data.balance ?? data.clawdviction) || 0);
+        setCvDisplayBalance(Number(data.clawdviction) || 0);
+      })
+      .catch(() => {
+        setCvBalance(null);
+        setCvDisplayBalance(null);
+      });
   }, [address]);
 
   // --- Prices (module-level cache, shared across pages) ---
@@ -196,6 +207,7 @@ export function usePaymentContext(): PaymentContext {
     usdcBalance,
     ethBalance,
     cvBalance,
+    cvDisplayBalance,
     clawdPrice,
     ethPrice,
     clawdAllowance,

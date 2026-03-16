@@ -56,7 +56,7 @@ function PostJobPage() {
   const { writeContractAsync } = useWriteContract();
 
   const {
-    clawdBalance, usdcBalance, ethBalance, cvBalance,
+    clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance,
     clawdPrice, ethPrice,
     clawdAllowance, refetchAllowance,
     bestPaymentMethod,
@@ -401,7 +401,7 @@ function PostJobPage() {
             <p className="text-2xl font-mono font-bold">{costDisplay()}</p>
             {address && (
               <p className="text-sm opacity-50">
-                Balance: {formatBalance({ method: paymentMethod, clawdBalance, usdcBalance, ethBalance, cvBalance })}
+                Balance: {formatBalance({ method: paymentMethod, clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance })}
               </p>
             )}
           </div>

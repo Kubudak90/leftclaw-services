@@ -95,7 +95,7 @@ function ConsultPage() {
 
   // Payment context — single hook for all balances, prices, allowances
   const {
-    clawdBalance, usdcBalance, ethBalance, cvBalance,
+    clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance,
     clawdPrice, ethPrice,
     clawdAllowance, refetchAllowance,
     bestPaymentMethod,
@@ -363,7 +363,7 @@ function ConsultPage() {
     }
   };
 
-  const balanceStr = () => formatBalance({ method: paymentMethod, clawdBalance, usdcBalance, ethBalance, cvBalance });
+  const balanceStr = () => formatBalance({ method: paymentMethod, clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance });
 
   const buttonLabel = () => {
     if (step === "signing") return "Sign message in wallet...";
