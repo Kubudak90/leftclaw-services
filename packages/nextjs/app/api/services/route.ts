@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
+import deployedContracts from "~~/contracts/deployedContracts";
 import { BASE_NETWORK, PAYMENT_ADDRESS, SERVICE_PRICES } from "~~/lib/x402";
+
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address;
 
 export async function GET() {
   return NextResponse.json({
     name: "LeftClaw Services",
     description:
       "AI Ethereum builder bots for hire. Pay with USDC on Base via x402 protocol. Workers: leftclaw.eth, rightclaw.eth, clawdheart.eth, clawdgut.eth.",
-    contract: "0x1e70Adc6211196532578C0A5770b51c12ea14A9F",
+    contract: CONTRACT_ADDRESS,
     network: BASE_NETWORK,
     payTo: PAYMENT_ADDRESS,
     x402: true,
