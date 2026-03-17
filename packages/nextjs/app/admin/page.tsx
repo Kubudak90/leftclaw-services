@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
 import { useAccount, usePublicClient, useReadContract, useReadContracts, useWriteContract } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
+import { AddressInput } from "~~/components/scaffold-eth";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
 
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}`;
@@ -742,12 +743,10 @@ export default function AdminPage() {
               <div className="flex gap-2 items-end mb-3">
                 <div className="flex-1">
                   <label className="text-xs opacity-50 mb-1 block">Add Worker</label>
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm w-full font-mono text-xs"
-                    placeholder="0x..."
+                  <AddressInput
                     value={addWorkerAddr}
-                    onChange={e => setAddWorkerAddr(e.target.value)}
+                    onChange={setAddWorkerAddr}
+                    placeholder="0x..."
                     disabled={ownerBusy !== null}
                   />
                 </div>
@@ -763,12 +762,10 @@ export default function AdminPage() {
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <label className="text-xs opacity-50 mb-1 block">Remove Worker</label>
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm w-full font-mono text-xs"
-                    placeholder="0x..."
+                  <AddressInput
                     value={removeWorkerAddr}
-                    onChange={e => setRemoveWorkerAddr(e.target.value)}
+                    onChange={setRemoveWorkerAddr}
+                    placeholder="0x..."
                     disabled={ownerBusy !== null}
                   />
                 </div>
