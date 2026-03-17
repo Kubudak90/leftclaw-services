@@ -654,10 +654,22 @@ export default function AdminPage() {
     }
   };
 
+  const isWorkerLoaded = isWorkerData !== undefined;
+  const isOwnerLoaded = ownerData !== undefined;
+  const isLoading = !isWorkerLoaded || !isOwnerLoaded;
+
   if (!address) {
     return (
       <div className="flex justify-center py-20">
         <p className="opacity-60">Connect your wallet to access admin</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-20">
+        <span className="loading loading-spinner loading-lg" />
       </div>
     );
   }
