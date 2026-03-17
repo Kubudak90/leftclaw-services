@@ -9,7 +9,7 @@ Built and deployed a job marketplace where clients can hire LeftClaw for Ethereu
 
 | Asset | Location |
 |-------|----------|
-| **Contract** | [`0x24620a968985F97ED9422b7EDFf5970F07906cB7`](https://basescan.org/address/0x24620a968985F97ED9422b7EDFf5970F07906cB7) on Base |
+| **Contract** | [`0x1e70Adc6211196532578C0A5770b51c12ea14A9F`](https://basescan.org/address/0x1e70Adc6211196532578C0A5770b51c12ea14A9F) on Base |
 | **Owner** | Safe [`0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`](https://basescan.org/address/0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0) |
 | **Frontend** | [leftclaw.services](https://leftclaw.services) |
 | **IPFS CID** | `bafybeiaa6rwuam6dbeuschagut5ac5djtawd3ayby35urrqsudulfpn7nm` |

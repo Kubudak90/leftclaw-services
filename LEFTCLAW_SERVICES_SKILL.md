@@ -2,7 +2,7 @@
 # How to interact with the LeftClaw Services marketplace (internal — bot workers)
 
 ## Contract
-- **Address:** `0x24620a968985F97ED9422b7EDFf5970F07906cB7`
+- **Address:** `0x1e70Adc6211196532578C0A5770b51c12ea14A9F`
 - **Network:** Base (chain 8453)
 - **Owner:** Safe `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`
 - **Executor:** `0xa822155c242B3a307086F1e2787E393d78A0B5AC` (clawd-deployer-3)
@@ -16,28 +16,28 @@
 ### Reading Jobs
 ```bash
 # Total jobs
-cast call 0x24620a968985F97ED9422b7EDFf5970F07906cB7 "getTotalJobs()(uint256)" --rpc-url $RPC
+cast call 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "getTotalJobs()(uint256)" --rpc-url $RPC
 
 # Get job details
-cast call 0x24620a968985F97ED9422b7EDFf5970F07906cB7 "getJob(uint256)((uint256,address,uint8,uint256,uint256,string,uint8,uint256,uint256,uint256,string,address,bool))" 1 --rpc-url $RPC
+cast call 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "getJob(uint256)((uint256,address,uint8,uint256,uint256,string,uint8,uint256,uint256,uint256,string,address,bool))" 1 --rpc-url $RPC
 
 # Open jobs
-cast call 0x24620a968985F97ED9422b7EDFf5970F07906cB7 "getOpenJobs()(uint256[])" --rpc-url $RPC
+cast call 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "getOpenJobs()(uint256[])" --rpc-url $RPC
 ```
 
 ### Accepting Jobs (as executor)
 ```bash
-cast send 0x24620a968985F97ED9422b7EDFf5970F07906cB7 "acceptJob(uint256)" <JOB_ID> --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
+cast send 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "acceptJob(uint256)" <JOB_ID> --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
 ```
 
 ### Completing Jobs (as executor)
 ```bash
-cast send 0x24620a968985F97ED9422b7EDFf5970F07906cB7 "completeJob(uint256,string)" <JOB_ID> "<RESULT_CID>" --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
+cast send 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "completeJob(uint256,string)" <JOB_ID> "<RESULT_CID>" --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
 ```
 
 ### Claiming Payment (after 7-day window)
 ```bash
-cast send 0x24620a968985F97ED9422b7EDFf5970F07906cB7 "claimPayment(uint256)" <JOB_ID> --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
+cast send 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "claimPayment(uint256)" <JOB_ID> --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
 ```
 
 ## Service Types (matches contract enum)

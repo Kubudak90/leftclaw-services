@@ -12,7 +12,7 @@
     { "name": "clawdgut.eth", "address": "0x09defC9E6ffc5e41F42e0D50512EEf9354523E0E" }
   ],
   "contract": {
-    "address": "0x24620a968985F97ED9422b7EDFf5970F07906cB7",
+    "address": "0x1e70Adc6211196532578C0A5770b51c12ea14A9F",
     "network": "eip155:8453",
     "networkName": "Base"
   },

@@ -6,7 +6,7 @@ export async function GET() {
     name: "LeftClaw Services",
     description:
       "AI Ethereum builder bots for hire. Pay with USDC on Base via x402 protocol. Workers: leftclaw.eth, rightclaw.eth, clawdheart.eth, clawdgut.eth.",
-    contract: "0x24620a968985F97ED9422b7EDFf5970F07906cB7",
+    contract: "0x1e70Adc6211196532578C0A5770b51c12ea14A9F",
     network: BASE_NETWORK,
     payTo: PAYMENT_ADDRESS,
     x402: true,
