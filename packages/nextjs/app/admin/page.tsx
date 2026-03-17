@@ -5,6 +5,7 @@ import { formatUnits, parseUnits } from "viem";
 import { useAccount, usePublicClient, useReadContract, useReadContracts, useWriteContract } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { AddressInput } from "@scaffold-ui/components";
+import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
 
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}`;
@@ -661,8 +662,9 @@ export default function AdminPage() {
 
   if (!address) {
     return (
-      <div className="flex justify-center py-20">
-        <p className="opacity-60">Connect your wallet to access admin</p>
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <p className="text-lg opacity-60">Connect your wallet to access admin</p>
+        <RainbowKitCustomConnectButton />
       </div>
     );
   }
