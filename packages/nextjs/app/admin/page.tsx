@@ -506,6 +506,20 @@ export default function AdminPage() {
   });
   const isWorker = !!isWorkerData?.[0]?.result;
 
+  // Check owner
+  const { data: ownerData } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI as any,
+    functionName: "owner",
+  });
+  const isOwner = address?.toLowerCase() === (ownerData as string)?.toLowerCase();
+
+  // Owner panel state
+  const [addWorkerAddr, setAddWorkerAddr] = useState("");
+  const [removeWorkerAddr, setRemoveWorkerAddr] = useState("");
+  const [ownerBusy, setOwnerBusy] = useState<string | null>(null);
+  const [ownerMsg, setOwnerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Total jobs count
   const { data: totalJobsData } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -648,13 +662,55 @@ export default function AdminPage() {
     );
   }
 
-  if (!isWorker) {
+  if (!isWorker && !isOwner) {
     return (
       <div className="flex justify-center py-20">
         <p className="opacity-60">🚫 Worker access only</p>
       </div>
     );
   }
+
+  const handleAddWorker = async () => {
+    if (!addWorkerAddr) return;
+    setOwnerBusy("add");
+    setOwnerMsg(null);
+    try {
+      const hash = await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI as any,
+        functionName: "addWorker",
+        args: [addWorkerAddr as `0x${string}`],
+      });
+      await publicClient?.waitForTransactionReceipt({ hash });
+      setAddWorkerAddr("");
+      setOwnerMsg({ type: "success", text: `Worker ${addWorkerAddr.slice(0, 8)}… added` });
+    } catch (e) {
+      setOwnerMsg({ type: "error", text: parseError(e) });
+    } finally {
+      setOwnerBusy(null);
+    }
+  };
+
+  const handleRemoveWorker = async () => {
+    if (!removeWorkerAddr) return;
+    setOwnerBusy("remove");
+    setOwnerMsg(null);
+    try {
+      const hash = await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI as any,
+        functionName: "removeWorker",
+        args: [removeWorkerAddr as `0x${string}`],
+      });
+      await publicClient?.waitForTransactionReceipt({ hash });
+      setRemoveWorkerAddr("");
+      setOwnerMsg({ type: "success", text: `Worker ${removeWorkerAddr.slice(0, 8)}… removed` });
+    } catch (e) {
+      setOwnerMsg({ type: "error", text: parseError(e) });
+    } finally {
+      setOwnerBusy(null);
+    }
+  };
 
   return (
     <div className="flex flex-col items-center py-10 px-4">
@@ -663,6 +719,64 @@ export default function AdminPage() {
         <p className="opacity-50 text-sm mb-8">
           CLAWD price: {clawdPrice ? `$${clawdPrice.toFixed(8)}` : "loading..."}
         </p>
+
+        {/* ─── Owner Panel ──────────────────────────────────────────── */}
+        {isOwner && (
+          <div className="card bg-base-200 mb-8">
+            <div className="card-body">
+              <h2 className="font-bold mb-3">👑 Owner Panel</h2>
+              <p className="text-xs opacity-50 font-mono mb-4">{ownerData as string}</p>
+
+              <div className="flex gap-2 items-end mb-3">
+                <div className="flex-1">
+                  <label className="text-xs opacity-50 mb-1 block">Add Worker</label>
+                  <input
+                    type="text"
+                    className="input input-bordered input-sm w-full font-mono text-xs"
+                    placeholder="0x..."
+                    value={addWorkerAddr}
+                    onChange={e => setAddWorkerAddr(e.target.value)}
+                    disabled={ownerBusy !== null}
+                  />
+                </div>
+                <button
+                  className="btn btn-sm btn-primary"
+                  disabled={ownerBusy !== null || !addWorkerAddr}
+                  onClick={handleAddWorker}
+                >
+                  {ownerBusy === "add" ? <span className="loading loading-spinner loading-xs" /> : "Add Worker"}
+                </button>
+              </div>
+
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="text-xs opacity-50 mb-1 block">Remove Worker</label>
+                  <input
+                    type="text"
+                    className="input input-bordered input-sm w-full font-mono text-xs"
+                    placeholder="0x..."
+                    value={removeWorkerAddr}
+                    onChange={e => setRemoveWorkerAddr(e.target.value)}
+                    disabled={ownerBusy !== null}
+                  />
+                </div>
+                <button
+                  className="btn btn-sm btn-error btn-outline"
+                  disabled={ownerBusy !== null || !removeWorkerAddr}
+                  onClick={handleRemoveWorker}
+                >
+                  {ownerBusy === "remove" ? <span className="loading loading-spinner loading-xs" /> : "Remove Worker"}
+                </button>
+              </div>
+
+              {ownerMsg && (
+                <p className={`text-xs mt-2 ${ownerMsg.type === "success" ? "text-success" : "text-error"}`}>
+                  {ownerMsg.text}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ─── Pipeline Dashboard ──────────────────────────────────── */}
         <PipelineDashboard />
