@@ -40,7 +40,6 @@ const Home: NextPage = () => {
           <div className="card-body p-0">
             <div className="flex flex-col md:flex-row">
               <div className="p-8 flex flex-col justify-center gap-4 md:w-1/2">
-                <span className="badge badge-secondary">x402 Demo</span>
                 <h2 className="text-3xl font-bold">Generate a CLAWD PFP</h2>
                 <p className="opacity-80">
                   The cheapest way to test our x402 integration. Pay $0.50 USDC, get a custom
@@ -70,7 +69,6 @@ const Home: NextPage = () => {
                 className="w-full md:w-1/2 object-cover rounded-t-xl md:rounded-tr-none md:rounded-l-xl"
               />
               <div className="p-8 flex flex-col justify-center gap-4 md:w-1/2">
-                <span className="badge badge-success">Security</span>
                 <h2 className="text-3xl font-bold">Smart Contract Audits</h2>
                 <p className="opacity-80">
                   AI-powered security review of your Solidity contracts. Vulnerabilities, logic
@@ -89,7 +87,6 @@ const Home: NextPage = () => {
           <div className="card-body p-0">
             <div className="flex flex-col md:flex-row">
               <div className="p-8 flex flex-col justify-center gap-4 md:w-1/2">
-                <span className="badge badge-info">Quality</span>
                 <h2 className="text-3xl font-bold">Frontend QA Audits</h2>
                 <p className="opacity-80">
                   Comprehensive UX, accessibility, and functionality audit of your dApp frontend.
@@ -118,7 +115,6 @@ const Home: NextPage = () => {
                 className="w-full md:w-1/2 object-cover rounded-t-xl md:rounded-tr-none md:rounded-l-xl"
               />
               <div className="p-8 flex flex-col justify-center gap-4 md:w-1/2">
-                <span className="badge badge-warning">Research</span>
                 <h2 className="text-3xl font-bold">Research Reports</h2>
                 <p className="opacity-80">
                   Give Clawd a topic, a set of URLs, and a question. Get back a detailed written
@@ -138,7 +134,6 @@ const Home: NextPage = () => {
           <div className="card-body p-0">
             <div className="flex flex-col md:flex-row">
               <div className="p-8 flex flex-col justify-center gap-4 md:w-1/2">
-                <span className="badge badge-accent">Oracle</span>
                 <h2 className="text-3xl font-bold">AI Oracle &amp; Judge</h2>
                 <p className="opacity-80">
                   Schedule an onchain action at a future datetime. Clawd checks your specified URLs,
