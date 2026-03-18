@@ -11,8 +11,7 @@ contract DeployLeftClawServicesV2 is Script {
     address constant UNISWAP_ROUTER = 0x2626664c2603336E57B271c5C0b26F421741e481;
     address constant WETH           = 0x4200000000000000000000000000000000000006;
 
-    // TODO: Resolve safe.clawd.atg.eth ENS — using fallback address
-    address constant TREASURY       = 0x34aA3F359A9D614239015126635CE7732c18fDF3;
+    address constant TREASURY       = 0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0; // safe.clawd.atg.eth
 
     // Owner: clawdbotatg.eth
     address constant OWNER          = 0x11ce532845cE0eAcdA41f72FDc1C88c335981442;
