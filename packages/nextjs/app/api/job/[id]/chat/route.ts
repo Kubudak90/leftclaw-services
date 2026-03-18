@@ -217,6 +217,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       : cvAmount >= 1_000
         ? `${(cvAmount / 1_000).toFixed(1)}K CV`
         : `${cvAmount} CV`;
+  const usdFormatted = (Number(job.priceUsd) / 1e6).toFixed(2);
+  const priceDisplay =
+    cvAmount > 0 && Number(job.priceUsd) === 0
+      ? cvFormatted
+      : cvAmount > 0
+        ? `${cvFormatted} + $${usdFormatted} USDC`
+        : `$${usdFormatted} USDC`;
 
   const systemPrompt = `You are the project manager for a LeftClaw Services build job. You have full context on this job and can answer any question the client asks — about what's being built, the current status, architectural decisions, blockers, or next steps.
 
@@ -238,7 +245,7 @@ The more CV a client pays, the more skin they have in the game. High CV jobs are
 - **Job ID:** ${jobId}
 - **Client:** ${job.client}
 - **Service:** ${serviceTypeName}
-- **Price:** ${cvFormatted} + $${Number(job.priceUsd)} USD
+- **Price:** ${priceDisplay}
 - **Status:** ${job.status} | **Stage:** ${job.currentStage || "not started"}
 - **Created:** ${new Date(Number(job.createdAt) * 1000).toISOString()}
 - **Worker:** ${job.worker || "unassigned"}
