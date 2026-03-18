@@ -21,7 +21,7 @@ const CV_SIGN_MESSAGE = "larv.ai CV Spend";
 const BUILD_DAILY_TYPE = 2;
 const DAY_OPTIONS = [1, 2, 3, 4, 5];
 const PRICE_PER_DAY_USD = 1000;
-const CV_PER_DAY = 10_000_000;
+const CV_PER_DAY_FALLBACK = 10_000_000;
 
 const ERC20_ABI = [
   { name: "approve", type: "function", stateMutability: "nonpayable" as const, inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
@@ -52,6 +52,21 @@ function BuildPage() {
     bestPaymentMethod,
   } = usePaymentContext();
 
+  const [cvPerDay, setCvPerDay] = useState(CV_PER_DAY_FALLBACK);
+  const [cvPriceLoading, setCvPriceLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/cv/highest")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && typeof data.highestCVBalance === "number" && data.highestCVBalance > 0) {
+          setCvPerDay(Math.ceil(data.highestCVBalance / 5));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCvPriceLoading(false));
+  }, []);
+
   const gistParam = searchParams.get("gist");
   const [days, setDays] = useState(1);
   const [description, setDescription] = useState(searchParams.get("description") ?? "");
@@ -77,7 +92,7 @@ function BuildPage() {
   const priceWei = BigInt(Math.ceil(clawdNeeded)) * BigInt(10) ** BigInt(18);
   const usdcAmount = parseUnits(totalUsd.toString(), 6);
   const ethNeeded = ethPrice && totalUsd ? totalUsd / ethPrice : 0;
-  const cvCost = CV_PER_DAY * days;
+  const cvCost = cvPerDay * days;
   const isMultiDay = days > 1;
 
   const { data: nextJobId } = useScaffoldReadContract({
@@ -298,7 +313,7 @@ function BuildPage() {
   const costDisplay = () => {
     const usdHint = totalUsd > 0 ? ` (~$${totalUsd.toLocaleString()})` : "";
     switch (paymentMethod) {
-      case "cv": return `${cvCost.toLocaleString()} CV${usdHint}`;
+      case "cv": return cvPriceLoading ? "Loading..." : `${cvCost.toLocaleString()} CV${usdHint}`;
       case "clawd": return clawdNeeded > 0 ? `~${clawdNeeded.toLocaleString()} CLAWD` : "...";
       case "usdc": return `$${totalUsd.toLocaleString()} USDC`;
       case "eth": return ethNeeded > 0 ? `~${ethNeeded.toFixed(4)} ETH` : "...";
@@ -314,7 +329,7 @@ function BuildPage() {
     if (step === "posting") return "Starting build...";
     if (step === "done") return "Redirecting...";
     const labels: Record<PaymentMethod, string> = {
-      cv: `⚡ Spend ${cvCost.toLocaleString()} CV & Start Build`,
+      cv: cvPriceLoading ? "Loading CV price..." : `⚡ Spend ${cvCost.toLocaleString()} CV & Start Build`,
       clawd: needsApproval ? `Approve & Lock CLAWD` : `🔥 Lock ${costDisplay()} & Start Build`,
       usdc: `💵 Pay ${costDisplay()} & Start Build`,
       eth: `⟠ Pay ${costDisplay()} & Start Build`,
