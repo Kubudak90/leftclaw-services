@@ -154,7 +154,7 @@ const Home: NextPage = () => {
         </div>
 
         {/* Contract Address */}
-        <section className="py-16 text-center">
+        <section className="py-16 flex flex-col items-center gap-2">
           <p className="opacity-60 text-sm">Contract on Base</p>
           {CONTRACT_ADDRESS && <Address address={CONTRACT_ADDRESS} />}
         </section>
