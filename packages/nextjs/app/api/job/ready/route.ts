@@ -6,9 +6,7 @@ const { address, abi } = deployedContracts[8453].LeftClawServices;
 
 const client = createPublicClient({
   chain: base,
-  transport: http(process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
-    ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
-    : undefined),
+  transport: http(process.env.BASE_RPC_URL || "https://mainnet.base.org"),
 });
 
 export async function GET() {
