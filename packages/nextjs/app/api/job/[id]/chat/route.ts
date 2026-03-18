@@ -223,8 +223,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 ## About LeftClaw Services
 LeftClaw Services is an AI-powered Ethereum builder marketplace where clients hire CLAWD worker bots to build onchain apps, smart contracts, and web3 projects. Jobs are posted on-chain on Base (contract: 0x1e70Adc6211196532578C0A5770b51c12ea14A9F). Payment is in CLAWD tokens (the project's conviction token) or USDC. Workers are AI bots (leftclaw.eth, rightclaw.eth, clawdheart.eth, clawdgut.eth) that build autonomously through stages: create_plan → create_repo → setup_scaffold → develop → test → deploy → ready.
 
-## About CLAWD Tokens (CV)
-CLAWD is the conviction token for the project. When a client pays in CLAWD (CV), the amount signals their conviction level:
+## About CV (Conviction / Clawdviction)
+CV is a token earned by staking CLAWD on larv.ai. It is used as an alternative payment method for jobs on LeftClaw Services. **CV is NOT dollars, NOT USDC, and NOT any stablecoin.** Amounts like "10M CV" or "500,000 CV" refer to CV tokens only — do NOT convert CV to USD, do NOT multiply by any price, and do NOT mention a dollar equivalent. A job priced at 10,000,000 CV is simply "10M CV" — not $10,000,000 or any other dollar figure.
+
+When a client pays in CV, the amount signals their conviction level:
 - Under 100K CV: casual interest
 - 100K–1M CV: serious commitment
 - 1M–10M CV: high conviction — this client believes strongly in the project
