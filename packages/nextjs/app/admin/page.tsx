@@ -11,27 +11,12 @@ import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}`;
 const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServices?.abi;
 
-const SERVICE_TYPES = [
-  { id: 0, name: "Quick Consult", emoji: "💬" },
-  { id: 1, name: "Deep Consult", emoji: "🧠" },
-  { id: 2, name: "Daily Build", emoji: "🔨" },
-  { id: 3, name: "Build M (reserved)", emoji: "🏗️" },
-  { id: 4, name: "Build L (reserved)", emoji: "⚙️" },
-  { id: 5, name: "Build XL (reserved)", emoji: "🏢" },
-  { id: 6, name: "QA Report", emoji: "🔍" },
-  { id: 7, name: "Quick Audit", emoji: "🛡️" },
-  { id: 8, name: "AI Audit (Multi-Contract)", emoji: "🔐" },
-  { id: 9, name: "Custom", emoji: "✨" },
-];
-
-const SERVICE_NAME: Record<number, string> = Object.fromEntries(SERVICE_TYPES.map(s => [s.id, `${s.emoji} ${s.name}`]));
-
 const STATUS_LABELS: Record<number, { text: string; badge: string }> = {
   0: { text: "OPEN", badge: "badge-info" },
   1: { text: "IN PROGRESS", badge: "badge-warning" },
   2: { text: "COMPLETED", badge: "badge-success" },
-  3: { text: "CANCELLED", badge: "badge-ghost" },
-  4: { text: "DISPUTED", badge: "badge-error" },
+  3: { text: "DECLINED", badge: "badge-error" },
+  4: { text: "CANCELLED", badge: "badge-ghost" },
 };
 
 const STATUS_FILTERS = [
@@ -39,22 +24,13 @@ const STATUS_FILTERS = [
   { value: 0, label: "Open" },
   { value: 1, label: "In Progress" },
   { value: 2, label: "Completed" },
-  { value: 4, label: "Disputed" },
-  { value: 3, label: "Cancelled" },
-];
-
-// Build service types for burn consultation dropdown (only build types make sense as recommendations)
-const BUILD_TYPES = [
-  { id: 2, name: "Simple Build" },
-  { id: 3, name: "Standard Build" },
-  { id: 4, name: "Complex Build" },
-  { id: 5, name: "Enterprise Build" },
+  { value: 3, label: "Declined" },
+  { value: 4, label: "Cancelled" },
 ];
 
 function parseError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
   if (/user rejected|user denied/i.test(msg)) return "Cancelled";
-  if (/Not authorized/i.test(msg)) return "Not authorized — worker only";
   const m = msg.match(/reverted[^"']*["']([^"']{3,80})["']/i);
   if (m) return m[1];
   return "Transaction failed";
@@ -73,122 +49,273 @@ function timeAgo(ts: number) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-// ─── Pipeline Dashboard ──────────────────────────────────────────────────────
+// ─── Service Type ──────────────────────────────────────────────
 
-const PIPELINE_STAGES = [
-  "create_plan", "create_user_journey", "prototype", "contract_audit", "contract_fix",
-  "deep_contract_audit", "deep_contract_fix",
-  "frontend_audit", "frontend_fix", "full_audit", "full_audit_fix",
-  "deploy_contract", "livecontract_fix", "deploy_app", "liveapp_fix",
-  "liveuserjourney", "readme", "ready",
-];
+interface ServiceTypeData {
+  id: bigint;
+  name: string;
+  slug: string;
+  priceUsd: bigint;
+  cvDivisor: bigint;
+  status: string;
+}
 
-function PipelineDashboard() {
-  const [workers, setWorkers] = useState<{ address: string; activeJobs: number[] }[]>([]);
-  const [pipeline, setPipeline] = useState<any[]>([]);
-  const [readyJobs, setReadyJobs] = useState<any[]>([]);
+// ─── Service Types Table ──────────────────────────────────────────────
+
+function ServiceTypesPanel({ refetch }: { refetch: () => void }) {
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+
+  const [serviceTypes, setServiceTypes] = useState<ServiceTypeData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/job/workers").then(r => r.json()).catch(() => ({ workers: [] })),
-      fetch("/api/job/pipeline").then(r => r.json()).catch(() => ({ jobs: [] })),
-      fetch("/api/job/ready").then(r => r.json()).catch(() => ({ jobs: [] })),
-    ]).then(([w, p, r]) => {
-      setWorkers(w.workers || []);
-      setPipeline(p.jobs || []);
-      setReadyJobs(r.jobs || []);
-      setLoading(false);
-    });
-  }, []);
+  // Editable row state: keyed by id
+  const [edits, setEdits] = useState<Record<string, { name: string; slug: string; priceUsd: string; cvDivisor: string; status: string }>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [rowMsg, setRowMsg] = useState<Record<string, { type: "success" | "error"; text: string }>>({});
 
-  if (loading) return <div className="card bg-base-200 mb-8"><div className="card-body"><span className="loading loading-spinner" /></div></div>;
+  // New service type form
+  const [newName, setNewName] = useState("");
+  const [newSlug, setNewSlug] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [newCvDiv, setNewCvDiv] = useState("100");
+  const [addBusy, setAddBusy] = useState(false);
+  const [addMsg, setAddMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const fetchTypes = async () => {
+    if (!publicClient) return;
+    try {
+      const types = (await publicClient.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "getAllServiceTypes",
+      })) as ServiceTypeData[];
+      setServiceTypes(types);
+
+      // Initialize edit state
+      const newEdits: typeof edits = {};
+      for (const t of types) {
+        const key = t.id.toString();
+        newEdits[key] = {
+          name: t.name,
+          slug: t.slug,
+          priceUsd: (Number(t.priceUsd) / 1e6).toString(),
+          cvDivisor: t.cvDivisor.toString(),
+          status: t.status,
+        };
+      }
+      setEdits(newEdits);
+    } catch (e) {
+      console.error("Failed to load service types", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTypes();
+  }, [publicClient]);
+
+  const handleSave = async (id: bigint) => {
+    const key = id.toString();
+    const e = edits[key];
+    if (!e) return;
+
+    setSaving(key);
+    setRowMsg(m => ({ ...m, [key]: undefined as any }));
+
+    try {
+      const priceUsdc = parseUnits(e.priceUsd, 6);
+      const hash = await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "updateServiceType",
+        args: [id, e.name, e.slug, priceUsdc, BigInt(e.cvDivisor), e.status],
+      });
+      await publicClient?.waitForTransactionReceipt({ hash });
+      setRowMsg(m => ({ ...m, [key]: { type: "success", text: "Saved ✓" } }));
+      setTimeout(() => setRowMsg(m => ({ ...m, [key]: undefined as any })), 3000);
+      await fetchTypes();
+    } catch (err) {
+      setRowMsg(m => ({ ...m, [key]: { type: "error", text: parseError(err) } }));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!newName || !newSlug || !newPrice || !newCvDiv) return;
+    setAddBusy(true);
+    setAddMsg(null);
+
+    try {
+      const priceUsdc = parseUnits(newPrice, 6);
+      const hash = await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "addServiceType",
+        args: [newName, newSlug, priceUsdc, BigInt(newCvDiv)],
+      });
+      await publicClient?.waitForTransactionReceipt({ hash });
+      setAddMsg({ type: "success", text: "Added!" });
+      setNewName("");
+      setNewSlug("");
+      setNewPrice("");
+      setNewCvDiv("100");
+      await fetchTypes();
+      refetch();
+    } catch (err) {
+      setAddMsg({ type: "error", text: parseError(err) });
+    } finally {
+      setAddBusy(false);
+    }
+  };
+
+  const updateEdit = (key: string, field: string, value: string) => {
+    setEdits(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  };
+
+  if (loading) {
+    return (
+      <div className="card bg-base-200 mb-8">
+        <div className="card-body"><span className="loading loading-spinner" /></div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {/* Workers */}
-      <div className="card bg-base-200 mb-4">
-        <div className="card-body">
-          <h2 className="font-bold mb-3">🤖 Workers ({workers.length})</h2>
-          {workers.length === 0 ? (
-            <p className="text-sm opacity-50">No workers registered</p>
-          ) : (
-            <div className="space-y-2">
-              {workers.map(w => (
-                <div key={w.address} className="flex items-center justify-between bg-base-300 rounded-lg px-4 py-2">
-                  <span className="font-mono text-sm">{w.address}</span>
-                  <div>
-                    {w.activeJobs.length > 0 ? (
-                      <span className="badge badge-warning badge-sm">Working: #{w.activeJobs.join(", #")}</span>
-                    ) : (
-                      <span className="badge badge-ghost badge-sm">Idle</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="card bg-base-200 mb-8">
+      <div className="card-body">
+        <h2 className="font-bold mb-4">📋 Service Types</h2>
 
-      {/* Pipeline */}
-      <div className="card bg-base-200 mb-8">
-        <div className="card-body">
-          <h2 className="font-bold mb-3">🔧 Pipeline</h2>
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="table table-xs w-full">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Slug</th>
+                <th>Price (USD)</th>
+                <th>CV Divisor</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {serviceTypes.map(st => {
+                const key = st.id.toString();
+                const e = edits[key];
+                if (!e) return null;
+                const isSaving = saving === key;
 
-          {/* Open jobs waiting */}
-          {readyJobs.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-sm font-semibold opacity-60 mb-2">⏳ Open — Waiting for a bot to accept</h3>
-              {readyJobs.map(j => (
-                <div key={j.id} className="bg-base-300 rounded-lg px-4 py-2 mb-1 text-sm">
-                  <span className="font-bold">Job #{j.id}</span> — {j.description?.slice(0, 80)}{j.description?.length > 80 ? "..." : ""}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* In-progress jobs by stage */}
-          {pipeline.length > 0 ? (
-            <div className="space-y-2">
-              {pipeline.map(j => {
-                const stageIdx = PIPELINE_STAGES.indexOf(j.stage);
-                const nextStage = stageIdx >= 0 && stageIdx < PIPELINE_STAGES.length - 1
-                  ? PIPELINE_STAGES[stageIdx + 1] : null;
                 return (
-                  <div key={j.id} className="bg-base-300 rounded-lg px-4 py-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-sm">Job #{j.id}</span>
-                      <div className="flex gap-2">
-                        <span className="badge badge-info badge-sm">✅ {j.stage}</span>
-                        {nextStage && <span className="badge badge-warning badge-sm">⏭️ {nextStage}</span>}
-                      </div>
-                    </div>
-                    <p className="text-xs opacity-50">{j.description?.slice(0, 100)}{j.description?.length > 100 ? "..." : ""}</p>
-                    {/* Progress bar */}
-                    <div className="w-full bg-base-100 rounded-full h-2 mt-2">
-                      <div
-                        className="bg-primary rounded-full h-2 transition-all"
-                        style={{ width: `${((stageIdx + 1) / PIPELINE_STAGES.length) * 100}%` }}
+                  <tr key={key}>
+                    <td className="font-mono text-xs">{key}</td>
+                    <td>
+                      <input
+                        className="input input-bordered input-xs w-28"
+                        value={e.name}
+                        onChange={ev => updateEdit(key, "name", ev.target.value)}
+                        disabled={isSaving}
                       />
-                    </div>
-                    <p className="text-xs opacity-40 mt-1">{stageIdx + 1}/{PIPELINE_STAGES.length} stages</p>
-                    {/* Last work log */}
-                    {j.workLogs?.length > 0 && (
-                      <p className="text-xs opacity-50 mt-1 italic">
-                        Last log: {j.workLogs[j.workLogs.length - 1].note.slice(0, 120)}
-                      </p>
-                    )}
-                  </div>
+                    </td>
+                    <td>
+                      <input
+                        className="input input-bordered input-xs w-24 font-mono"
+                        value={e.slug}
+                        onChange={ev => updateEdit(key, "slug", ev.target.value)}
+                        disabled={isSaving}
+                      />
+                    </td>
+                    <td>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs opacity-50">$</span>
+                        <input
+                          className="input input-bordered input-xs w-24 pl-5 font-mono"
+                          type="number"
+                          value={e.priceUsd}
+                          onChange={ev => updateEdit(key, "priceUsd", ev.target.value)}
+                          disabled={isSaving}
+                        />
+                      </div>
+                    </td>
+                    <td>
+                      <input
+                        className="input input-bordered input-xs w-16 font-mono"
+                        type="number"
+                        value={e.cvDivisor}
+                        onChange={ev => updateEdit(key, "cvDivisor", ev.target.value)}
+                        disabled={isSaving}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        className="select select-bordered select-xs"
+                        value={e.status}
+                        onChange={ev => updateEdit(key, "status", ev.target.value)}
+                        disabled={isSaving}
+                      >
+                        <option value="active">active</option>
+                        <option value="paused">paused</option>
+                        <option value="deprecated">deprecated</option>
+                      </select>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="btn btn-xs btn-primary"
+                          onClick={() => handleSave(st.id)}
+                          disabled={isSaving}
+                        >
+                          {isSaving ? <span className="loading loading-spinner loading-xs" /> : "Save"}
+                        </button>
+                        {rowMsg[key] && (
+                          <span className={`text-xs ${rowMsg[key].type === "success" ? "text-success" : "text-error"}`}>
+                            {rowMsg[key].text}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Add New */}
+        <div className="border-t border-base-300 mt-4 pt-4">
+          <h3 className="text-sm font-bold mb-3">Add Service Type</h3>
+          <div className="flex flex-wrap gap-2 items-end">
+            <div>
+              <label className="text-xs opacity-50 block mb-1">Name</label>
+              <input className="input input-bordered input-sm w-40" value={newName} onChange={e => setNewName(e.target.value)} placeholder="PFP Generator" disabled={addBusy} />
             </div>
-          ) : (
-            readyJobs.length === 0 && <p className="text-sm opacity-50">No jobs in pipeline</p>
+            <div>
+              <label className="text-xs opacity-50 block mb-1">Slug</label>
+              <input className="input input-bordered input-sm w-28 font-mono" value={newSlug} onChange={e => setNewSlug(e.target.value)} placeholder="pfp" disabled={addBusy} />
+            </div>
+            <div>
+              <label className="text-xs opacity-50 block mb-1">Price (USD)</label>
+              <input className="input input-bordered input-sm w-24 font-mono" type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} placeholder="50" disabled={addBusy} />
+            </div>
+            <div>
+              <label className="text-xs opacity-50 block mb-1">CV Divisor</label>
+              <input className="input input-bordered input-sm w-20 font-mono" type="number" value={newCvDiv} onChange={e => setNewCvDiv(e.target.value)} placeholder="100" disabled={addBusy} />
+            </div>
+            <button className="btn btn-sm btn-primary" onClick={handleAdd} disabled={addBusy || !newName || !newSlug || !newPrice}>
+              {addBusy ? <span className="loading loading-spinner loading-xs" /> : "Add"}
+            </button>
+          </div>
+          {addMsg && (
+            <p className={`text-xs mt-2 ${addMsg.type === "success" ? "text-success" : "text-error"}`}>
+              {addMsg.text}
+            </p>
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -197,10 +324,10 @@ function PipelineDashboard() {
 interface JobData {
   id: bigint;
   client: string;
-  serviceType: number;
+  serviceTypeId: bigint;
   paymentClawd: bigint;
   priceUsd: bigint;
-  descriptionCID: string;
+  description: string;
   status: number;
   createdAt: bigint;
   startedAt: bigint;
@@ -208,8 +335,9 @@ interface JobData {
   resultCID: string;
   worker: string;
   paymentClaimed: boolean;
-  feeSnapshot: bigint;
-  disputedAt: bigint;
+  paymentMethod: number;
+  cvAmount: bigint;
+  currentStage: string;
 }
 
 function JobCard({
@@ -223,24 +351,17 @@ function JobCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [resultCID, setResultCID] = useState("");
-  const [gistUrl, setGistUrl] = useState("");
-  const [recommendedBuild, setRecommendedBuild] = useState(2);
   const [workNote, setWorkNote] = useState("");
+  const [workStage, setWorkStage] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
   const clawdAmount = Number(formatUnits(job.paymentClawd, 18));
-  const usdValue =
-    job.priceUsd > 0n ? Number(formatUnits(job.priceUsd, 6)) : clawdPrice ? clawdAmount * clawdPrice : null;
-  const isConsult = job.serviceType === 0 || job.serviceType === 1;
+  const usdValue = job.priceUsd > 0n ? Number(formatUnits(job.priceUsd, 6)) : clawdPrice ? clawdAmount * clawdPrice : null;
   const statusInfo = STATUS_LABELS[job.status] || { text: "UNKNOWN", badge: "badge-ghost" };
+  const paymentLabels = ["CLAWD", "USDC", "ETH", "CV"];
 
-  const DISPUTE_WINDOW = 7 * 24 * 3600;
-  const now = Math.floor(Date.now() / 1000);
-  const disputeExpired = job.completedAt > 0n && now > Number(job.completedAt) + DISPUTE_WINDOW;
-
-  // Work logs
   const { data: workLogs, refetch: refetchLogs } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI as any,
@@ -257,10 +378,7 @@ function JobCard({
       await onAction(action, job.id, args);
       setSuccessMsg(`${action} ✓`);
       setTimeout(() => setSuccessMsg(""), 3000);
-      if (action === "logWork") {
-        setWorkNote("");
-        refetchLogs();
-      }
+      if (action === "logWork") { setWorkNote(""); setWorkStage(""); refetchLogs(); }
     } catch (e) {
       setError(parseError(e));
     } finally {
@@ -270,34 +388,35 @@ function JobCard({
 
   return (
     <div className="bg-base-300 rounded-lg p-4">
-      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className="font-mono font-bold text-sm">#{Number(job.id)}</span>
           <span className={`badge ${statusInfo.badge} badge-sm`}>{statusInfo.text}</span>
-          <span className="text-xs opacity-60">{SERVICE_NAME[job.serviceType] || "Unknown"}</span>
+          <span className="text-xs opacity-60">Type #{Number(job.serviceTypeId)}</span>
+          <span className="badge badge-ghost badge-xs">{paymentLabels[job.paymentMethod] || "?"}</span>
         </div>
         <button className="btn btn-ghost btn-xs" onClick={() => setExpanded(!expanded)}>
           {expanded ? "▲" : "▼"}
         </button>
       </div>
 
-      {/* Summary row */}
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-3">
-          <span className="opacity-60">
-            Client: <span className="font-mono">{truncAddr(job.client)}</span>
-          </span>
+          <span className="opacity-60">Client: <span className="font-mono">{truncAddr(job.client)}</span></span>
           <span className="opacity-40">·</span>
           <span className="opacity-60">{timeAgo(Number(job.createdAt))}</span>
         </div>
         <div className="text-right">
           <span className="font-mono font-bold">
-            {usdValue ? `$${usdValue.toLocaleString()}` : `${clawdAmount.toLocaleString()} CLAWD`}
+            {usdValue ? `$${usdValue.toLocaleString()}` : job.cvAmount > 0n ? `${Number(job.cvAmount).toLocaleString()} CV` : `${clawdAmount.toLocaleString()} CLAWD`}
           </span>
-          <span className="text-xs opacity-50 ml-2">{clawdAmount.toLocaleString()} CLAWD</span>
         </div>
       </div>
+
+      {/* Quick description preview */}
+      {job.description && (
+        <p className="text-xs opacity-50 mt-1 truncate">{job.description.slice(0, 120)}</p>
+      )}
 
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2 mt-3">
@@ -306,152 +425,57 @@ function JobCard({
             <button className="btn btn-sm btn-primary" disabled={busy !== null} onClick={() => doAction("accept")}>
               {busy === "accept" ? <span className="loading loading-spinner loading-xs" /> : "Accept"}
             </button>
-            <button
-              className="btn btn-sm btn-error btn-outline"
-              disabled={busy !== null}
-              onClick={() => doAction("reject")}
-            >
-              {busy === "reject" ? <span className="loading loading-spinner loading-xs" /> : "Reject"}
+            <button className="btn btn-sm btn-error btn-outline" disabled={busy !== null} onClick={() => doAction("decline")}>
+              {busy === "decline" ? <span className="loading loading-spinner loading-xs" /> : "Decline"}
             </button>
           </>
         )}
-
-        {job.status === 2 && !job.paymentClaimed && disputeExpired && (
-          <button className="btn btn-sm btn-success" disabled={busy !== null} onClick={() => doAction("claim")}>
-            {busy === "claim" ? <span className="loading loading-spinner loading-xs" /> : "Claim Payment"}
-          </button>
-        )}
-
-        {job.status === 2 && !job.paymentClaimed && !disputeExpired && job.completedAt > 0n && (
-          <span className="text-xs opacity-50 self-center">
-            Dispute window: {Math.ceil((Number(job.completedAt) + DISPUTE_WINDOW - now) / 86400)}d left
-          </span>
-        )}
       </div>
 
-      {/* Expanded section */}
       {expanded && (
         <div className="mt-4 space-y-4 border-t border-base-100 pt-4">
-          {/* Description CID */}
-          <div className="text-xs">
-            <span className="opacity-50">Description CID: </span>
-            <a
-              href={`https://ipfs.io/ipfs/${job.descriptionCID}`}
-              target="_blank"
-              className="link link-primary font-mono break-all"
-            >
-              {job.descriptionCID}
-            </a>
-          </div>
-
-          {/* Result CID if exists */}
+          {job.description && (
+            <div className="text-xs">
+              <span className="opacity-50">Description: </span>
+              <span className="break-all">{job.description}</span>
+            </div>
+          )}
           {job.resultCID && (
             <div className="text-xs">
               <span className="opacity-50">Result: </span>
-              <a
-                href={job.resultCID.startsWith("http") ? job.resultCID : `https://ipfs.io/ipfs/${job.resultCID}`}
-                target="_blank"
-                className="link link-primary font-mono break-all"
-              >
-                {job.resultCID}
-              </a>
+              <a href={job.resultCID.startsWith("http") ? job.resultCID : `https://ipfs.io/ipfs/${job.resultCID}`} target="_blank" className="link link-primary font-mono break-all">{job.resultCID}</a>
             </div>
           )}
-
-          {/* Worker */}
           {job.worker !== "0x0000000000000000000000000000000000000000" && (
-            <div className="text-xs">
-              <span className="opacity-50">Worker: </span>
-              <span className="font-mono">{truncAddr(job.worker)}</span>
-            </div>
+            <div className="text-xs"><span className="opacity-50">Worker: </span><span className="font-mono">{truncAddr(job.worker)}</span></div>
+          )}
+          {job.currentStage && (
+            <div className="text-xs"><span className="opacity-50">Stage: </span><span className="badge badge-info badge-xs">{job.currentStage}</span></div>
           )}
 
           {/* IN_PROGRESS actions */}
           {job.status === 1 && (
             <div className="space-y-3">
-              {/* Complete Job (non-consult) */}
-              {!isConsult && (
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <label className="text-xs opacity-50 mb-1 block">Result CID</label>
-                    <input
-                      type="text"
-                      className="input input-bordered input-sm w-full font-mono text-xs"
-                      placeholder="bafybei..."
-                      value={resultCID}
-                      onChange={e => setResultCID(e.target.value)}
-                    />
-                  </div>
-                  <button
-                    className="btn btn-sm btn-success"
-                    disabled={busy !== null || !resultCID}
-                    onClick={() => doAction("complete", { resultCID })}
-                  >
-                    {busy === "complete" ? <span className="loading loading-spinner loading-xs" /> : "Complete"}
-                  </button>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="text-xs opacity-50 mb-1 block">Result CID</label>
+                  <input type="text" className="input input-bordered input-sm w-full font-mono text-xs" placeholder="bafybei..." value={resultCID} onChange={e => setResultCID(e.target.value)} />
                 </div>
-              )}
+                <button className="btn btn-sm btn-success" disabled={busy !== null || !resultCID} onClick={() => doAction("complete", { resultCID })}>
+                  {busy === "complete" ? <span className="loading loading-spinner loading-xs" /> : "Complete"}
+                </button>
+              </div>
 
-              {/* Burn Consultation */}
-              {isConsult && (
-                <div className="bg-base-200 rounded-lg p-3 space-y-2">
-                  <h4 className="text-xs font-bold opacity-70">🔥 Burn Consultation</h4>
-                  <div>
-                    <label className="text-xs opacity-50 mb-1 block">Gist / Plan URL</label>
-                    <input
-                      type="text"
-                      className="input input-bordered input-sm w-full text-xs"
-                      placeholder="https://gist.github.com/..."
-                      value={gistUrl}
-                      onChange={e => setGistUrl(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs opacity-50 mb-1 block">Recommended Build Type</label>
-                    <select
-                      className="select select-bordered select-sm w-full text-xs"
-                      value={recommendedBuild}
-                      onChange={e => setRecommendedBuild(Number(e.target.value))}
-                    >
-                      {BUILD_TYPES.map(b => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    className="btn btn-sm btn-warning"
-                    disabled={busy !== null || !gistUrl}
-                    onClick={() => doAction("burnConsultation", { gistUrl, recommendedBuildType: recommendedBuild })}
-                  >
-                    {busy === "burnConsultation" ? (
-                      <span className="loading loading-spinner loading-xs" />
-                    ) : (
-                      "🔥 Burn & Complete"
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {/* Log Work */}
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <label className="text-xs opacity-50 mb-1 block">Work Log ({workNote.length}/500)</label>
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm w-full text-xs"
-                    placeholder="Progress update..."
-                    maxLength={500}
-                    value={workNote}
-                    onChange={e => setWorkNote(e.target.value)}
-                  />
+                  <input type="text" className="input input-bordered input-sm w-full text-xs" placeholder="Progress update..." maxLength={500} value={workNote} onChange={e => setWorkNote(e.target.value)} />
                 </div>
-                <button
-                  className="btn btn-sm btn-outline"
-                  disabled={busy !== null || !workNote}
-                  onClick={() => doAction("logWork", { note: workNote })}
-                >
+                <div className="w-28">
+                  <label className="text-xs opacity-50 mb-1 block">Stage</label>
+                  <input type="text" className="input input-bordered input-sm w-full text-xs" placeholder="stage" value={workStage} onChange={e => setWorkStage(e.target.value)} />
+                </div>
+                <button className="btn btn-sm btn-outline" disabled={busy !== null || !workNote} onClick={() => doAction("logWork", { note: workNote, stage: workStage })}>
                   {busy === "logWork" ? <span className="loading loading-spinner loading-xs" /> : "Log"}
                 </button>
               </div>
@@ -473,7 +497,6 @@ function JobCard({
             </div>
           )}
 
-          {/* Errors / Success */}
           {error && <p className="text-xs text-error">{error}</p>}
           {successMsg && <p className="text-xs text-success">{successMsg}</p>}
         </div>
@@ -490,16 +513,9 @@ export default function AdminPage() {
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
-  // Price management state
-  const [inputs, setInputs] = useState<Record<number, string>>({});
-  const [pending, setPending] = useState<number | null>(null);
-  const [errors, setErrors] = useState<Record<number, string>>({});
-  const [success, setSuccess] = useState<Record<number, boolean>>({});
-
-  // Job management state
   const [statusFilter, setStatusFilter] = useState(-1);
 
-  // Check worker status
+  // Check worker/owner
   const { data: isWorkerData } = useReadContracts({
     contracts: address
       ? [{ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "isWorker", args: [address] }]
@@ -508,7 +524,6 @@ export default function AdminPage() {
   });
   const isWorker = !!isWorkerData?.[0]?.result;
 
-  // Check owner
   const { data: ownerData } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI as any,
@@ -522,7 +537,7 @@ export default function AdminPage() {
   const [ownerBusy, setOwnerBusy] = useState<string | null>(null);
   const [ownerMsg, setOwnerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Total jobs count
+  // Total jobs
   const { data: totalJobsData } = useReadContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI as any,
@@ -530,7 +545,6 @@ export default function AdminPage() {
   });
   const totalJobs = totalJobsData ? Number(totalJobsData) : 0;
 
-  // Read all jobs
   const { data: jobsData, refetch: refetchJobs } = useReadContracts({
     contracts: Array.from({ length: totalJobs }, (_, i) => ({
       address: CONTRACT_ADDRESS,
@@ -541,76 +555,25 @@ export default function AdminPage() {
     query: { enabled: totalJobs > 0 },
   });
 
-  const allJobs: JobData[] = (jobsData || [])
-    .map(d => d.result as JobData | undefined)
-    .filter((j): j is JobData => !!j);
-
+  const allJobs: JobData[] = (jobsData || []).map(d => d.result as JobData | undefined).filter((j): j is JobData => !!j);
   const filteredJobs = statusFilter === -1 ? allJobs : allJobs.filter(j => j.status === statusFilter);
-
-  // Sort: most recent first
   const sortedJobs = [...filteredJobs].sort((a, b) => Number(b.id) - Number(a.id));
-
-  // Read all service prices
-  const { data: pricesData, refetch: refetchPrices } = useReadContracts({
-    contracts: SERVICE_TYPES.filter(s => s.id < 9).map(s => ({
-      address: CONTRACT_ADDRESS,
-      abi: CONTRACT_ABI as any,
-      functionName: "servicePriceUsd",
-      args: [s.id],
-    })),
-  });
 
   // Job actions
   const handleJobAction = async (action: string, jobId: bigint, args?: any) => {
     let hash: `0x${string}`;
     switch (action) {
       case "accept":
-        hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI as any,
-          functionName: "acceptJob",
-          args: [jobId],
-        });
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "acceptJob", args: [jobId] });
         break;
-      case "reject":
-        hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI as any,
-          functionName: "rejectJob",
-          args: [jobId],
-        });
+      case "decline":
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "declineJob", args: [jobId] });
         break;
       case "complete":
-        hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI as any,
-          functionName: "completeJob",
-          args: [jobId, args.resultCID],
-        });
-        break;
-      case "burnConsultation":
-        hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI as any,
-          functionName: "burnConsultation",
-          args: [jobId, args.gistUrl, args.recommendedBuildType],
-        });
-        break;
-      case "claim":
-        hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI as any,
-          functionName: "claimPayment",
-          args: [jobId],
-        });
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "completeJob", args: [jobId, args.resultCID] });
         break;
       case "logWork":
-        hash = await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI as any,
-          functionName: "logWork",
-          args: [jobId, args.note],
-        });
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "logWork", args: [jobId, args.note, args.stage || ""] });
         break;
       default:
         throw new Error("Unknown action");
@@ -619,40 +582,36 @@ export default function AdminPage() {
     await refetchJobs();
   };
 
-  // Price update
-  const handlePriceUpdate = async (serviceId: number) => {
-    const usdInput = inputs[serviceId];
-    if (!usdInput || !clawdPrice) return;
-
-    const usdValue = parseFloat(usdInput);
-    if (isNaN(usdValue) || usdValue <= 0) {
-      setErrors(e => ({ ...e, [serviceId]: "Enter a valid USD amount" }));
-      return;
-    }
-
-    // Convert USD to USDC (6 decimals)
-    const usdcAmount = parseUnits(usdValue.toString(), 6);
-
-    setErrors(e => ({ ...e, [serviceId]: "" }));
-    setSuccess(s => ({ ...s, [serviceId]: false }));
-    setPending(serviceId);
-
+  // Owner actions
+  const handleAddWorker = async () => {
+    if (!addWorkerAddr) return;
+    setOwnerBusy("add");
+    setOwnerMsg(null);
     try {
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI as any,
-        functionName: "updatePrice",
-        args: [serviceId, usdcAmount],
-      });
+      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "addWorker", args: [addWorkerAddr as `0x${string}`] });
       await publicClient?.waitForTransactionReceipt({ hash });
-      await refetchPrices();
-      setInputs(i => ({ ...i, [serviceId]: "" }));
-      setSuccess(s => ({ ...s, [serviceId]: true }));
-      setTimeout(() => setSuccess(s => ({ ...s, [serviceId]: false })), 3000);
+      setAddWorkerAddr("");
+      setOwnerMsg({ type: "success", text: `Worker added` });
     } catch (e) {
-      setErrors(err => ({ ...err, [serviceId]: parseError(e) }));
+      setOwnerMsg({ type: "error", text: parseError(e) });
     } finally {
-      setPending(null);
+      setOwnerBusy(null);
+    }
+  };
+
+  const handleRemoveWorker = async () => {
+    if (!removeWorkerAddr) return;
+    setOwnerBusy("remove");
+    setOwnerMsg(null);
+    try {
+      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "removeWorker", args: [removeWorkerAddr as `0x${string}`] });
+      await publicClient?.waitForTransactionReceipt({ hash });
+      setRemoveWorkerAddr("");
+      setOwnerMsg({ type: "success", text: `Worker removed` });
+    } catch (e) {
+      setOwnerMsg({ type: "error", text: parseError(e) });
+    } finally {
+      setOwnerBusy(null);
     }
   };
 
@@ -670,155 +629,67 @@ export default function AdminPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center py-20">
-        <span className="loading loading-spinner loading-lg" />
-      </div>
-    );
+    return <div className="flex justify-center py-20"><span className="loading loading-spinner loading-lg" /></div>;
   }
 
   if (!isWorker && !isOwner) {
-    return (
-      <div className="flex justify-center py-20">
-        <p className="opacity-60">🚫 Worker access only</p>
-      </div>
-    );
+    return <div className="flex justify-center py-20"><p className="opacity-60">🚫 Worker access only</p></div>;
   }
-
-  const handleAddWorker = async () => {
-    if (!addWorkerAddr) return;
-    setOwnerBusy("add");
-    setOwnerMsg(null);
-    try {
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI as any,
-        functionName: "addWorker",
-        args: [addWorkerAddr as `0x${string}`],
-      });
-      await publicClient?.waitForTransactionReceipt({ hash });
-      setAddWorkerAddr("");
-      setOwnerMsg({ type: "success", text: `Worker ${addWorkerAddr.slice(0, 8)}… added` });
-    } catch (e) {
-      setOwnerMsg({ type: "error", text: parseError(e) });
-    } finally {
-      setOwnerBusy(null);
-    }
-  };
-
-  const handleRemoveWorker = async () => {
-    if (!removeWorkerAddr) return;
-    setOwnerBusy("remove");
-    setOwnerMsg(null);
-    try {
-      const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI as any,
-        functionName: "removeWorker",
-        args: [removeWorkerAddr as `0x${string}`],
-      });
-      await publicClient?.waitForTransactionReceipt({ hash });
-      setRemoveWorkerAddr("");
-      setOwnerMsg({ type: "success", text: `Worker ${removeWorkerAddr.slice(0, 8)}… removed` });
-    } catch (e) {
-      setOwnerMsg({ type: "error", text: parseError(e) });
-    } finally {
-      setOwnerBusy(null);
-    }
-  };
 
   return (
     <div className="flex flex-col items-center py-10 px-4">
-      <div className="w-full max-w-3xl">
+      <div className="w-full max-w-4xl">
         <h1 className="text-3xl font-bold mb-1">🦞 Admin</h1>
-        <p className="opacity-50 text-sm mb-8">
-          CLAWD price: {clawdPrice ? `$${clawdPrice.toFixed(8)}` : "loading..."}
-        </p>
+        <p className="opacity-50 text-sm mb-8">CLAWD price: {clawdPrice ? `$${clawdPrice.toFixed(8)}` : "loading..."}</p>
 
-        {/* ─── Owner Panel ──────────────────────────────────────────── */}
+        {/* Owner Panel */}
         {isOwner && (
           <div className="card bg-base-200 mb-8">
             <div className="card-body">
               <h2 className="font-bold mb-3">👑 Owner Panel</h2>
-              <p className="text-xs opacity-50 font-mono mb-4">{ownerData as string}</p>
-
               <div className="flex gap-2 items-end mb-3">
                 <div className="flex-1">
                   <label className="text-xs opacity-50 mb-1 block">Add Worker</label>
-                  <AddressInput
-                    value={addWorkerAddr}
-                    onChange={setAddWorkerAddr}
-                    placeholder="0x..."
-                    disabled={ownerBusy !== null}
-                  />
+                  <AddressInput value={addWorkerAddr} onChange={setAddWorkerAddr} placeholder="0x..." disabled={ownerBusy !== null} />
                 </div>
-                <button
-                  className="btn btn-sm btn-primary"
-                  disabled={ownerBusy !== null || !addWorkerAddr}
-                  onClick={handleAddWorker}
-                >
+                <button className="btn btn-sm btn-primary" disabled={ownerBusy !== null || !addWorkerAddr} onClick={handleAddWorker}>
                   {ownerBusy === "add" ? <span className="loading loading-spinner loading-xs" /> : "Add Worker"}
                 </button>
               </div>
-
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <label className="text-xs opacity-50 mb-1 block">Remove Worker</label>
-                  <AddressInput
-                    value={removeWorkerAddr}
-                    onChange={setRemoveWorkerAddr}
-                    placeholder="0x..."
-                    disabled={ownerBusy !== null}
-                  />
+                  <AddressInput value={removeWorkerAddr} onChange={setRemoveWorkerAddr} placeholder="0x..." disabled={ownerBusy !== null} />
                 </div>
-                <button
-                  className="btn btn-sm btn-error btn-outline"
-                  disabled={ownerBusy !== null || !removeWorkerAddr}
-                  onClick={handleRemoveWorker}
-                >
+                <button className="btn btn-sm btn-error btn-outline" disabled={ownerBusy !== null || !removeWorkerAddr} onClick={handleRemoveWorker}>
                   {ownerBusy === "remove" ? <span className="loading loading-spinner loading-xs" /> : "Remove Worker"}
                 </button>
               </div>
-
-              {ownerMsg && (
-                <p className={`text-xs mt-2 ${ownerMsg.type === "success" ? "text-success" : "text-error"}`}>
-                  {ownerMsg.text}
-                </p>
-              )}
+              {ownerMsg && <p className={`text-xs mt-2 ${ownerMsg.type === "success" ? "text-success" : "text-error"}`}>{ownerMsg.text}</p>}
             </div>
           </div>
         )}
 
-        {/* ─── Pipeline Dashboard ──────────────────────────────────── */}
-        <PipelineDashboard />
+        {/* Service Types */}
+        {isOwner && <ServiceTypesPanel refetch={() => refetchJobs()} />}
 
-        {/* ─── Job Management ──────────────────────────────────────── */}
+        {/* Jobs */}
         <div className="card bg-base-200 mb-8">
           <div className="card-body">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold">Jobs ({totalJobs})</h2>
-              <button className="btn btn-ghost btn-xs" onClick={() => refetchJobs()}>
-                ↻ Refresh
-              </button>
+              <button className="btn btn-ghost btn-xs" onClick={() => refetchJobs()}>↻ Refresh</button>
             </div>
 
-            {/* Status filter tabs */}
             <div className="tabs tabs-boxed mb-4">
               {STATUS_FILTERS.map(f => (
-                <button
-                  key={f.value}
-                  className={`tab tab-sm ${statusFilter === f.value ? "tab-active" : ""}`}
-                  onClick={() => setStatusFilter(f.value)}
-                >
+                <button key={f.value} className={`tab tab-sm ${statusFilter === f.value ? "tab-active" : ""}`} onClick={() => setStatusFilter(f.value)}>
                   {f.label}
-                  {f.value >= 0 && (
-                    <span className="ml-1 opacity-50">({allJobs.filter(j => j.status === f.value).length})</span>
-                  )}
+                  {f.value >= 0 && <span className="ml-1 opacity-50">({allJobs.filter(j => j.status === f.value).length})</span>}
                 </button>
               ))}
             </div>
 
-            {/* Job list */}
             <div className="space-y-3">
               {sortedJobs.length === 0 ? (
                 <p className="text-sm opacity-50 text-center py-4">No jobs</p>
@@ -827,71 +698,6 @@ export default function AdminPage() {
                   <JobCard key={Number(job.id)} job={job} clawdPrice={clawdPrice} onAction={handleJobAction} />
                 ))
               )}
-            </div>
-          </div>
-        </div>
-
-        {/* ─── Service Prices ──────────────────────────────────────── */}
-        <div className="card bg-base-200">
-          <div className="card-body">
-            <h2 className="font-bold mb-4">Service Prices</h2>
-            <div className="space-y-4">
-              {SERVICE_TYPES.filter(s => s.id < 9).map((service, i) => {
-                const priceRaw = pricesData?.[i]?.result as bigint | undefined;
-                const priceUsd = priceRaw ? Number(formatUnits(priceRaw, 6)) : null;
-                const isBusy = pending === service.id;
-
-                return (
-                  <div key={service.id} className="flex flex-col gap-1.5 bg-base-300 rounded-lg px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">
-                        {service.emoji} {service.name}
-                      </span>
-                      <div className="text-right">
-                        <p className="font-mono text-sm font-bold">
-                          {priceUsd !== null ? `$${priceUsd.toLocaleString()}` : "..."}
-                        </p>
-                        {priceUsd !== null && clawdPrice && (
-                          <p className="text-xs opacity-50">
-                            ~{Math.round(priceUsd / clawdPrice).toLocaleString()} CLAWD
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 items-center mt-1">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm opacity-50">$</span>
-                        <input
-                          type="number"
-                          className="input input-bordered input-sm w-full pl-6 text-sm"
-                          placeholder="New price in USD"
-                          value={inputs[service.id] ?? ""}
-                          onChange={e => setInputs(i => ({ ...i, [service.id]: e.target.value }))}
-                          disabled={isBusy}
-                          min="0"
-                          step="1"
-                        />
-                      </div>
-                      <button
-                        className={`btn btn-sm ${success[service.id] ? "btn-success" : "btn-primary"}`}
-                        onClick={() => handlePriceUpdate(service.id)}
-                        disabled={isBusy || !inputs[service.id]}
-                      >
-                        {isBusy ? (
-                          <span className="loading loading-spinner loading-xs" />
-                        ) : success[service.id] ? (
-                          "✓"
-                        ) : (
-                          "Update"
-                        )}
-                      </button>
-                    </div>
-
-                    {errors[service.id] && <p className="text-xs text-error">{errors[service.id]}</p>}
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>

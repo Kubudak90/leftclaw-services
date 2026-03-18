@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "forge-std/Script.sol";
+import "../contracts/LeftClawServicesV2.sol";
+
+contract DeployLeftClawServicesV2 is Script {
+    // ─── Base Mainnet Addresses ───────────────────────────────────────────────
+    address constant CLAWD          = 0x174bea9E6b4a89aACa2B68e86551B12f9bf11a78;
+    address constant USDC           = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address constant UNISWAP_ROUTER = 0x2626664c2603336E57B271c5C0b26F421741e481;
+    address constant WETH           = 0x4200000000000000000000000000000000000006;
+
+    // TODO: Resolve safe.clawd.atg.eth ENS — using fallback address
+    address constant TREASURY       = 0x34aA3F359A9D614239015126635CE7732c18fDF3;
+
+    // Owner: clawdbotatg.eth
+    address constant OWNER          = 0x11ce532845cE0eAcdA41f72FDc1C88c335981442;
+
+    // Workers
+    address constant LEFTCLAW   = 0xa822155c242B3a307086F1e2787E393d78A0B5AC;
+    address constant RIGHTCLAW  = 0x8c00eae9b9A2f89BddaAE4f6884C716562C7cE93;
+    address constant CLAWDHEART = 0x472C382550780cD30e1D27155b96Fa4b63d9247e;
+    address constant CLAWDGUT   = 0x09defC9E6ffc5e41F42e0D50512EEf9354523E0E;
+
+    // ─── Seed Service Types ───────────────────────────────────────────────────
+    // Edit this array to add more service types before deploying.
+    struct SeedService {
+        string name;
+        string slug;
+        uint256 priceUsd;
+        uint256 cvDivisor;
+    }
+
+    function _getSeedServices() internal pure returns (SeedService[] memory) {
+        SeedService[] memory seeds = new SeedService[](6);
+        seeds[0] = SeedService("Quick Consultation",  "consult",       20_000_000,      100);
+        seeds[1] = SeedService("Deep Consultation",   "consult-deep",  30_000_000,      50);
+        seeds[2] = SeedService("PFP Generator",       "pfp",           4_000_000,       250);
+        seeds[3] = SeedService("Contract Audit",      "audit",         200_000_000,     25);
+        seeds[4] = SeedService("Frontend QA Audit",   "qa",            50_000_000,      50);
+        seeds[5] = SeedService("Daily Build",         "build",         1_000_000_000,   1);
+        return seeds;
+    }
+
+    function run() external {
+        vm.startBroadcast();
+
+        LeftClawServicesV2 services = new LeftClawServicesV2(
+            CLAWD, USDC, UNISWAP_ROUTER, WETH, TREASURY
+        );
+        console.log("LeftClawServicesV2 deployed at:", address(services));
+
+        // Seed service types
+        SeedService[] memory seeds = _getSeedServices();
+        for (uint256 i = 0; i < seeds.length; i++) {
+            services.addServiceType(seeds[i].name, seeds[i].slug, seeds[i].priceUsd, seeds[i].cvDivisor);
+            console.log("Added service:", seeds[i].name);
+        }
+
+        // Add workers
+        services.addWorker(LEFTCLAW);
+        services.addWorker(RIGHTCLAW);
+        services.addWorker(CLAWDHEART);
+        services.addWorker(CLAWDGUT);
+
+        // Add deployer as worker
+        services.addWorker(msg.sender);
+        console.log("Added deployer as worker:", msg.sender);
+
+        // Transfer ownership
+        services.transferOwnership(OWNER);
+        console.log("Ownership transferred to:", OWNER);
+
+        vm.stopBroadcast();
+    }
+}
