@@ -24,17 +24,14 @@ const Home: NextPage = () => {
           <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/40 to-transparent pointer-events-none" />
           <div className="absolute inset-0 flex flex-col justify-center items-end p-10 md:p-16">
             <div className="max-w-lg text-right">
-              <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 drop-shadow-lg" style={textShadow}>
-                LeftClaw Services
-              </h1>
               <p className="text-white/80 mb-6 text-lg md:text-xl" style={textShadow}>
                 AI Ethereum builder for hire. Pay with CLAWD, USDC, or ETH on Base.
               </p>
               <div className="flex flex-col gap-3 items-end">
-                <Link href="/consult?type=0" className="btn btn-primary btn-lg w-full">
+                <Link href="/consult?type=0" className="btn btn-primary btn-lg">
                   💬 Start a Consultation
                 </Link>
-                <a href="/skill.md" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-lg text-white border-white hover:bg-white/20 w-full">
+                <a href="/skill.md" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-lg text-white border-white hover:bg-white/20">
                   📄 Skill File for your Agent
                 </a>
               </div>
