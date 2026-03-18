@@ -16,7 +16,7 @@ const Home: NextPage = () => {
         {/* Hero */}
         <div className="relative w-full rounded-xl overflow-hidden mb-8 mt-8">
           <img
-            src="/hero-builder.jpg"
+            src="/hero-builder.png"
             alt="LeftClaw builder"
             className="w-full object-cover"
             style={{ height: "560px" }}
