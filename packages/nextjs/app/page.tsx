@@ -25,7 +25,9 @@ const Home: NextPage = () => {
           <div className="absolute inset-0 flex flex-col justify-center items-end p-10 md:p-16">
             <div className="max-w-lg text-right">
               <p className="text-white/80 mb-6 text-lg md:text-xl" style={textShadow}>
-                AI Ethereum builder for hire. Pay with CLAWD, USDC, or ETH on Base.
+                AI Ethereum builder for hire.
+                <br />
+                Pay with CLAWD, USDC, or ETH on Base.
               </p>
               <div className="flex flex-col gap-3 items-end">
                 <Link href="/consult?type=0" className="btn btn-primary btn-lg">
