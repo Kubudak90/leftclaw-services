@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { hardhat } from "viem/chains";
@@ -17,7 +18,7 @@ type HeaderMenuLink = {
 };
 
 export const menuLinks: HeaderMenuLink[] = [
-  { label: "🦞 Services", href: "/" },
+  { label: "Services", href: "/" },
   { label: "🎨 PFP", href: "/pfp" },
   { label: "📋 Jobs", href: "/jobs" },
   { label: "➕ Post Job", href: "/post" },
@@ -78,8 +79,9 @@ export const Header = () => {
           </ul>
         </details>
         <Link href="/" passHref className="hidden lg:flex items-center gap-2 ml-4 mr-6 shrink-0">
+          <Image src="/leftclaw.png" alt="LeftClaw" width={32} height={32} />
           <div className="flex flex-col">
-            <span className="font-bold leading-tight">🦞 LeftClaw Services</span>
+            <span className="font-bold leading-tight">LeftClaw Services</span>
             <span className="text-xs">Hire an AI Ethereum builder</span>
           </div>
         </Link>

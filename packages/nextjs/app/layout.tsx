@@ -8,7 +8,7 @@ import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 
 export const metadata = getMetadata({
-  title: '🦞 LeftClaw Services',
+  title: 'LeftClaw Services',
   description: 'Hire an AI Ethereum builder. Consults, builds, and audits — pay with CLAWD or USDC on Base.',
   imageRelativePath: '/og-card.jpg',
 });
