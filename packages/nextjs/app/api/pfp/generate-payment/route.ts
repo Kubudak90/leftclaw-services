@@ -76,11 +76,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
 
-    // Dedup — reject txHash reuse
+    // Dedup — atomic SET NX to prevent race conditions on simultaneous requests
     const kv = await getKV();
     const dedupKey = `pfp_tx_used:${txHash.toLowerCase()}`;
-    const already = await kv.get(dedupKey);
-    if (already) return NextResponse.json({ error: "This transaction has already been used to generate a PFP." }, { status: 400 });
+    const claimed = await kv.set(dedupKey, "1", { ex: 86400 * 365, nx: true });
+    if (!claimed) return NextResponse.json({ error: "This transaction has already been used to generate a PFP." }, { status: 400 });
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "OpenAI not configured" }, { status: 500 });
@@ -100,11 +100,11 @@ export async function POST(req: NextRequest) {
     });
 
     const imageData = result.data?.[0];
-    if (!imageData?.b64_json)
+    if (!imageData?.b64_json) {
+      // Release lock so user can retry — generation failed, not their fault
+      await kv.del(dedupKey);
       return NextResponse.json({ error: "Image generation failed" }, { status: 500 });
-
-    // Mark txHash as used — 1 year TTL
-    await kv.set(dedupKey, "1", { ex: 86400 * 365 });
+    }
 
     return NextResponse.json({
       image: `data:image/png;base64,${imageData.b64_json}`,
