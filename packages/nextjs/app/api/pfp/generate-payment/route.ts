@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const maxDuration = 120; // 2 min — receipt wait + OpenAI image gen
 import OpenAI, { toFile } from "openai";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
