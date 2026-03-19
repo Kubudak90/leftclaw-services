@@ -6,8 +6,8 @@ import { base } from "viem/chains";
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const TREASURY_ADDRESS = "0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw-services-nextjs.vercel.app";
-const MIN_USDC = BigInt(3_800_000); // $3.80 minimum (allow slight slippage)
-const MIN_ETH_USD_VALUE = 3.5; // $3.50 minimum
+const MIN_USDC = BigInt(200_000); // $0.20 minimum (allow slight slippage on $0.25)
+const MIN_ETH_USD_VALUE = 0.20; // $0.20 minimum (allow slight slippage on $0.25)
 
 let baseImageCache: Buffer | null = null;
 async function getBaseImage(): Promise<Buffer> {
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "No USDC transfer to treasury found in transaction" }, { status: 400 });
       const amount = BigInt(transferLog.data);
       if (amount < MIN_USDC)
-        return NextResponse.json({ error: `Insufficient USDC. Minimum $3.80, sent ${Number(amount) / 1e6}` }, { status: 400 });
+        return NextResponse.json({ error: `Insufficient USDC. Minimum $0.20, sent $${Number(amount) / 1e6}` }, { status: 400 });
     } else if (paymentMethod === "eth") {
       if (tx.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase())
         return NextResponse.json({ error: "ETH not sent to treasury" }, { status: 400 });
