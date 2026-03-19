@@ -8,8 +8,8 @@ import { AddressInput } from "@scaffold-ui/components";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
 
-const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}`;
-const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServices?.abi;
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
+const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
 
 const STATUS_LABELS: Record<number, { text: string; badge: string }> = {
   0: { text: "OPEN", badge: "badge-info" },
@@ -516,6 +516,11 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState(-1);
 
   // Check worker/owner
+  const ADMIN_ADDRESSES = [
+    "0x34aA3F359A9D614239015126635CE7732c18fDF3", // austingriffith.eth
+  ].map(a => a.toLowerCase());
+  const isAdmin = !!address && ADMIN_ADDRESSES.includes(address.toLowerCase());
+
   const { data: isWorkerData } = useReadContracts({
     contracts: address
       ? [{ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "isWorker", args: [address] }]
@@ -632,7 +637,7 @@ export default function AdminPage() {
     return <div className="flex justify-center py-20"><span className="loading loading-spinner loading-lg" /></div>;
   }
 
-  if (!isWorker && !isOwner) {
+  if (!isWorker && !isOwner && !isAdmin) {
     return <div className="flex justify-center py-20"><p className="opacity-60">🚫 Worker access only</p></div>;
   }
 
