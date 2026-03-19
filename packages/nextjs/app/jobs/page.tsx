@@ -29,7 +29,7 @@ const SERVICE_NAMES: Record<number, string> = {
 
 function JobCard({ jobId }: { jobId: number }) {
   const { data: job } = useScaffoldReadContract({
-    contractName: "LeftClawServices",
+    contractName: "LeftClawServicesV2",
     functionName: "getJob",
     args: [BigInt(jobId)],
   });
@@ -82,13 +82,13 @@ export default function JobsPage() {
   const { address } = useAccount();
 
   const { data: clientJobIds } = useScaffoldReadContract({
-    contractName: "LeftClawServices",
+    contractName: "LeftClawServicesV2",
     functionName: "getJobsByClient",
     args: [address || "0x0000000000000000000000000000000000000000"],
   });
 
   const { data: totalJobs } = useScaffoldReadContract({
-    contractName: "LeftClawServices",
+    contractName: "LeftClawServicesV2",
     functionName: "getTotalJobs",
   });
 

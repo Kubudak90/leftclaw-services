@@ -5,7 +5,7 @@ import { base } from "viem/chains";
 import { checkSanitization, setSanitization } from "~~/lib/sanitize";
 import deployedContracts from "~~/contracts/deployedContracts";
 
-const { address, abi } = deployedContracts[8453].LeftClawServices;
+const { address, abi } = deployedContracts[8453].LeftClawServicesV2;
 
 const transport = http(process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
   ? `https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`

@@ -11,8 +11,8 @@ import { PaymentMethodSelector, formatBalance } from "~~/components/payment";
 import { usePaymentContext, PaymentMethod } from "~~/hooks/scaffold-eth/usePaymentContext";
 import { parseContractError } from "~~/utils/parseContractError";
 
-const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}`;
-const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServices?.abi;
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
+const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
 
 const CLAWD_ADDRESS = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07" as const;
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -117,16 +117,16 @@ function ConsultPage() {
   }, [bestPaymentMethod]);
 
   const isWrongNetwork = !!address && chainId !== BASE_CHAIN_ID;
-  const contractAddress = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}` | undefined;
+  const contractAddress = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}` | undefined;
 
   const { data: priceRaw } = useScaffoldReadContract({
-    contractName: "LeftClawServices",
+    contractName: "LeftClawServicesV2",
     functionName: "servicePriceUsd",
     args: [serviceType],
   });
 
   const { data: nextJobId } = useScaffoldReadContract({
-    contractName: "LeftClawServices",
+    contractName: "LeftClawServicesV2",
     functionName: "nextJobId",
   });
 

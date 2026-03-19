@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import deployedContracts from "~~/contracts/deployedContracts";
 
-const { address, abi } = deployedContracts[8453].LeftClawServices;
+const { address, abi } = deployedContracts[8453].LeftClawServicesV2;
 
 const fnSigs = ([...abi] as any[])
   .filter(a => a.type === "function" && ["acceptJob", "logWork", "completeJob", "getJob", "getWorkLogs", "getJobsByStatus"].includes(a.name))

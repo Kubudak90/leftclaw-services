@@ -11,8 +11,8 @@ import { usePaymentContext, PaymentMethod } from "~~/hooks/scaffold-eth/usePayme
 import { getCachedCVSignature, setCachedCVSignature, clearCachedCVSignature } from "~~/utils/cvSignatureCache";
 import deployedContracts from "~~/contracts/deployedContracts";
 
-const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}`;
-const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServices?.abi;
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
+const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const CLAWD_ADDRESS = "0x174bea9E6b4a89aACa2B68e86551B12f9bf11a78" as const;
 const CV_SIGN_MESSAGE = "larv.ai CV Spend";
@@ -151,13 +151,11 @@ export default function ServicePage() {
           throw new Error(spendData.error || "CV spend failed");
         }
 
-        // Post on-chain (no payment)
-        await writeContractAsync({
-          address: CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: "postJobWithCV",
-          args: [serviceTypeId, BigInt(cvAmount), description],
-        });
+        // CV is off-chain — no on-chain transaction needed
+        setSuccess("CV spent! Your job has been submitted. Check your wallet for updates.");
+        setDescription("");
+        setSubmitting(false);
+        return;
       } else if (paymentMethod === "usdc") {
         // Approve USDC then post
         await writeContractAsync({

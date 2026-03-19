@@ -2,7 +2,7 @@ import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import deployedContracts from "~~/contracts/deployedContracts";
 
-const { address, abi } = deployedContracts[8453].LeftClawServices;
+const { address, abi } = deployedContracts[8453].LeftClawServicesV2;
 
 const client = createPublicClient({
   chain: base,

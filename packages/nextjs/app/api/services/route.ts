@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { BASE_NETWORK, PAYMENT_ADDRESS, SERVICE_PRICES } from "~~/lib/x402";
 
-const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address;
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address;
 
 export async function GET() {
   return NextResponse.json({

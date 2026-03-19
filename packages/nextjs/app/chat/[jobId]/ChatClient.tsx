@@ -46,7 +46,7 @@ export default function ChatPage() {
 
   // On-chain job read — skip for CV jobs (they're off-chain)
   const { data: job, isLoading: jobLoading } = useScaffoldReadContract({
-    contractName: "LeftClawServices",
+    contractName: "LeftClawServicesV2",
     functionName: "getJob",
     args: [BigInt(isCvJob ? "0" : (jobId || "0"))],
   });

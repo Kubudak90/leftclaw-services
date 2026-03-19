@@ -10,7 +10,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { getMessages, addJobMessage, type JobMessage } from "~~/lib/jobMessages";
 
-const { address, abi } = deployedContracts[8453].LeftClawServices;
+const { address, abi } = deployedContracts[8453].LeftClawServicesV2;
 
 const viemClient = createPublicClient({
   chain: base,

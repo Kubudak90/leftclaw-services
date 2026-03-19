@@ -49,8 +49,8 @@ const SERVICE_NAMES: Record<number, string> = {
 
 const CONSULT_TYPES = new Set([0, 1]);
 
-const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address as `0x${string}`;
-const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServices?.abi;
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
+const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
 
 export default function JobDetailClient() {
   const params = useParams();
@@ -66,7 +66,7 @@ export default function JobDetailClient() {
     isLoading,
     refetch,
   } = useScaffoldReadContract({
-    contractName: "LeftClawServices",
+    contractName: "LeftClawServicesV2",
     functionName: "getJob",
     args: [BigInt(jobId || "0")],
   });
