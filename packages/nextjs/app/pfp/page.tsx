@@ -70,7 +70,7 @@ export default function PfpPage() {
 
   const [prompt, setPrompt] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cv");
-  const [step, setStep] = useState<"idle" | "signing" | "burning" | "spending" | "approving" | "paying" | "generating" | "done" | "error">("idle");
+  const [step, setStep] = useState<"idle" | "signing" | "burning" | "spending" | "paying" | "generating" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [burnInfo, setBurnInfo] = useState<{ clawdAmount: number; txHash: string } | null>(null);
@@ -198,15 +198,8 @@ export default function PfpPage() {
     if (!address || !publicClient || !walletClient || !prompt.trim()) return;
     setError(null); setGeneratedImage(null); setPaymentInfo(null);
     try {
-      setStep("approving");
-      await writeContractAsync({
-        address: USDC_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args: [TREASURY_ADDRESS, USDC_AMOUNT],
-      });
-
       setStep("paying");
+      // Direct transfer — no approve needed, we're sending to treasury not a contract
       const txHash = await writeContractAsync({
         address: USDC_ADDRESS,
         abi: ERC20_ABI,
@@ -282,7 +275,7 @@ export default function PfpPage() {
 
   const randomPrompt = () => { setPrompt(EXAMPLE_PROMPTS[Math.floor(Math.random() * EXAMPLE_PROMPTS.length)]); };
 
-  const busy = step === "burning" || step === "generating" || step === "signing" || step === "spending" || step === "approving" || step === "paying";
+  const busy = step === "burning" || step === "generating" || step === "signing" || step === "spending" || step === "paying";
   const isInsufficient = paymentMethod === "burn" ? insufficientClawd : paymentMethod === "cv" ? insufficientCv : paymentMethod === "usdc" ? insufficientUsdc : false;
 
   return (
@@ -438,7 +431,6 @@ export default function PfpPage() {
               {step === "signing" ? "Sign message in wallet..." :
                step === "burning" ? "Burning CLAWD..." :
                step === "spending" ? "Generating PFP..." :
-               step === "approving" ? "Approve USDC in wallet..." :
                step === "paying" ? "Confirm payment in wallet..." :
                step === "generating" ? "Generating PFP..." :
                paymentMethod === "cv" ? `⚡ Spend ${cvCost !== null ? cvCost.toLocaleString() : "..."} CV & Generate` :
@@ -452,7 +444,6 @@ export default function PfpPage() {
                 {step === "signing" && "Sign the message to prove wallet ownership"}
                 {step === "burning" && "Step 1/2 — Confirm the burn in your wallet"}
                 {step === "spending" && "Spending CV and generating your PFP (~30s)"}
-                {step === "approving" && "Step 1/3 — Approve USDC spend in your wallet"}
                 {step === "paying" && "Confirm the payment in your wallet"}
                 {step === "generating" && "AI is creating your PFP (~30s)"}
               </div>
