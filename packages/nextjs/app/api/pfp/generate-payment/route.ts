@@ -6,11 +6,13 @@ import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { getKV } from "~~/lib/kv";
 
+const CLAWD_ADDRESS = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07";
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const TREASURY_ADDRESS = "0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw-services-nextjs.vercel.app";
-const MIN_USDC = BigInt(200_000); // $0.20 minimum (allow slight slippage on $0.25)
-const MIN_ETH_USD_VALUE = 0.20; // $0.20 minimum (allow slight slippage on $0.25)
+const MIN_USDC = BigInt(3_500_000); // $3.50 minimum (allow slight slippage on $4.00)
+const MIN_ETH_USD_VALUE = 3.50; // $3.50 minimum (allow slight slippage on $4.00)
+const MIN_CLAWD_TRANSFER = BigInt("1000") * BigInt(10) ** BigInt(18); // 1K CLAWD minimum
 
 let baseImageCache: Buffer | null = null;
 async function getBaseImage(): Promise<Buffer> {
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     const client = createPublicClient({ chain: base, transport: http(rpcUrl) });
 
-    // Wait up to 90s for the receipt — tx may not be indexed yet when the API is called
+    // Wait up to 90s for the receipt
     const receipt = await client.waitForTransactionReceipt({
       hash: txHash as `0x${string}`,
       timeout: 90_000,
@@ -70,26 +72,41 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "No USDC transfer to treasury found in transaction" }, { status: 400 });
       const amount = BigInt(transferLog.data);
       if (amount < MIN_USDC)
-        return NextResponse.json({ error: `Insufficient USDC. Minimum $0.20, sent $${Number(amount) / 1e6}` }, { status: 400 });
+        return NextResponse.json({ error: `Insufficient USDC. Minimum $3.50, sent $${Number(amount) / 1e6}` }, { status: 400 });
     } else if (paymentMethod === "eth") {
       if (tx.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase())
         return NextResponse.json({ error: "ETH not sent to treasury" }, { status: 400 });
       const priceRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
       const priceData = await priceRes.json();
-      const ethPrice = priceData?.ethereum?.usd || 2000;
-      const ethSentUsd = (Number(tx.value) / 1e18) * ethPrice;
+      const ethPriceUsd = priceData?.ethereum?.usd || 2000;
+      const ethSentUsd = (Number(tx.value) / 1e18) * ethPriceUsd;
       if (ethSentUsd < MIN_ETH_USD_VALUE)
         return NextResponse.json({ error: `Insufficient ETH. Minimum $${MIN_ETH_USD_VALUE}, sent $${ethSentUsd.toFixed(2)}` }, { status: 400 });
+    } else if (paymentMethod === "clawd") {
+      // CLAWD direct transfer to treasury
+      const transferLog = receipt.logs.find(log => {
+        if (log.address.toLowerCase() !== CLAWD_ADDRESS.toLowerCase()) return false;
+        if (log.topics.length < 3) return false;
+        const toAddr = "0x" + log.topics[2]!.slice(26);
+        return toAddr.toLowerCase() === TREASURY_ADDRESS.toLowerCase();
+      });
+      if (!transferLog)
+        return NextResponse.json({ error: "No CLAWD transfer to treasury found in transaction" }, { status: 400 });
+      const amount = BigInt(transferLog.data);
+      if (amount < MIN_CLAWD_TRANSFER)
+        return NextResponse.json({ error: `Insufficient CLAWD. Minimum 1,000 CLAWD` }, { status: 400 });
     } else {
       return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
 
-    // Dedup — atomic SET NX to prevent race conditions on simultaneous requests
-    const kv = await getKV();
+    // Dedup — atomic SET NX to prevent race conditions
+    const kv = getKV();
     const dedupKey = `pfp_tx_used:${txHash.toLowerCase()}`;
-    const claimed = await kv.set(dedupKey, "1", { ex: 86400 * 365, nx: true });
-    if (!claimed) return NextResponse.json({ error: "This transaction has already been used to generate a PFP." }, { status: 400 });
-    claimedDedupKey = dedupKey;
+    if (kv) {
+      const claimed = await kv.set(dedupKey, "1", { ex: 86400 * 365, nx: true });
+      if (!claimed) return NextResponse.json({ error: "This transaction has already been used to generate a PFP." }, { status: 400 });
+      claimedDedupKey = dedupKey;
+    }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "OpenAI not configured" }, { status: 500 });
@@ -110,8 +127,7 @@ export async function POST(req: NextRequest) {
 
     const imageData = result.data?.[0];
     if (!imageData?.b64_json) {
-      // Release lock so user can retry — generation failed, not their fault
-      await kv.del(dedupKey);
+      if (kv && claimedDedupKey) await kv.del(claimedDedupKey);
       return NextResponse.json({ error: "Image generation failed" }, { status: 500 });
     }
 
@@ -123,9 +139,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (e: any) {
     console.error("PFP generate-payment error:", e);
-    // Release lock on unexpected throw so user can retry
     if (claimedDedupKey) {
-      try { const kv = await getKV(); await kv.del(claimedDedupKey); } catch {}
+      try { const kvInst = getKV(); if (kvInst) await kvInst.del(claimedDedupKey); } catch {}
     }
     return NextResponse.json({ error: e.message || "Generation failed" }, { status: 500 });
   }

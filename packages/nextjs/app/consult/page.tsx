@@ -1,53 +1,20 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { formatUnits, parseEther, parseUnits } from "viem";
-import { useAccount, usePublicClient, useReadContract, useWalletClient, useWriteContract, useSwitchChain } from "wagmi";
-import deployedContracts from "~~/contracts/deployedContracts";
-import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
-import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
-import { PaymentMethodSelector, formatBalance } from "~~/components/payment";
-import { usePaymentContext, PaymentMethod } from "~~/hooks/scaffold-eth/usePaymentContext";
-import { parseContractError } from "~~/utils/parseContractError";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { ServiceHero, UnifiedPaymentFlow } from "~~/components/payment";
+import { SERVICE_META } from "~~/lib/servicesMeta";
 
-const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
-const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
+// Contract service types:
+// ID 1 = Quick Consultation, priceUsd = $20, cvDivisor = 100
+// ID 2 = Deep Consultation, priceUsd = $30, cvDivisor = 50
 
-const CLAWD_ADDRESS = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07" as const;
-const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
-const PAY_TO = "0x11ce532845cE0eAcdA41f72FDc1C88c335981442" as const;
-const BASE_CHAIN_ID = 8453;
-// Must match larv.ai's CV_SPEND_MESSAGE exactly
-const CV_SIGN_MESSAGE = "larv.ai CV Spend";
+const CONSULT_CONFIG = {
+  0: { id: 1, priceUsd: 20, cvDivisor: 100, slug: "consult" },
+  1: { id: 2, priceUsd: 30, cvDivisor: 50, slug: "consult-deep" },
+} as const;
 
-const ERC20_ABI = [
-  {
-    name: "approve", type: "function", stateMutability: "nonpayable" as const,
-    inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }],
-    outputs: [{ type: "bool" }],
-  },
-  {
-    name: "allowance", type: "function", stateMutability: "view" as const,
-    inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    name: "transfer", type: "function", stateMutability: "nonpayable" as const,
-    inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }],
-    outputs: [{ type: "bool" }],
-  },
-  {
-    name: "balanceOf", type: "function", stateMutability: "view" as const,
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
-] as const;
-
-const CV_PRICES: Record<number, number> = { 0: 200_000, 1: 300_000 };
-const SERVICE_KEYS: Record<number, string> = { 0: "CONSULT_QUICK", 1: "CONSULT_DEEP" };
-
-const CONSULT_INFO = {
+const CONSULT_EXTRA = {
   0: {
     name: "Quick Consult",
     emoji: "💬",
@@ -82,383 +49,48 @@ export default function ConsultPageWrapper() {
 
 function ConsultPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const { address, chainId } = useAccount();
-  const { switchChain } = useSwitchChain();
-  const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
-  const { writeContractAsync } = useWriteContract();
-
   const typeParam = Number(searchParams.get("type") ?? "0");
   const serviceType = typeParam === 1 ? 1 : 0;
-  const info = CONSULT_INFO[serviceType as 0 | 1];
 
-  // Payment context — single hook for all balances, prices, allowances
-  const {
-    clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance,
-    clawdPrice, ethPrice,
-    clawdAllowance, refetchAllowance,
-    bestPaymentMethod,
-  } = usePaymentContext();
-
-  const [topic, setTopic] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cv");
-  const [step, setStep] = useState<"idle" | "signing" | "approving" | "paying" | "posting" | "done">("idle");
-  const [txError, setTxError] = useState<string | null>(null);
-  const postedJobIdRef = useRef<number | string | null>(null);
-  const hasSetDefault = useRef(false);
-
-  // Set default payment method from hook once
-  useEffect(() => {
-    if (!hasSetDefault.current && bestPaymentMethod) {
-      hasSetDefault.current = true;
-      setPaymentMethod(bestPaymentMethod);
-    }
-  }, [bestPaymentMethod]);
-
-  const isWrongNetwork = !!address && chainId !== BASE_CHAIN_ID;
-  const contractAddress = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}` | undefined;
-
-  const { data: priceRaw } = useScaffoldReadContract({
-    contractName: "LeftClawServicesV2",
-    functionName: "servicePriceUsd",
-    args: [serviceType],
-  });
-
-  const { data: nextJobId } = useScaffoldReadContract({
-    contractName: "LeftClawServicesV2",
-    functionName: "nextJobId",
-  });
-
-  const priceUsdRaw = priceRaw ?? BigInt(0);
-  const priceUsdNum = Number(formatUnits(priceUsdRaw, 6));
-  const priceDisplay = priceUsdNum ? `$${priceUsdNum.toLocaleString()}` : "...";
-  const clawdNeeded = clawdPrice && priceUsdNum ? Math.ceil(priceUsdNum / clawdPrice) : 0;
-  const priceWei = BigInt(Math.ceil(clawdNeeded)) * BigInt(10) ** BigInt(18);
-  const usdcAmount = parseUnits(priceUsdNum.toString(), 6);
-  const ethNeeded = ethPrice && priceUsdNum ? priceUsdNum / ethPrice : 0;
-  const cvCost = CV_PRICES[serviceType] || 20_000_000;
-
-  const needsApproval = paymentMethod === "clawd" && !!address && priceWei > BigInt(0) && (clawdAllowance === undefined || clawdAllowance < priceWei);
-
-  const isInsufficient = (() => {
-    if (!address) return false;
-    switch (paymentMethod) {
-      case "cv": return cvBalance !== null && cvBalance < cvCost;
-      case "clawd": return clawdBalance !== undefined && clawdBalance < priceWei;
-      case "usdc": return usdcBalance !== undefined && usdcBalance < usdcAmount;
-      case "eth": return false;
-      default: return false;
-    }
-  })();
-
-  // Mobile wallet deep-link
-  const openWallet = useCallback(() => {
-    if (typeof window === "undefined") return;
-    if (!/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.ethereum) return;
-    let wcWallet = "";
-    try {
-      for (const key of Object.keys(localStorage)) {
-        if (key.startsWith("wc@2:client") || key.startsWith("wagmi")) {
-          const val = (localStorage.getItem(key) || "").toLowerCase();
-          if (val.includes("metamask") || val.includes("rainbow") || val.includes("coinbase") || val.includes("trust") || val.includes("walletconnect")) {
-            wcWallet = val;
-            break;
-          }
-        }
-      }
-    } catch {}
-    const schemes: [string[], string][] = [
-      [["metamask"], "https://metamask.app.link/"],
-      [["coinbase", "cbwallet"], "https://go.cb-w.com/"],
-      [["rainbow"], "https://rnbwapp.com/"],
-      [["trust"], "https://link.trustwallet.com/"],
-    ];
-    for (const [kws, scheme] of schemes) {
-      if (kws.some(k => wcWallet.includes(k))) { window.location.href = scheme; return; }
-    }
-    // Generic fallback: try metamask universal link (most common mobile wallet)
-    if (wcWallet) window.location.href = "https://metamask.app.link/";
-  }, []);
-
-  const writeAndOpen = useCallback(
-    <T,>(fn: () => Promise<T>): Promise<T> => { const p = fn(); setTimeout(openWallet, 2000); return p; },
-    [openWallet],
-  );
-
-  // Redirect after done
-  useEffect(() => {
-    if (step !== "done" || postedJobIdRef.current === null) return;
-    const jobId = postedJobIdRef.current;
-    const isCvJob = String(jobId).startsWith("cv-");
-    const desc = topic.trim() || "Consultation session";
-    if (desc) {
-      try { localStorage.setItem(`consult-topic-${jobId}`, desc); } catch {}
-    }
-    // Trigger sanitization for on-chain jobs (fire-and-forget).
-    // CV jobs already have sanitization auto-passed at payment time.
-    if (!isCvJob) {
-      fetch("/api/job/sanitize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId: String(jobId), description: desc }),
-      }).catch(() => {});
-    }
-    router.push(`/chat/${jobId}`);
-  }, [step, router, topic]);
-
-  const handleStart = async () => {
-    if (!address || isWrongNetwork || isInsufficient || !contractAddress) return;
-    setTxError(null);
-
-    try {
-      const description = topic.trim() || `${info.name} session`;
-
-      if (paymentMethod === "cv") {
-        if (!walletClient) throw new Error("Wallet not connected");
-        setStep("signing");
-        // Key includes message hash so cached sigs auto-invalidate if message changes
-        const sigKey = `cv-sig-v2-${address.toLowerCase()}`;
-        // Clear any old-format cached sigs
-        localStorage.removeItem(`cv-sig-${address.toLowerCase()}`);
-        let signature = localStorage.getItem(sigKey);
-        let usedCached = !!signature;
-        if (!signature) {
-          signature = await walletClient.signMessage({ message: CV_SIGN_MESSAGE });
-          localStorage.setItem(sigKey, signature);
-          usedCached = false;
-        }
-        console.log("[cv-pay] sending cv-spend request", {
-          wallet: address,
-          sigLength: signature?.length,
-          sigPrefix: signature?.slice(0, 20),
-          usedCached,
-          amount: cvCost,
-        });
-        const spendRes = await fetch("/api/cv-spend", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ wallet: address, signature, amount: cvCost }),
-        });
-        const spendData = await spendRes.json();
-        if (!spendRes.ok) {
-          // Always clear cached sig on any failure — stale sigs cause loops
-          localStorage.removeItem(sigKey);
-          const parts = [spendData.error || "CV spend failed"];
-          if (spendData.detail) parts.push(spendData.detail);
-          if (spendData.source) parts.push(`(source: ${spendData.source})`);
-          if (usedCached) parts.push("Cached signature cleared — please try again.");
-          throw new Error(parts.join(" — "));
-        }
-
-        // CV payment is off-chain only — no on-chain tx needed.
-        // Generate a synthetic job ID and auto-pass sanitization.
-        const cvJobId = `cv-${Date.now()}`;
-        postedJobIdRef.current = cvJobId;
-
-        // Auto-pass sanitization for CV consults (fire-and-forget)
-        fetch("/api/job/sanitize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jobId: cvJobId, description, cvAutoPass: true }),
-        }).catch(() => {});
-
-        setStep("done");
-
-      } else if (paymentMethod === "clawd") {
-        if (needsApproval) {
-          setStep("approving");
-          await writeAndOpen(() => writeContractAsync({
-            address: CLAWD_ADDRESS, abi: ERC20_ABI, functionName: "approve",
-            args: [contractAddress, priceWei],
-          }));
-          let ok = false;
-          for (let i = 0; i < 12; i++) {
-            await new Promise(r => setTimeout(r, 1500));
-            refetchAllowance();
-            // Re-read directly since refetch is async
-            const data = await publicClient?.readContract({
-              address: CLAWD_ADDRESS, abi: ERC20_ABI, functionName: "allowance",
-              args: [address, contractAddress],
-            });
-            if (data !== undefined && (data as bigint) >= priceWei) { ok = true; break; }
-          }
-          if (!ok) { setTxError("Approval didn't confirm — try again"); setStep("idle"); return; }
-        }
-        postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
-        setStep("posting");
-        const txHash = await writeAndOpen(() => writeContractAsync({
-          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
-          functionName: "postJob", args: [serviceType, priceWei, description],
-        }));
-        if (!txHash) { setTxError("Transaction failed"); setStep("idle"); return; }
-        if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
-        setStep("done");
-
-      } else if (paymentMethod === "eth") {
-        if (!ethPrice || ethNeeded <= 0) throw new Error("ETH price not loaded");
-        postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
-        setStep("paying");
-        const ethWei = parseEther((ethNeeded * 1.05).toFixed(18));
-        const txHash = await writeAndOpen(() => writeContractAsync({
-          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
-          functionName: "postJobWithETH", args: [serviceType, description],
-          value: ethWei,
-        }));
-        if (!txHash) { setTxError("Transaction failed"); setStep("idle"); return; }
-        if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
-        setStep("done");
-
-      } else if (paymentMethod === "usdc") {
-        postedJobIdRef.current = nextJobId ? Number(nextJobId) : null;
-        setStep("approving");
-        await writeAndOpen(() => writeContractAsync({
-          address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve",
-          args: [contractAddress, usdcAmount],
-        }));
-        let approveOk = false;
-        for (let i = 0; i < 12; i++) {
-          await new Promise(r => setTimeout(r, 1500));
-          const bal = await publicClient?.readContract({
-            address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "allowance",
-            args: [address, contractAddress],
-          });
-          if (bal !== undefined && (bal as bigint) >= usdcAmount) { approveOk = true; break; }
-        }
-        if (!approveOk) { setTxError("USDC approval didn't confirm"); setStep("idle"); return; }
-
-        setStep("posting");
-        const txHash = await writeAndOpen(() => writeContractAsync({
-          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
-          functionName: "postJobWithUsdc", args: [serviceType, description, BigInt(1)],
-        }));
-        if (!txHash) { setTxError("Transaction failed"); setStep("idle"); return; }
-        if (publicClient) await publicClient.waitForTransactionReceipt({ hash: txHash });
-        setStep("done");
-      }
-    } catch (e: any) {
-      console.error("Payment error:", e);
-      const raw = e?.shortMessage || e?.message || String(e);
-      // For CV payment errors, show the raw message directly (it already has good detail)
-      // For contract errors, try parsing the revert reason
-      if (paymentMethod === "cv") {
-        setTxError(raw.slice(0, 500));
-      } else {
-        const parsed = parseContractError(e);
-        setTxError(parsed !== "Transaction failed — please try again" ? parsed : `Error: ${raw.slice(0, 300)}`);
-      }
-      setStep("idle");
-    }
-  };
-
-  const busy = step === "approving" || step === "posting" || step === "signing" || step === "paying";
-
-  const costDisplay = (withUsd = false) => {
-    const usdSuffix = withUsd && priceUsdNum > 0 ? ` (~$${priceUsdNum.toLocaleString()})` : "";
-    switch (paymentMethod) {
-      case "cv": return `${cvCost.toLocaleString()} CV${usdSuffix}`;
-      case "clawd": return clawdNeeded > 0 ? `~${clawdNeeded.toLocaleString()} CLAWD${usdSuffix}` : "...";
-      case "usdc": return `$${priceUsdNum.toFixed(2)} USDC`;
-      case "eth": return ethNeeded > 0 ? `~${ethNeeded.toFixed(6)} ETH${usdSuffix}` : "...";
-    }
-  };
-
-  const balanceStr = () => formatBalance({ method: paymentMethod, clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance });
-
-  const buttonLabel = () => {
-    if (step === "signing") return "Sign message in wallet...";
-    if (step === "approving") return "Approving...";
-    if (step === "paying") return "Confirm payment...";
-    if (step === "posting") return "Starting session...";
-    if (step === "done") return "Redirecting to chat...";
-    const labels: Record<PaymentMethod, string> = {
-      cv: `⚡ Spend ${cvCost.toLocaleString()} CV & Start Chat`,
-      clawd: needsApproval ? `Approve & Lock ${priceDisplay} CLAWD` : `🔥 Lock ${costDisplay()} & Start Chat`,
-      usdc: `💵 Pay ${costDisplay()} & Start Chat`,
-      eth: `⟠ Pay ${costDisplay()} & Start Chat`,
-    };
-    return labels[paymentMethod];
-  };
+  const config = CONSULT_CONFIG[serviceType as 0 | 1];
+  const extra = CONSULT_EXTRA[serviceType as 0 | 1];
+  const meta = SERVICE_META[config.slug] || SERVICE_META["consult"];
 
   return (
     <div className="flex flex-col items-center py-10 px-4 min-h-screen">
       <div className="w-full max-w-lg">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-3">{info.emoji}</div>
-          <h1 className="text-3xl font-bold">{info.name}</h1>
-          <p className="text-base opacity-60 mt-2">{info.tagline}</p>
-        </div>
+        <ServiceHero
+          name={extra.name}
+          emoji={extra.emoji}
+          tagline={extra.tagline}
+          bullets={extra.bullets}
+          heroImage={meta?.heroImage}
+          heroPosition={meta?.heroPosition}
+        />
 
-        <div className="card bg-base-200 mb-6">
-          <div className="card-body py-5">
-            <h2 className="font-semibold mb-3">What&apos;s included</h2>
-            <ul className="space-y-2">
-              {info.bullets.map((b, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
-                  <span className="text-green-500 mt-0.5">✓</span><span>{b}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Payment method */}
-        <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} disabled={busy} />
-
-        {/* Price & Balance */}
-        <div className="flex items-center justify-between bg-base-300 rounded-xl px-5 py-4 mb-6">
-          <div>
-            <p className="text-sm opacity-60">Total cost</p>
-            <p className="text-2xl font-mono font-bold">{costDisplay()}</p>
-            {paymentMethod !== "usdc" && priceUsdNum > 0 && (
-              <p className="text-sm opacity-60">~${priceUsdNum.toLocaleString()} USD</p>
-            )}
-            <p className="text-sm opacity-50">Balance: {balanceStr()}</p>
-          </div>
-          <div className="text-right text-sm opacity-60">
-            <p>{serviceType === 0 ? "Quick session" : "Deep session"}</p>
-            <p className="text-xs">{priceDisplay}</p>
-          </div>
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">What do you want to build? <span className="opacity-50">(optional)</span></label>
-          <textarea
-            className="textarea textarea-bordered w-full h-24 text-sm"
-            placeholder="e.g. A staking dApp where users earn ETH rewards on CLAWD deposits..."
-            value={topic} onChange={e => setTopic(e.target.value)} disabled={busy}
-          />
-        </div>
-
-        {!address && <div className="flex justify-center mb-4"><RainbowKitCustomConnectButton /></div>}
-        {isWrongNetwork && <button className="btn btn-error btn-lg w-full mb-4" onClick={() => switchChain({ chainId: BASE_CHAIN_ID })}>⚠️ Switch to Base Network</button>}
-        {isInsufficient && <div className="alert alert-error mb-4"><span>Insufficient balance for selected payment method</span></div>}
-
-        <button
-          className="btn btn-primary btn-lg w-full text-base"
-          onClick={handleStart}
-          disabled={!address || isWrongNetwork || isInsufficient || busy || priceWei === BigInt(0)}
-        >
-          {busy && <span className="loading loading-spinner loading-sm mr-2" />}
-          {buttonLabel()}
-        </button>
-
-        {busy && (
-          <div className="mt-4 text-center text-sm opacity-60">
-            {step === "signing" && "Sign the message to prove wallet ownership"}
-            {step === "approving" && `Step 1/2 — Approve ${paymentMethod === "usdc" ? "USDC" : "CLAWD"} in your wallet`}
-            {step === "paying" && "Confirm the payment in your wallet"}
-            {step === "posting" && "Creating your session..."}
-          </div>
-        )}
-
-        {txError && <div className="alert alert-error mt-4"><span>{txError}</span></div>}
-
-        <p className="text-center text-xs opacity-40 mt-6">
-          {paymentMethod === "clawd" ? "Tokens locked on-chain. CLAWD burned when plan delivered."
-            : paymentMethod === "cv" ? "ClawdViction earned by staking CLAWD. No tokens burned."
-            : "Payment processed on Base."}
-        </p>
+        <UnifiedPaymentFlow
+          serviceTypeId={config.id}
+          priceUsd={config.priceUsd}
+          cvDivisor={config.cvDivisor}
+          serviceName={extra.name}
+          descriptionLabel="What do you want to build?"
+          descriptionPlaceholder="e.g. A staking dApp where users earn ETH rewards on CLAWD deposits..."
+          descriptionRequired={false}
+          onSuccess={jobId => {
+            // Store topic for chat context
+            const desc = `${extra.name} session`;
+            try { localStorage.setItem(`consult-topic-${jobId}`, desc); } catch {}
+            // Trigger sanitization for on-chain jobs
+            if (!String(jobId).startsWith("cv-")) {
+              fetch("/api/job/sanitize", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ jobId: String(jobId), description: desc }),
+              }).catch(() => {});
+            }
+            return `/chat/${jobId}`;
+          }}
+        />
       </div>
     </div>
   );
