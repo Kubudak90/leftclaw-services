@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { NextPage } from "next";
+import { Address } from "~~/components/scaffold-eth";
 import deployedContracts from "~~/contracts/deployedContracts";
 
 const CONTRACT_ADDRESS = (deployedContracts[8453] as any)?.LeftClawServicesV2?.address ?? (deployedContracts[8453] as any)?.LeftClawServices?.address;
@@ -117,16 +118,7 @@ const Home: NextPage = () => {
         {/* Contract Address */}
         <section className="py-16 flex flex-col items-center gap-2">
           <p className="opacity-60 text-sm">Contract on Base</p>
-          {CONTRACT_ADDRESS && (
-            <a
-              href={`https://basescan.org/address/${CONTRACT_ADDRESS}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-sm opacity-60 hover:opacity-100 transition-opacity"
-            >
-              {CONTRACT_ADDRESS}
-            </a>
-          )}
+          {CONTRACT_ADDRESS && <Address address={CONTRACT_ADDRESS} />}
         </section>
       </div>
     </div>
