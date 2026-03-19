@@ -149,7 +149,7 @@ export default function PfpPage() {
         args: [DEAD_ADDRESS, priceWei],
       });
       if (!txHash) throw new Error("Transaction failed");
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      await publicClient.waitForTransactionReceipt({ hash: txHash, retryCount: 20, retryDelay: 3_000 });
       setBurnInfo({ clawdAmount: clawdNeeded, txHash });
       setStep("generating");
       const res = await fetch("/api/pfp/generate", {
@@ -214,7 +214,7 @@ export default function PfpPage() {
         args: [TREASURY_ADDRESS, USDC_AMOUNT],
       });
       if (!txHash) throw new Error("Transaction failed");
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      await publicClient.waitForTransactionReceipt({ hash: txHash, retryCount: 20, retryDelay: 3_000 });
       setPaymentInfo({ txHash, method: "usdc" });
 
       setStep("generating");
@@ -242,10 +242,9 @@ export default function PfpPage() {
         to: TREASURY_ADDRESS,
         value: parseEther(ethNeeded.toFixed(18)),
         account: address,
-        chain: { id: BASE_CHAIN_ID, name: "Base", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: ["https://mainnet.base.org"] } } },
       });
       if (!txHash) throw new Error("Transaction failed");
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      await publicClient.waitForTransactionReceipt({ hash: txHash, retryCount: 20, retryDelay: 3_000 });
       setPaymentInfo({ txHash, method: "eth" });
 
       setStep("generating");
