@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI, { toFile } from "openai";
-import { verifyPayment, PaymentMethod } from "~~/lib/payments";
+import { verifyMessage } from "viem";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw.services";
+const CV_SPEND_SECRET = process.env.CV_SPEND_SECRET || "";
+const CV_SPEND_URL = "https://clawdviction.vercel.app/api/cv/spend";
+const CV_SIGN_MESSAGE = "ClawdViction CV Spend";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw-services-nextjs.vercel.app";
+const PFP_CV_COST = 500_000;
 
 let baseImageCache: Buffer | null = null;
 
@@ -23,32 +27,40 @@ async function getBaseImage(): Promise<Buffer> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, method, wallet, signature, txHash } = await req.json();
+    const { prompt, wallet, signature } = await req.json();
 
-    if (!prompt || typeof prompt !== "string" || prompt.trim().length < 3) {
+    if (!prompt || typeof prompt !== "string" || prompt.trim().length < 3)
       return NextResponse.json({ error: "Prompt required (minimum 3 characters)" }, { status: 400 });
-    }
+    if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet))
+      return NextResponse.json({ error: "Valid wallet address required" }, { status: 400 });
+    if (!signature || !/^0x[0-9a-fA-F]+$/.test(signature))
+      return NextResponse.json({ error: "Valid signature required" }, { status: 400 });
 
-    const paymentMethod = (method || "cv") as PaymentMethod;
-
-    // Verify payment via unified system
-    const result = await verifyPayment("PFP_GENERATE", {
-      method: paymentMethod,
-      wallet,
-      signature,
-      txHash,
+    const valid = await verifyMessage({
+      address: wallet as `0x${string}`,
+      message: CV_SIGN_MESSAGE,
+      signature: signature as `0x${string}`,
     });
+    if (!valid)
+      return NextResponse.json({ error: "Invalid signature — sign the message with your wallet" }, { status: 403 });
 
-    if (!result.success) {
-      const status = result.error?.includes("insufficient") ? 402 : 400;
-      return NextResponse.json({ error: result.error, ...result.details }, { status });
+    const spendRes = await fetch(CV_SPEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet, signature, secret: CV_SPEND_SECRET, amount: PFP_CV_COST }),
+    });
+    const spendData = await spendRes.json();
+
+    if (!spendRes.ok || !spendData.success) {
+      const status = spendRes.status === 402 ? 402 : spendRes.status === 404 ? 404 : 400;
+      return NextResponse.json(
+        { error: spendData.error || "CV spend failed", ...(spendData.balance !== undefined ? { currentBalance: spendData.balance } : {}), required: PFP_CV_COST },
+        { status }
+      );
     }
 
-    // Payment verified — generate PFP
     const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 });
-    }
+    if (!apiKey) return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 });
 
     const baseImageBuffer = await getBaseImage();
     const openai = new OpenAI({ apiKey });
@@ -57,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     const imageFile = await toFile(baseImageBuffer, "clawd-base.jpg", { type: "image/jpeg" });
 
-    const genResult = await openai.images.edit({
+    const result = await openai.images.edit({
       model: "gpt-image-1.5",
       image: imageFile,
       prompt: fullPrompt,
@@ -65,19 +77,19 @@ export async function POST(req: NextRequest) {
       size: "1024x1024",
     });
 
-    const imageData = genResult.data?.[0];
-    if (!imageData?.b64_json) {
+    const imageData = result.data?.[0];
+    if (!imageData?.b64_json)
       return NextResponse.json({ error: "Image generation failed" }, { status: 500 });
-    }
 
     return NextResponse.json({
       image: `data:image/png;base64,${imageData.b64_json}`,
       prompt: prompt.trim(),
-      payment: { method: paymentMethod, ...result.details },
-      message: "🦞 Your custom CLAWD PFP is ready!",
+      cvSpent: PFP_CV_COST,
+      newBalance: spendData.newBalance,
+      message: "🦞 Your custom CLAWD PFP is ready! Paid with ClawdViction.",
     });
   } catch (e: any) {
-    console.error("PFP generate error:", e);
+    console.error("PFP generate-cv error:", e);
     return NextResponse.json({ error: e.message || "Generation failed" }, { status: 500 });
   }
 }
