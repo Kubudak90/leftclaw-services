@@ -42,10 +42,15 @@ export async function POST(req: NextRequest) {
     if (!rpcUrl) return NextResponse.json({ error: "RPC not configured" }, { status: 500 });
 
     const client = createPublicClient({ chain: base, transport: http(rpcUrl) });
-    const [receipt, tx] = await Promise.all([
-      client.getTransactionReceipt({ hash: txHash as `0x${string}` }),
-      client.getTransaction({ hash: txHash as `0x${string}` }),
-    ]);
+
+    // Wait up to 90s for the receipt — tx may not be indexed yet when the API is called
+    const receipt = await client.waitForTransactionReceipt({
+      hash: txHash as `0x${string}`,
+      timeout: 90_000,
+      retryCount: 30,
+      retryDelay: 3_000,
+    });
+    const tx = await client.getTransaction({ hash: txHash as `0x${string}` });
 
     if (!receipt || receipt.status !== "success")
       return NextResponse.json({ error: "Transaction failed or not found" }, { status: 400 });
