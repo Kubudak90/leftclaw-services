@@ -12,7 +12,7 @@ const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD" as const;
 const TREASURY_ADDRESS = "0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0" as const;
 const BASE_CHAIN_ID = 8453;
 const PFP_PRICE_USD = 4;
-const PFP_CV_COST = 500_000;
+const PFP_CV_DIVISOR = 250; // fifth / 250 per on-chain ServiceType
 const CV_SIGN_MESSAGE = "larv.ai CV Spend";
 const USDC_AMOUNT = BigInt(4_000_000); // 4 USDC (6 decimals)
 
@@ -78,6 +78,7 @@ export default function PfpPage() {
   const [paymentInfo, setPaymentInfo] = useState<{ txHash: string; method: string } | null>(null);
   const [cvBalance, setCvBalance] = useState<number | null>(null);
   const [cvLoading, setCvLoading] = useState(false);
+  const [cvCost, setCvCost] = useState<number | null>(null);
   const [ethPrice, setEthPrice] = useState<number | null>(null);
 
   const isWrongNetwork = !!address && chainId !== BASE_CHAIN_ID;
@@ -101,7 +102,7 @@ export default function PfpPage() {
   });
 
   const insufficientClawd = !!address && clawdBalanceRaw !== undefined && clawdBalanceRaw < priceWei;
-  const insufficientCv = cvBalance !== null && cvBalance < PFP_CV_COST;
+  const insufficientCv = cvBalance !== null && cvCost !== null && cvBalance < cvCost;
   const insufficientUsdc = !!address && usdcBalanceRaw !== undefined && usdcBalanceRaw < USDC_AMOUNT;
 
   // Fetch CV balance
@@ -114,6 +115,17 @@ export default function PfpPage() {
       .catch(() => setCvBalance(null))
       .finally(() => setCvLoading(false));
   }, [address]);
+
+  // Fetch dynamic CV cost: fifth / PFP_CV_DIVISOR
+  useEffect(() => {
+    fetch("https://larv.ai/api/cv/highest")
+      .then(r => r.json())
+      .then(data => {
+        const fifth = data.highestCVBalance / 5;
+        setCvCost(Math.ceil(fifth / PFP_CV_DIVISOR));
+      })
+      .catch(() => setCvCost(null));
+  }, []);
 
   // Fetch ETH price
   useEffect(() => {
@@ -169,7 +181,7 @@ export default function PfpPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        if (res.status === 402) throw new Error(`Not enough ClawdViction. You have ${(data.currentBalance || 0).toLocaleString()} CV, need ${PFP_CV_COST.toLocaleString()}.`);
+        if (res.status === 402) throw new Error(`Not enough ClawdViction. You have ${(data.currentBalance || 0).toLocaleString()} CV, need ${(cvCost ?? 0).toLocaleString()}.`);
         throw new Error(data.error || "Generation failed");
       }
       setCvInfo({ cvSpent: data.cvSpent, newBalance: data.newBalance });
@@ -369,7 +381,7 @@ export default function PfpPage() {
                 <>
                   <div>
                     <p className="text-sm opacity-60">Cost</p>
-                    <p className="text-2xl font-mono font-bold">{PFP_CV_COST.toLocaleString()} CV</p>
+                    <p className="text-2xl font-mono font-bold">{cvCost !== null ? cvCost.toLocaleString() : "..."} CV</p>
                     <p className="text-sm opacity-50">{cvLoading ? "Loading balance..." : cvBalance !== null ? `You have ${cvBalance.toLocaleString()} CV` : "Connect wallet to check"}</p>
                   </div>
                   <div className="text-right text-sm opacity-60"><p>⚡ ClawdViction</p><p>Earned by staking</p></div>
@@ -406,7 +418,7 @@ export default function PfpPage() {
             )}
             {paymentMethod === "cv" && insufficientCv && (
               <div className="alert alert-error mb-4">
-                <span>Not enough ClawdViction. You have {(cvBalance || 0).toLocaleString()} CV, need {PFP_CV_COST.toLocaleString()}. <a href="https://larv.ai/stake" target="_blank" rel="noopener" className="underline">Stake CLAWD →</a></span>
+                <span>Not enough ClawdViction. You have {(cvBalance || 0).toLocaleString()} CV, need {(cvCost ?? 0).toLocaleString()}. <a href="https://larv.ai/stake" target="_blank" rel="noopener" className="underline">Stake CLAWD →</a></span>
               </div>
             )}
             {paymentMethod === "usdc" && insufficientUsdc && (
@@ -421,7 +433,7 @@ export default function PfpPage() {
             <button
               className="btn btn-primary btn-lg w-full text-base"
               onClick={handleGenerate}
-              disabled={!address || isWrongNetwork || isInsufficient || busy || !prompt.trim() || (paymentMethod === "burn" && priceWei === BigInt(0)) || (paymentMethod === "eth" && !ethPrice)}
+              disabled={!address || isWrongNetwork || isInsufficient || busy || !prompt.trim() || (paymentMethod === "burn" && priceWei === BigInt(0)) || (paymentMethod === "eth" && !ethPrice) || (paymentMethod === "cv" && cvCost === null)}
             >
               {busy && <span className="loading loading-spinner loading-sm mr-2" />}
               {step === "signing" ? "Sign message in wallet..." :
@@ -430,7 +442,7 @@ export default function PfpPage() {
                step === "approving" ? "Approve USDC in wallet..." :
                step === "paying" ? "Confirm payment in wallet..." :
                step === "generating" ? "Generating PFP..." :
-               paymentMethod === "cv" ? `⚡ Spend ${PFP_CV_COST.toLocaleString()} CV & Generate` :
+               paymentMethod === "cv" ? `⚡ Spend ${cvCost !== null ? cvCost.toLocaleString() : "..."} CV & Generate` :
                paymentMethod === "burn" ? `🔥 Burn ${clawdNeeded > 0 ? clawdNeeded.toLocaleString() + " CLAWD" : "..."} & Generate` :
                paymentMethod === "usdc" ? "💵 Pay $4 USDC & Generate" :
                `⟠ Pay ${ethPrice ? (PFP_PRICE_USD / ethPrice).toFixed(5) : "..."} ETH & Generate`}
