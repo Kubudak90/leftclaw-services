@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Address } from "~~/components/scaffold-eth";
 import type { NextPage } from "next";
 import deployedContracts from "~~/contracts/deployedContracts";
 
-const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address;
+const CONTRACT_ADDRESS = (deployedContracts[8453] as any)?.LeftClawServicesV2?.address ?? (deployedContracts[8453] as any)?.LeftClawServices?.address;
 
 const textShadow = { textShadow: "0 2px 8px rgba(0,0,0,0.7)" };
 
@@ -118,7 +117,16 @@ const Home: NextPage = () => {
         {/* Contract Address */}
         <section className="py-16 flex flex-col items-center gap-2">
           <p className="opacity-60 text-sm">Contract on Base</p>
-          {CONTRACT_ADDRESS && <Address address={CONTRACT_ADDRESS} />}
+          {CONTRACT_ADDRESS && (
+            <a
+              href={`https://basescan.org/address/${CONTRACT_ADDRESS}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-sm opacity-60 hover:opacity-100 transition-opacity"
+            >
+              {CONTRACT_ADDRESS}
+            </a>
+          )}
         </section>
       </div>
     </div>
