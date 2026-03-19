@@ -32,13 +32,15 @@ contract DeployLeftClawServicesV2 is Script {
     }
 
     function _getSeedServices() internal pure returns (SeedService[] memory) {
-        SeedService[] memory seeds = new SeedService[](6);
+        SeedService[] memory seeds = new SeedService[](8);
         seeds[0] = SeedService("Quick Consultation",  "consult",       20_000_000,      100);
         seeds[1] = SeedService("Deep Consultation",   "consult-deep",  30_000_000,      50);
-        seeds[2] = SeedService("PFP Generator",       "pfp",           4_000_000,       250);
-        seeds[3] = SeedService("Contract Audit",      "audit",         200_000_000,     25);
-        seeds[4] = SeedService("Frontend QA Audit",   "qa",            50_000_000,      50);
-        seeds[5] = SeedService("Daily Build",         "build",         1_000_000_000,   1);
+        seeds[2] = SeedService("PFP Generator",         "pfp",           250_000,         250);
+        seeds[3] = SeedService("Contract Audit",       "audit",         200_000_000,     25);
+        seeds[4] = SeedService("Frontend QA Audit",    "qa",            50_000_000,      50);
+        seeds[5] = SeedService("Daily Build",          "build",         1_000_000_000,   1);
+        seeds[6] = SeedService("Research Report",     "research",      100_000_000,     13);
+        seeds[7] = SeedService("Judge / Oracle",       "judge",         50_000_000,      50);
         return seeds;
     }
 

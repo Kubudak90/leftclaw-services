@@ -3,11 +3,10 @@
 import { ServiceHero, UnifiedPaymentFlow } from "~~/components/payment";
 import { EXTRA_SERVICE_META } from "~~/lib/servicesMeta";
 
-// Research uses the "build" service type in the contract (ID 6, priceUsd = $1000, cvDivisor = 1)
-// Research reports are priced as a full build day
-const SERVICE_TYPE_ID = 6;
-const PRICE_USD = 1000;
-const CV_DIVISOR = 1;
+// Research — on-chain service type ID 7
+const SERVICE_TYPE_ID = 7;
+const PRICE_USD = 100;
+const CV_DIVISOR = 13;
 
 const meta = EXTRA_SERVICE_META["research"];
 

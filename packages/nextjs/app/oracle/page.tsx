@@ -3,11 +3,10 @@
 import { ServiceHero, UnifiedPaymentFlow } from "~~/components/payment";
 import { EXTRA_SERVICE_META } from "~~/lib/servicesMeta";
 
-// Oracle/Judge uses the "build" service type in the contract (ID 6, priceUsd = $1000, cvDivisor = 1)
-// This is a custom job — uses the Daily Build price tier since oracle jobs are complex
-const SERVICE_TYPE_ID = 6;
-const PRICE_USD = 1000;
-const CV_DIVISOR = 1;
+// Oracle/Judge — on-chain service type ID 8
+const SERVICE_TYPE_ID = 8;
+const PRICE_USD = 50;
+const CV_DIVISOR = 50;
 
 const meta = EXTRA_SERVICE_META["oracle"];
 
