@@ -11,10 +11,10 @@ const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD" as const;
 const TREASURY_ADDRESS = "0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0" as const;
 const BASE_CHAIN_ID = 8453;
-const PFP_PRICE_USD = 4;
+const PFP_PRICE_USD = 0.25;
 const PFP_CV_DIVISOR = 250; // fifth / 250 per on-chain ServiceType
 const CV_SIGN_MESSAGE = "larv.ai CV Spend";
-const USDC_AMOUNT = BigInt(4_000_000); // 4 USDC (6 decimals)
+const USDC_AMOUNT = BigInt(250_000); // 0.25 USDC (6 decimals)
 
 const ERC20_ABI = [
   {
@@ -390,7 +390,7 @@ export default function PfpPage() {
                 <>
                   <div>
                     <p className="text-sm opacity-60">Cost</p>
-                    <p className="text-2xl font-mono font-bold">$4.00 USDC</p>
+                    <p className="text-2xl font-mono font-bold">$0.25 USDC</p>
                     {address && usdcBalanceRaw !== undefined && (
                       <p className="text-sm opacity-50">You have {(Number(usdcBalanceRaw) / 1e6).toFixed(2)} USDC</p>
                     )}
@@ -423,7 +423,7 @@ export default function PfpPage() {
             )}
             {paymentMethod === "usdc" && insufficientUsdc && (
               <div className="alert alert-error mb-4">
-                <span>Not enough USDC. You have {usdcBalanceRaw !== undefined ? (Number(usdcBalanceRaw) / 1e6).toFixed(2) : "0"} USDC, need 4.00.</span>
+                <span>Not enough USDC. You have {usdcBalanceRaw !== undefined ? (Number(usdcBalanceRaw) / 1e6).toFixed(2) : "0"} USDC, need 0.25.</span>
               </div>
             )}
             {paymentMethod === "eth" && !ethPrice && (
@@ -444,7 +444,7 @@ export default function PfpPage() {
                step === "generating" ? "Generating PFP..." :
                paymentMethod === "cv" ? `⚡ Spend ${cvCost !== null ? cvCost.toLocaleString() : "..."} CV & Generate` :
                paymentMethod === "burn" ? `🔥 Burn ${clawdNeeded > 0 ? clawdNeeded.toLocaleString() + " CLAWD" : "..."} & Generate` :
-               paymentMethod === "usdc" ? "💵 Pay $4 USDC & Generate" :
+               paymentMethod === "usdc" ? "💵 Pay $0.25 USDC & Generate" :
                `⟠ Pay ${ethPrice ? (PFP_PRICE_USD / ethPrice).toFixed(5) : "..."} ETH & Generate`}
             </button>
 
