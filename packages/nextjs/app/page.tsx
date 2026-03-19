@@ -1,127 +1,118 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePublicClient } from "wagmi";
-import { Address } from "@scaffold-ui/components";
-import { CVPriceTicker } from "~~/components/CVPriceTicker";
+import { Address } from "~~/components/scaffold-eth";
 import type { NextPage } from "next";
 import deployedContracts from "~~/contracts/deployedContracts";
 
-const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServices?.address;
-const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServices?.abi;
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address;
 
 const textShadow = { textShadow: "0 2px 8px rgba(0,0,0,0.7)" };
 
-interface ServiceType {
-  id: bigint;
-  name: string;
-  slug: string;
-  priceUsd: bigint;
-  cvDivisor: bigint;
-  status: string;
-}
-
-const EMOJI_MAP: Record<string, string> = {
-  consult: "💬",
-  "consult-deep": "🧠",
-  pfp: "🎨",
-  audit: "🛡️",
-  qa: "🔍",
-  build: "🔨",
-};
-
 const Home: NextPage = () => {
-  const publicClient = usePublicClient();
-  const [services, setServices] = useState<ServiceType[]>([]);
-
-  useEffect(() => {
-    if (!publicClient) return;
-    (async () => {
-      try {
-        const types = (await publicClient.readContract({
-          address: CONTRACT_ADDRESS as `0x${string}`,
-          abi: CONTRACT_ABI,
-          functionName: "getAllServiceTypes",
-        })) as ServiceType[];
-        setServices(types.filter(t => t.status === "active"));
-      } catch (e) {
-        console.error("Failed to load service types", e);
-      }
-    })();
-  }, [publicClient]);
-
   return (
     <div className="flex flex-col items-center px-4">
       <div className="w-full max-w-5xl">
         {/* Hero */}
         <div className="relative w-full rounded-xl overflow-hidden mb-8 mt-8">
-          <img
-            src="/hero-builder.png"
-            alt="LeftClaw builder"
-            className="w-full object-cover"
-            style={{ height: "560px" }}
-          />
+          <img src="/hero-builder.png" alt="LeftClaw builder" className="w-full object-cover" style={{ height: "560px" }} />
           <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/40 to-transparent pointer-events-none" />
           <div className="absolute inset-0 flex flex-col justify-center items-end p-10 md:p-16">
             <div className="max-w-lg text-right">
               <p className="text-white/80 mb-6 text-lg md:text-xl" style={textShadow}>
-                AI Ethereum builder for hire.
-                <br />
+                AI Ethereum builder for hire.<br />
                 Pay with CLAWD, USDC, ETH, or CV on Base.
               </p>
               <div className="flex flex-col gap-3 items-end">
-                <Link href="/consult" className="btn btn-primary btn-lg">
-                  💬 Start a Consultation
-                </Link>
-                <a
-                  href="/skill.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-outline btn-lg text-white border-white hover:bg-white/20"
-                >
-                  📄 Hire via Agent (x402/ERC-8004)
+                <Link href="/consult" className="btn btn-primary btn-lg">💬 Start a Consultation</Link>
+                <a href="/skill.md" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-lg text-white border-white hover:bg-white/20">
+                  📄 Skill File for your Agent
                 </a>
               </div>
-              <p className="text-sm text-white/50 mt-4" style={textShadow}>
-                Hire programmatically via x402 or ERC-8004
-              </p>
+              <p className="text-sm text-white/50 mt-4" style={textShadow}>Hire programmatically via x402 or ERC-8004</p>
             </div>
           </div>
         </div>
 
-        {/* Service Cards */}
-        <h2 className="text-2xl font-bold mb-6">Services</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {services.map(svc => {
-            const priceUsd = Number(svc.priceUsd) / 1e6;
-            const emoji = EMOJI_MAP[svc.slug] || "⚡";
-            return (
-              <div key={svc.slug} className="card bg-base-200 shadow-lg hover:shadow-xl transition-shadow">
-                <div className="card-body">
-                  <h3 className="card-title text-lg">
-                    <span className="text-2xl">{emoji}</span> {svc.name}
-                  </h3>
-                  <div className="flex items-center gap-3 my-2">
-                    <span className="text-xl font-bold text-primary">${priceUsd.toLocaleString()}</span>
-                    <span className="opacity-30">|</span>
-                    <CVPriceTicker cvDivisor={Number(svc.cvDivisor)} />
-                  </div>
-                  <div className="card-actions justify-end mt-2">
-                    <Link href={`/${svc.slug}`} className="btn btn-primary btn-sm">
-                      View Service →
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {services.length === 0 && (
-            <div className="col-span-full text-center py-12 opacity-50">
-              <span className="loading loading-spinner" /> Loading services...
+        {/* PFP Generator — text LEFT */}
+        <div className="relative w-full rounded-xl overflow-hidden mb-8">
+          <img src="/hero-pfp.png" alt="Artist Clawd" className="w-full object-cover" style={{ height: "480px" }} />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 flex flex-col justify-center items-start p-10 md:p-16">
+            <div className="max-w-lg">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 drop-shadow-lg" style={textShadow}>Generate a CLAWD PFP</h2>
+              <p className="text-white/80 mb-6 text-lg" style={textShadow}>
+                The cheapest way to test our x402 integration. Pay $4 USDC, get a custom
+                CLAWD-themed profile picture generated by AI.
+              </p>
+              <Link href="/pfp" className="btn btn-primary">🎨 Generate your PFP →</Link>
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Contract Audit — text RIGHT */}
+        <div className="relative w-full rounded-xl overflow-hidden mb-8">
+          <img src="/hero-audit.png" alt="Security Clawd" className="w-full object-cover" style={{ height: "480px" }} />
+          <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 flex flex-col justify-center items-end p-10 md:p-16">
+            <div className="max-w-lg text-right">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 drop-shadow-lg" style={textShadow}>Smart Contract Audits</h2>
+              <p className="text-white/80 mb-6 text-lg" style={textShadow}>
+                AI-powered security review of your Solidity contracts. Vulnerabilities, logic
+                errors, access control issues, gas optimizations. $200 per contract.
+              </p>
+              <Link href="/audit" className="btn btn-primary">🛡️ Order an Audit →</Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Frontend QA — text LEFT */}
+        <div className="relative w-full rounded-xl overflow-hidden mb-8">
+          <img src="/hero-qa.png" alt="QA Clawd" className="w-full object-cover" style={{ height: "480px" }} />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 flex flex-col justify-center items-start p-10 md:p-16">
+            <div className="max-w-lg">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 drop-shadow-lg" style={textShadow}>Frontend QA Audits</h2>
+              <p className="text-white/80 mb-6 text-lg" style={textShadow}>
+                Comprehensive UX, accessibility, and functionality audit of your dApp frontend.
+                Get a detailed written report with prioritized fixes. $50.
+              </p>
+              <Link href="/qa" className="btn btn-primary">🔍 Order a QA Report →</Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Research — text RIGHT */}
+        <div className="relative w-full rounded-xl overflow-hidden mb-8">
+          <img src="/hero-research.png" alt="Research Clawd" className="w-full object-cover" style={{ height: "480px" }} />
+          <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 flex flex-col justify-center items-end p-10 md:p-16">
+            <div className="max-w-lg text-right">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 drop-shadow-lg" style={textShadow}>Research Reports</h2>
+              <p className="text-white/80 mb-6 text-lg" style={textShadow}>
+                Give Clawd a topic, a set of URLs, and a question. Get back a detailed written
+                research report. Useful for on-chain decisions, competitive analysis, or protocol research.
+              </p>
+              <Link href="/post?type=custom" className="btn btn-primary">🔬 Commission Research →</Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Oracle — text LEFT */}
+        <div className="relative w-full rounded-xl overflow-hidden mb-8">
+          <img src="/hero-oracle.png" alt="Oracle Clawd" className="w-full object-cover" style={{ height: "480px" }} />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 flex flex-col justify-center items-start p-10 md:p-16">
+            <div className="max-w-lg">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 drop-shadow-lg" style={textShadow}>AI Oracle &amp; Judge</h2>
+              <p className="text-white/80 mb-6 text-lg" style={textShadow}>
+                Schedule an onchain action at a future datetime. Clawd checks your specified URLs,
+                determines if an outcome has occurred, and executes the corresponding onchain action
+                — automatically, trustlessly, with a full audit trail.
+              </p>
+              <Link href="/post?type=9" className="btn btn-primary">⚖️ Set up an Oracle Job →</Link>
+            </div>
+          </div>
         </div>
 
         {/* Contract Address */}
