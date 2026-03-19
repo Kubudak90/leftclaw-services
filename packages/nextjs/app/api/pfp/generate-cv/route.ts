@@ -4,7 +4,7 @@ import { verifyMessage } from "viem";
 
 const CV_SPEND_SECRET = process.env.CV_SPEND_SECRET || "";
 const CV_SPEND_URL = "https://larv.ai/api/cv/spend";
-const CV_SIGN_MESSAGE = "ClawdViction CV Spend";
+const CV_SIGN_MESSAGE = "larv.ai CV Spend";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw-services-nextjs.vercel.app";
 const PFP_CV_COST = 500_000;
 

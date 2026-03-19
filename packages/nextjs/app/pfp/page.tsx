@@ -13,7 +13,7 @@ const TREASURY_ADDRESS = "0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0" as const;
 const BASE_CHAIN_ID = 8453;
 const PFP_PRICE_USD = 4;
 const PFP_CV_COST = 500_000;
-const CV_SIGN_MESSAGE = "ClawdViction CV Spend";
+const CV_SIGN_MESSAGE = "larv.ai CV Spend";
 const USDC_AMOUNT = BigInt(4_000_000); // 4 USDC (6 decimals)
 
 const ERC20_ABI = [
