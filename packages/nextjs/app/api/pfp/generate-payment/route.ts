@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI, { toFile } from "openai";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
+import { getKV } from "~~/lib/kv";
 
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const TREASURY_ADDRESS = "0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0";
@@ -75,6 +76,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
 
+    // Dedup — reject txHash reuse
+    const kv = await getKV();
+    const dedupKey = `pfp_tx_used:${txHash.toLowerCase()}`;
+    const already = await kv.get(dedupKey);
+    if (already) return NextResponse.json({ error: "This transaction has already been used to generate a PFP." }, { status: 400 });
+
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "OpenAI not configured" }, { status: 500 });
 
@@ -95,6 +102,9 @@ export async function POST(req: NextRequest) {
     const imageData = result.data?.[0];
     if (!imageData?.b64_json)
       return NextResponse.json({ error: "Image generation failed" }, { status: 500 });
+
+    // Mark txHash as used — 1 year TTL
+    await kv.set(dedupKey, "1", { ex: 86400 * 365 });
 
     return NextResponse.json({
       image: `data:image/png;base64,${imageData.b64_json}`,
