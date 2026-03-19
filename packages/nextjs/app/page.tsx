@@ -110,7 +110,7 @@ const Home: NextPage = () => {
                 determines if an outcome has occurred, and executes the corresponding onchain action
                 — automatically, trustlessly, with a full audit trail.
               </p>
-              <Link href="/oracle" className="btn btn-primary">⚖️ Set up an Oracle Job →</Link>
+              <Link href="/judge" className="btn btn-primary">⚖️ Set up an Oracle Job →</Link>
             </div>
           </div>
         </div>
