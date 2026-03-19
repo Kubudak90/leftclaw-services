@@ -27,6 +27,7 @@ async function getBaseImage(): Promise<Buffer> {
 }
 
 export async function POST(req: NextRequest) {
+  let claimedDedupKey: string | null = null;
   try {
     const { prompt, txHash, address: requesterAddress, paymentMethod } = await req.json();
 
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
     const dedupKey = `pfp_tx_used:${txHash.toLowerCase()}`;
     const claimed = await kv.set(dedupKey, "1", { ex: 86400 * 365, nx: true });
     if (!claimed) return NextResponse.json({ error: "This transaction has already been used to generate a PFP." }, { status: 400 });
+    claimedDedupKey = dedupKey;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "OpenAI not configured" }, { status: 500 });
@@ -114,6 +116,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (e: any) {
     console.error("PFP generate-payment error:", e);
+    // Release lock on unexpected throw so user can retry
+    if (claimedDedupKey) {
+      try { const kv = await getKV(); await kv.del(claimedDedupKey); } catch {}
+    }
     return NextResponse.json({ error: e.message || "Generation failed" }, { status: 500 });
   }
 }
