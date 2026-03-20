@@ -1,18 +1,23 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { usePublicClient } from "wagmi";
+import deployedContracts from "~~/contracts/deployedContracts";
 import { ServiceHero, UnifiedPaymentFlow } from "~~/components/payment";
 import { SERVICE_META } from "~~/lib/servicesMeta";
 
-// Contract service types:
-// ID 1 = Quick Consultation, priceUsd = $20, cvDivisor = 100
-// ID 2 = Deep Consultation, priceUsd = $30, cvDivisor = 50
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
+const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
 
-const CONSULT_CONFIG = {
-  0: { id: 1, priceUsd: 20, cvDivisor: 100, slug: "consult" },
-  1: { id: 2, priceUsd: 30, cvDivisor: 50, slug: "consult-deep" },
-} as const;
+interface ServiceType {
+  id: bigint;
+  name: string;
+  slug: string;
+  priceUsd: bigint;
+  cvDivisor: bigint;
+  status: string;
+}
 
 const CONSULT_EXTRA = {
   0: {
@@ -49,12 +54,64 @@ export default function ConsultPageWrapper() {
 
 function ConsultPage() {
   const searchParams = useSearchParams();
+  const publicClient = usePublicClient();
   const typeParam = Number(searchParams.get("type") ?? "0");
   const serviceType = typeParam === 1 ? 1 : 0;
-
-  const config = CONSULT_CONFIG[serviceType as 0 | 1];
   const extra = CONSULT_EXTRA[serviceType as 0 | 1];
-  const meta = SERVICE_META[config.slug] || SERVICE_META["consult"];
+  const meta = SERVICE_META["consult"] || SERVICE_META["consult-deep"];
+
+  const [service, setService] = useState<ServiceType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!publicClient) return;
+
+    const serviceId = serviceType === 1 ? 2 : 1; // type=0 → ID 1, type=1 → ID 2
+
+    (async () => {
+      try {
+        const svc = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "getServiceType",
+          args: [BigInt(serviceId)],
+        }) as ServiceType;
+
+        if (svc.status === "active") {
+          setService(svc);
+        } else {
+          setNotFound(true);
+        }
+      } catch (e) {
+        console.error("Failed to load consult service type", e);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [publicClient, serviceType]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <span className="loading loading-spinner loading-lg" />
+      </div>
+    );
+  }
+
+  if (notFound || !service) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+        <h1 className="text-4xl font-bold">404</h1>
+        <p className="opacity-60">Consult service not found or inactive</p>
+      </div>
+    );
+  }
+
+  const priceUsd = Number(service.priceUsd) / 1e6;
+  const cvDivisor = Number(service.cvDivisor);
+  const serviceTypeId = Number(service.id);
 
   return (
     <div className="flex flex-col items-center py-10 px-4 min-h-screen">
@@ -69,18 +126,16 @@ function ConsultPage() {
         />
 
         <UnifiedPaymentFlow
-          serviceTypeId={config.id}
-          priceUsd={config.priceUsd}
-          cvDivisor={config.cvDivisor}
+          serviceTypeId={serviceTypeId}
+          priceUsd={priceUsd}
+          cvDivisor={cvDivisor}
           serviceName={extra.name}
           descriptionLabel="What do you want to build?"
           descriptionPlaceholder="e.g. A staking dApp where users earn ETH rewards on CLAWD deposits..."
           descriptionRequired={false}
           onSuccess={jobId => {
-            // Store topic for chat context
             const desc = `${extra.name} session`;
             try { localStorage.setItem(`consult-topic-${jobId}`, desc); } catch {}
-            // Trigger sanitization for on-chain jobs
             if (!String(jobId).startsWith("cv-")) {
               fetch("/api/job/sanitize", {
                 method: "POST",
