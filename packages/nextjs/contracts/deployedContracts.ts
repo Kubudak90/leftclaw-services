@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   8453: {
     LeftClawServicesV2: {
-      address: "0x5e551174298A1263f92785a00C9c9Aeb295bA440",
+      address: "0xd407A51F3A2d8D4f1e8855Dfa9591149b399ba16",
       abi: [
         {
                 "type": "constructor",

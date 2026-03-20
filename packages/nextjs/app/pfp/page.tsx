@@ -197,21 +197,13 @@ export default function PfpPage() {
 
         // Step 1: Approve USDC to contract
         setStep("approving");
-        await writeContractAsync({
+        const approveTxHash = await writeContractAsync({
           address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve",
           args: [CONTRACT_ADDRESS, usdcAmount],
         });
-        // Wait for approval to confirm
-        let approveOk = false;
-        for (let i = 0; i < 12; i++) {
-          await new Promise(r => setTimeout(r, 1500));
-          const allowance = await publicClient.readContract({
-            address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "allowance",
-            args: [address, CONTRACT_ADDRESS],
-          });
-          if (allowance !== undefined && (allowance as bigint) >= usdcAmount) { approveOk = true; break; }
-        }
-        if (!approveOk) { setError("USDC approval didn't confirm — try again"); setStep("idle"); return; }
+        if (!approveTxHash) throw new Error("Approval transaction failed");
+        // Wait for approval to confirm before contract tries to pull USDC
+        await publicClient.waitForTransactionReceipt({ hash: approveTxHash, retryCount: 20, retryDelay: 3_000 });
 
         // Step 2: Post job via contract (swaps USDC → CLAWD via Uniswap)
         setStep("paying");

@@ -138,13 +138,13 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
             _usdcToken,
             uint24(500),    // USDC/WETH 0.05%
             _weth,
-            uint24(10000),  // WETH/CLAWD 1%
+            uint24(3000),   // WETH/CLAWD 0.3% (pool fee 3000)
             _clawdToken
         );
 
         ethSwapPath = abi.encodePacked(
             _weth,
-            uint24(10000),  // WETH/CLAWD 1%
+            uint24(3000),   // WETH/CLAWD 0.3% (pool fee 3000)
             _clawdToken
         );
     }
