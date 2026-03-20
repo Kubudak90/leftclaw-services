@@ -6,7 +6,7 @@ import "../contracts/LeftClawServicesV2.sol";
 
 contract DeployLeftClawServicesV2 is Script {
     // ─── Base Mainnet Addresses ───────────────────────────────────────────────
-    address constant CLAWD          = 0x174bea9E6b4a89aACa2B68e86551B12f9bf11a78;
+    address constant CLAWD          = 0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07;
     address constant USDC           = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address constant UNISWAP_ROUTER = 0x2626664c2603336E57B271c5C0b26F421741e481;
     address constant WETH           = 0x4200000000000000000000000000000000000006;
