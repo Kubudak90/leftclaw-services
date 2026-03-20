@@ -3,20 +3,23 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { parseEther, parseUnits } from "viem";
-import { useAccount, usePublicClient, useReadContract, useWalletClient, useWriteContract } from "wagmi";
-import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
-import { useCVCost } from "~~/hooks/scaffold-eth/useCVCost";
+import { useAccount, usePublicClient, useWalletClient, useWriteContract } from "wagmi";
+import deployedContracts from "~~/contracts/deployedContracts";
 import { PaymentMethodSelector } from "~~/components/payment";
 import { usePaymentContext, PaymentMethod } from "~~/hooks/scaffold-eth/usePaymentContext";
+import { useCVCost } from "~~/hooks/scaffold-eth/useCVCost";
+import { getCachedCVSignature, setCachedCVSignature, clearCachedCVSignature } from "~~/utils/cvSignatureCache";
+import { parseContractError } from "~~/utils/parseContractError";
+
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
+const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
 
 const CLAWD_ADDRESS = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07" as const;
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const TREASURY_ADDRESS = "0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0" as const;
 const BASE_CHAIN_ID = 8453;
-const PFP_PRICE_USD = 0.25; // $0.25 — matches contract service type ID 3
-const PFP_CV_DIVISOR = 250;
+const PFP_SERVICE_TYPE_ID = 3;
 const CV_SIGN_MESSAGE = "larv.ai CV Spend";
-const USDC_AMOUNT = parseUnits("4", 6); // $4 USDC (6 decimals)
 
 const ERC20_ABI = [
   {
@@ -32,6 +35,11 @@ const ERC20_ABI = [
   {
     name: "balanceOf", type: "function", stateMutability: "view" as const,
     inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    name: "allowance", type: "function", stateMutability: "view" as const,
+    inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }],
     outputs: [{ type: "uint256" }],
   },
 ] as const;
@@ -53,63 +61,94 @@ export default function PfpPage() {
   const { address, chainId } = useAccount();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
-  const clawdPrice = useCLAWDPrice();
   const { writeContractAsync } = useWriteContract();
-  const { ethPrice } = usePaymentContext();
-  const { cvCost } = useCVCost(PFP_CV_DIVISOR);
+  const {
+    clawdBalance, usdcBalance, ethBalance, cvBalance, cvDisplayBalance,
+    clawdPrice, ethPrice,
+  } = usePaymentContext();
+
+  // --- Fetch service type from contract ---
+  const [priceUsd, setPriceUsd] = useState<number | null>(null);
+  const [cvDivisor, setCvDivisor] = useState<number | null>(null);
+  const [serviceLoading, setServiceLoading] = useState(true);
+  const [serviceNotFound, setServiceNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!publicClient) return;
+    (async () => {
+      try {
+        const svc = await publicClient.readContract({
+          address: CONTRACT_ADDRESS,
+          abi: CONTRACT_ABI,
+          functionName: "getServiceType",
+          args: [BigInt(PFP_SERVICE_TYPE_ID)],
+        }) as { id: bigint; name: string; slug: string; priceUsd: bigint; cvDivisor: bigint; status: string };
+
+        if (svc.status !== "active") {
+          setServiceNotFound(true);
+        } else {
+          setPriceUsd(Number(svc.priceUsd) / 1e6);
+          setCvDivisor(Number(svc.cvDivisor));
+        }
+      } catch (e) {
+        console.error("Failed to load PFP service type", e);
+        setServiceNotFound(true);
+      } finally {
+        setServiceLoading(false);
+      }
+    })();
+  }, [publicClient]);
+
+  const { cvCost } = useCVCost(cvDivisor ?? 0);
 
   const [prompt, setPrompt] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cv");
-  const [step, setStep] = useState<"idle" | "signing" | "paying" | "generating" | "done" | "error">("idle");
+  const [step, setStep] = useState<"idle" | "signing" | "approving" | "paying" | "generating" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<{ txHash?: string; method: string; amount?: string } | null>(null);
-  const [cvBalance, setCvBalance] = useState<number | null>(null);
   const [cvLoading, setCvLoading] = useState(false);
 
   const isWrongNetwork = !!address && chainId !== BASE_CHAIN_ID;
-  const clawdNeeded = clawdPrice ? Math.ceil(PFP_PRICE_USD / clawdPrice) : 0;
+  const clawdNeeded = clawdPrice && priceUsd ? Math.ceil(priceUsd / clawdPrice) : 0;
   const priceWei = BigInt(clawdNeeded) * BigInt(10) ** BigInt(18);
+  const usdcAmount = priceUsd !== null ? parseUnits(priceUsd.toFixed(2), 6) : BigInt(0);
+  const ethNeeded = ethPrice && priceUsd ? (priceUsd / ethPrice) * 1.05 : 0;
 
-  const { data: clawdBalanceRaw } = useReadContract({
-    address: CLAWD_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const { data: usdcBalanceRaw } = useReadContract({
-    address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const insufficientClawd = !!address && clawdBalanceRaw !== undefined && clawdBalanceRaw < priceWei;
+  const insufficientClawd = !!address && clawdBalance !== undefined && clawdBalance < priceWei;
   const insufficientCv = cvBalance !== null && cvCost !== null && cvBalance < cvCost;
-  const insufficientUsdc = !!address && usdcBalanceRaw !== undefined && usdcBalanceRaw < USDC_AMOUNT;
+  const insufficientUsdc = !!address && usdcBalance !== undefined && usdcAmount > BigInt(0) && usdcBalance < usdcAmount;
 
-  // Fetch CV balance
-  useEffect(() => {
-    if (!address) { setCvBalance(null); return; }
-    setCvLoading(true);
-    fetch(`https://larv.ai/api/clawdviction/${address}`)
-      .then(r => r.json())
-      .then(data => { setCvBalance(Number(data.clawdviction) || 0); })
-      .catch(() => setCvBalance(null))
-      .finally(() => setCvLoading(false));
-  }, [address]);
-
-  const ethNeeded = ethPrice ? (PFP_PRICE_USD / ethPrice) * 1.05 : 0;
+  // Read nextJobId for job tracking (for USDC/ETH contract calls)
+  const readNextJobId = async (): Promise<bigint | null> => {
+    if (!publicClient) return null;
+    try {
+      return (await publicClient.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "nextJobId",
+      })) as bigint;
+    } catch {
+      return null;
+    }
+  };
 
   const handleGenerate = async () => {
-    if (!address || !prompt.trim()) return;
+    if (!address || !prompt.trim() || priceUsd === null) return;
     setError(null); setGeneratedImage(null); setPaymentInfo(null);
 
     try {
       if (paymentMethod === "cv") {
-        // CV payment — sign, spend, generate
-        if (!walletClient) throw new Error("Wallet not connected");
+        // CV payment — sign, spend, generate (same as before, works correctly)
+        if (!walletClient || cvDivisor === null) throw new Error("Wallet not connected");
         setStep("signing");
-        const signature = await walletClient.signMessage({ message: CV_SIGN_MESSAGE });
+
+        let signature = getCachedCVSignature(address);
+        if (!signature) {
+          signature = await walletClient.signMessage({ message: CV_SIGN_MESSAGE });
+          setCachedCVSignature(address, signature);
+        }
+
         setStep("generating");
         const res = await fetch("/api/pfp/generate-cv", {
           method: "POST",
@@ -118,16 +157,16 @@ export default function PfpPage() {
         });
         const data = await res.json();
         if (!res.ok) {
+          if (res.status === 401) clearCachedCVSignature(address);
           if (res.status === 402) throw new Error(`Not enough ClawdViction. You have ${(data.currentBalance || 0).toLocaleString()} CV, need ${(cvCost ?? 0).toLocaleString()}.`);
           throw new Error(data.error || "Generation failed");
         }
         setPaymentInfo({ method: "cv", amount: `${data.cvSpent?.toLocaleString() || ""} CV` });
-        setCvBalance(data.newBalance);
         setGeneratedImage(data.image);
         setStep("done");
 
       } else if (paymentMethod === "clawd") {
-        // CLAWD payment — transfer to treasury (direct, no swap needed)
+        // CLAWD payment — direct transfer to treasury (PFP is instant, no escrow needed)
         if (!publicClient || priceWei === BigInt(0)) throw new Error("Price not loaded");
         setStep("paying");
         const txHash = await writeContractAsync({
@@ -150,22 +189,50 @@ export default function PfpPage() {
         setStep("done");
 
       } else if (paymentMethod === "usdc") {
-        // USDC payment — transfer to treasury
-        if (!publicClient || !walletClient) throw new Error("Wallet not connected");
+        // USDC payment — approve + postJobWithUsdc on contract (swaps USDC → CLAWD)
+        if (!publicClient || !walletClient || usdcAmount === BigInt(0)) throw new Error("Price not loaded");
+
+        // Read nextJobId before posting
+        const jobId = await readNextJobId();
+
+        // Step 1: Approve USDC to contract
+        setStep("approving");
+        await writeContractAsync({
+          address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve",
+          args: [CONTRACT_ADDRESS, usdcAmount],
+        });
+        // Wait for approval to confirm
+        let approveOk = false;
+        for (let i = 0; i < 12; i++) {
+          await new Promise(r => setTimeout(r, 1500));
+          const allowance = await publicClient.readContract({
+            address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "allowance",
+            args: [address, CONTRACT_ADDRESS],
+          });
+          if (allowance !== undefined && (allowance as bigint) >= usdcAmount) { approveOk = true; break; }
+        }
+        if (!approveOk) { setError("USDC approval didn't confirm — try again"); setStep("idle"); return; }
+
+        // Step 2: Post job via contract (swaps USDC → CLAWD via Uniswap)
         setStep("paying");
         const txHash = await writeContractAsync({
-          address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "transfer",
-          args: [TREASURY_ADDRESS, USDC_AMOUNT],
+          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
+          functionName: "postJobWithUsdc",
+          args: [BigInt(PFP_SERVICE_TYPE_ID), `PFP: ${prompt.trim()}`, BigInt(1)],
         });
         if (!txHash) throw new Error("Transaction failed");
         await publicClient.waitForTransactionReceipt({ hash: txHash, retryCount: 20, retryDelay: 3_000 });
-        setPaymentInfo({ txHash, method: "usdc" });
+        setPaymentInfo({ txHash, method: "usdc", amount: `$${priceUsd.toFixed(2)} USDC` });
 
+        // Step 3: Generate PFP
         setStep("generating");
         const res = await fetch("/api/pfp/generate-payment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: prompt.trim(), txHash, address, paymentMethod: "usdc" }),
+          body: JSON.stringify({
+            prompt: prompt.trim(), txHash, address, paymentMethod: "usdc",
+            jobId: jobId !== null ? Number(jobId) : undefined,
+          }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Generation failed");
@@ -173,23 +240,33 @@ export default function PfpPage() {
         setStep("done");
 
       } else if (paymentMethod === "eth") {
-        // ETH payment — send to treasury
+        // ETH payment — postJobWithETH on contract (wraps ETH and swaps to CLAWD)
         if (!publicClient || !walletClient || !ethPrice) throw new Error("ETH price not loaded");
+
+        // Read nextJobId before posting
+        const jobId = await readNextJobId();
+
         setStep("paying");
-        const txHash = await walletClient.sendTransaction({
-          to: TREASURY_ADDRESS,
-          value: parseEther(ethNeeded.toFixed(18)),
-          account: address,
+        const ethWei = parseEther(ethNeeded.toFixed(18));
+        const txHash = await writeContractAsync({
+          address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
+          functionName: "postJobWithETH",
+          args: [BigInt(PFP_SERVICE_TYPE_ID), `PFP: ${prompt.trim()}`],
+          value: ethWei,
         });
         if (!txHash) throw new Error("Transaction failed");
         await publicClient.waitForTransactionReceipt({ hash: txHash, retryCount: 20, retryDelay: 3_000 });
-        setPaymentInfo({ txHash, method: "eth" });
+        setPaymentInfo({ txHash, method: "eth", amount: `${(ethNeeded).toFixed(5)} ETH` });
 
+        // Generate PFP
         setStep("generating");
         const res = await fetch("/api/pfp/generate-payment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: prompt.trim(), txHash, address, paymentMethod: "eth" }),
+          body: JSON.stringify({
+            prompt: prompt.trim(), txHash, address, paymentMethod: "eth",
+            jobId: jobId !== null ? Number(jobId) : undefined,
+          }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Generation failed");
@@ -197,7 +274,13 @@ export default function PfpPage() {
         setStep("done");
       }
     } catch (e: any) {
-      setError(e?.shortMessage || e?.message || "Something went wrong");
+      const raw = e?.shortMessage || e?.message || "Something went wrong";
+      if (paymentMethod === "cv") {
+        setError(raw.slice(0, 500));
+      } else {
+        const parsed = parseContractError(e);
+        setError(parsed !== "Transaction failed — please try again" ? parsed : raw.slice(0, 300));
+      }
       setStep("error");
     }
   };
@@ -218,11 +301,30 @@ export default function PfpPage() {
     setPrompt(EXAMPLE_PROMPTS[Math.floor(Math.random() * EXAMPLE_PROMPTS.length)]);
   };
 
-  const busy = step === "paying" || step === "generating" || step === "signing";
+  const busy = step === "paying" || step === "generating" || step === "signing" || step === "approving";
   const isInsufficient = paymentMethod === "clawd" ? insufficientClawd
     : paymentMethod === "cv" ? insufficientCv
     : paymentMethod === "usdc" ? insufficientUsdc
     : false;
+
+  // --- Loading state while fetching service type ---
+  if (serviceLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <span className="loading loading-spinner loading-lg" />
+      </div>
+    );
+  }
+
+  // --- Service not found ---
+  if (serviceNotFound || priceUsd === null) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+        <h1 className="text-4xl font-bold">404</h1>
+        <p className="opacity-60">PFP Generator service not found or inactive</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center py-10 px-4 min-h-screen">
@@ -262,9 +364,23 @@ export default function PfpPage() {
               <div className="text-center text-sm opacity-50">
                 {paymentInfo.method === "cv" ? (
                   <>Spent {paymentInfo.amount} ⚡</>
+                ) : paymentInfo.method === "usdc" ? (
+                  <>
+                    Paid {paymentInfo.amount} 💵 → swapped to CLAWD{" "}
+                    {paymentInfo.txHash && (
+                      <a href={`https://basescan.org/tx/${paymentInfo.txHash}`} target="_blank" rel="noopener" className="underline">View tx →</a>
+                    )}
+                  </>
+                ) : paymentInfo.method === "eth" ? (
+                  <>
+                    Paid {paymentInfo.amount} ⟠ → swapped to CLAWD{" "}
+                    {paymentInfo.txHash && (
+                      <a href={`https://basescan.org/tx/${paymentInfo.txHash}`} target="_blank" rel="noopener" className="underline">View tx →</a>
+                    )}
+                  </>
                 ) : (
                   <>
-                    Paid with {paymentInfo.method === "clawd" ? `${paymentInfo.amount} 🔥` : paymentInfo.method === "usdc" ? "$4.00 USDC 💵" : "ETH ⟠"} → treasury{" "}
+                    Paid with {paymentInfo.amount} 🔥 → treasury{" "}
                     {paymentInfo.txHash && (
                       <a href={`https://basescan.org/tx/${paymentInfo.txHash}`} target="_blank" rel="noopener" className="underline">View tx →</a>
                     )}
@@ -304,10 +420,10 @@ export default function PfpPage() {
                 <>
                   <div>
                     <p className="text-sm opacity-60">Cost</p>
-                    <p className="text-2xl font-mono font-bold">${PFP_PRICE_USD.toFixed(2)}</p>
+                    <p className="text-2xl font-mono font-bold">${priceUsd.toFixed(2)}</p>
                     {clawdNeeded > 0 && <p className="text-sm opacity-50">~{clawdNeeded.toLocaleString()} CLAWD</p>}
-                    {address && clawdBalanceRaw !== undefined && (
-                      <p className="text-sm opacity-50">You have {Number(clawdBalanceRaw / BigInt(10) ** BigInt(18)).toLocaleString()} CLAWD</p>
+                    {address && clawdBalance !== undefined && (
+                      <p className="text-sm opacity-50">You have {Number(clawdBalance / BigInt(10) ** BigInt(18)).toLocaleString()} CLAWD</p>
                     )}
                   </div>
                   <div className="text-right text-sm opacity-60"><p>🔥 CLAWD</p><p>Sent to treasury</p></div>
@@ -317,8 +433,8 @@ export default function PfpPage() {
                   <div>
                     <p className="text-sm opacity-60">Cost</p>
                     <p className="text-2xl font-mono font-bold">{cvCost !== null ? cvCost.toLocaleString() : "..."} CV</p>
-                    <p className="text-sm opacity-50">{cvLoading ? "Loading balance..." : cvBalance !== null ? `You have ${cvBalance.toLocaleString()} CV` : "Connect wallet to check"}</p>
-                    <p className="text-sm opacity-50">~${PFP_PRICE_USD.toFixed(2)} USD</p>
+                    <p className="text-sm opacity-50">{cvBalance !== null ? `You have ${(cvDisplayBalance ?? cvBalance).toLocaleString()} CV` : "Connect wallet to check"}</p>
+                    <p className="text-sm opacity-50">~${priceUsd.toFixed(2)} USD</p>
                   </div>
                   <div className="text-right text-sm opacity-60"><p>⚡ ClawdViction</p><p>Earned by staking</p></div>
                 </>
@@ -326,21 +442,21 @@ export default function PfpPage() {
                 <>
                   <div>
                     <p className="text-sm opacity-60">Cost</p>
-                    <p className="text-2xl font-mono font-bold">${PFP_PRICE_USD.toFixed(2)} USDC</p>
-                    {address && usdcBalanceRaw !== undefined && (
-                      <p className="text-sm opacity-50">You have {(Number(usdcBalanceRaw) / 1e6).toFixed(2)} USDC</p>
+                    <p className="text-2xl font-mono font-bold">${priceUsd.toFixed(2)} USDC</p>
+                    {address && usdcBalance !== undefined && (
+                      <p className="text-sm opacity-50">You have {(Number(usdcBalance) / 1e6).toFixed(2)} USDC</p>
                     )}
                   </div>
-                  <div className="text-right text-sm opacity-60"><p>💵 Stablecoin</p><p>Sent to treasury</p></div>
+                  <div className="text-right text-sm opacity-60"><p>💵 Stablecoin</p><p>Swapped to CLAWD</p></div>
                 </>
               ) : (
                 <>
                   <div>
                     <p className="text-sm opacity-60">Cost</p>
-                    <p className="text-2xl font-mono font-bold">{ethPrice ? (PFP_PRICE_USD / ethPrice).toFixed(5) : "..."} ETH</p>
-                    <p className="text-sm opacity-50">~${PFP_PRICE_USD.toFixed(2)} USD</p>
+                    <p className="text-2xl font-mono font-bold">{ethPrice ? (priceUsd / ethPrice * 1.05).toFixed(5) : "..."} ETH</p>
+                    <p className="text-sm opacity-50">~${priceUsd.toFixed(2)} USD (+5% slippage)</p>
                   </div>
-                  <div className="text-right text-sm opacity-60"><p>⟠ Native ETH</p><p>Sent to treasury</p></div>
+                  <div className="text-right text-sm opacity-60"><p>⟠ Native ETH</p><p>Swapped to CLAWD</p></div>
                 </>
               )}
             </div>
@@ -359,7 +475,7 @@ export default function PfpPage() {
             )}
             {paymentMethod === "usdc" && insufficientUsdc && (
               <div className="alert alert-error mb-4">
-                <span>Not enough USDC. You have {usdcBalanceRaw !== undefined ? (Number(usdcBalanceRaw) / 1e6).toFixed(2) : "0"} USDC, need ${PFP_PRICE_USD.toFixed(2)}.</span>
+                <span>Not enough USDC. You have {usdcBalance !== undefined ? (Number(usdcBalance) / 1e6).toFixed(2) : "0"} USDC, need ${priceUsd.toFixed(2)}.</span>
               </div>
             )}
             {paymentMethod === "eth" && !ethPrice && (
@@ -373,17 +489,19 @@ export default function PfpPage() {
             >
               {busy && <span className="loading loading-spinner loading-sm mr-2" />}
               {step === "signing" ? "Sign message in wallet..." :
+               step === "approving" ? "Approving USDC..." :
                step === "paying" ? "Confirm payment in wallet..." :
                step === "generating" ? "Generating PFP..." :
                paymentMethod === "cv" ? `⚡ Spend ${cvCost !== null ? cvCost.toLocaleString() : "..."} CV & Generate` :
                paymentMethod === "clawd" ? `🔥 Pay ${clawdNeeded > 0 ? clawdNeeded.toLocaleString() + " CLAWD" : "..."} & Generate` :
-               paymentMethod === "usdc" ? `💵 Pay $${PFP_PRICE_USD.toFixed(2)} USDC & Generate` :
-               `⟠ Pay ${ethPrice ? (PFP_PRICE_USD / ethPrice).toFixed(5) : "..."} ETH & Generate`}
+               paymentMethod === "usdc" ? `💵 Pay $${priceUsd.toFixed(2)} USDC & Generate` :
+               `⟠ Pay ${ethPrice ? (priceUsd / ethPrice * 1.05).toFixed(5) : "..."} ETH & Generate`}
             </button>
 
             {busy && (
               <div className="mt-4 text-center text-sm opacity-60">
                 {step === "signing" && "Sign the message to prove wallet ownership"}
+                {step === "approving" && "Step 1/2 — Approve USDC in your wallet"}
                 {step === "paying" && "Confirm the payment in your wallet"}
                 {step === "generating" && "AI is creating your PFP (~30s)"}
               </div>
@@ -406,8 +524,8 @@ export default function PfpPage() {
             <p className="text-center text-xs opacity-40 mt-6">
               {paymentMethod === "clawd" ? "CLAWD sent to the LeftClaw treasury. Non-refundable."
                 : paymentMethod === "cv" ? "ClawdViction earned by staking CLAWD. No tokens burned."
-                : paymentMethod === "usdc" ? "USDC sent to the LeftClaw treasury. Non-refundable."
-                : "ETH sent to the LeftClaw treasury. Non-refundable."}
+                : paymentMethod === "usdc" ? "USDC swapped to CLAWD via Uniswap. Non-refundable."
+                : "ETH swapped to CLAWD via Uniswap. Non-refundable."}
               <br />Images generated by AI (gpt-image-1.5) based on the CLAWD mascot.
             </p>
           </>
