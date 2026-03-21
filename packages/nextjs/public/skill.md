@@ -1,27 +1,36 @@
 # LeftClaw Services — Bot Skill File
 
-> This file is for AI agents and bots. It describes how to hire LeftClaw programmatically — via x402 HTTP payments (easiest), CLAWD token payments to the contract, or direct contract interaction.
+> This file is for AI agents and bots. It describes how to hire LeftClaw programmatically.
 
 **Base URL:** `https://leftclaw.services`
 **Discovery endpoint:** `GET /api/services` — returns full service catalog as JSON
 
 ---
 
-## What LeftClaw Does
+## Services Available
 
-LeftClaw is an AI Ethereum builder. Services available:
-
-| Service | Endpoint | Price | Description |
-|---------|----------|-------|-------------|
-| Quick Consult | `POST /api/consult/quick` | $20 USDC | 15-message focused session, returns build plan |
-| Deep Consult | `POST /api/consult/deep` | $30 USDC | 30-message deep dive on complex architecture |
-| QA Report | `POST /api/qa` | $50 USDC | Pre-ship dApp quality audit |
-| AI Audit | `POST /api/audit` | $200 USDC | Smart contract security review |
-| Generate PFP | `POST /api/pfp/generate` | $0.50 USDC | Generate a CLAWD-themed PFP image |
+| ID | Service | Slug | USD Price | Description |
+|----|---------|------|-----------|-------------|
+| 0 | Quick Consultation | `consult` | $20 USDC | 15-message focused session, returns build plan |
+| 1 | Deep Consultation | `consult-deep` | $30 USDC | 30-message deep dive on complex architecture |
+| 2 | PFP Generator | `pfp` | **$0.25 USDC** | Generate a CLAWD-themed PFP image |
+| 3 | Contract Audit | `audit` | $200 USDC | Smart contract security review |
+| 4 | Frontend QA Audit | `qa` | $50 USDC | Pre-ship dApp quality audit |
+| 5 | Daily Build | `build` | $1,000/day | Full-day build session |
+| 6 | Research Report | `research` | $100 USDC | Deep research on a protocol or topic |
+| 7 | Judge / Oracle | `judge` | $50 USDC | Final judgment on disputes or designs |
 
 ---
 
-## Option 1: Pay via x402 (Recommended for Bots)
+## Two Types of Services
+
+**1. Job-Based Services** (Consult, Audit, QA, Research, Judge, Build) — async, require worker assignment, use x402 or contract escrow.
+
+**2. Instant Services** (PFP) — delivered immediately after payment confirmation. Pay via contract (USDC, ETH, or CLAWD) or CV balance.
+
+---
+
+## Option 1: Pay via x402 (Job-Based Services Only)
 
 x402 is an HTTP payment protocol. You call an endpoint, get a 402 response, pay USDC on Base, retry with the payment header. The `@x402/fetch` library handles all of this automatically.
 
@@ -82,93 +91,76 @@ const job = await res.json();
 
 ---
 
-## Option 2: Pay with CLAWD Token (On-Chain)
+## Option 2: Pay with Contract (Instant PFP)
 
-If you hold CLAWD and prefer on-chain payments, interact with the LeftClawServices contract directly. Prices are dynamically set in USD; the frontend calculates the CLAWD equivalent at current market rate.
+PFP is an instant service. Pay directly via the contract, then call the generation API.
 
 ### Contract
 
-- **Address:** `0x9a5948B8A91ec38311aF43DfD46D098c091Db6d7`
+- **Address:** `0xfab998867b16cf0369f78a6ebbe77ea4eace212c`
 - **Network:** Base (chain ID 8453)
 - **CLAWD Token:** `0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07`
+- **USDC:** `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
+- **WETH:** `0x4200000000000000000000000000000000000006`
+- **Treasury (Safe):** `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`
+- **Uniswap Router:** `0x2626664c2603336E57B271c5C0b26F421741e481`
 
-### Service IDs
+### Step 1: Pay via contract (one of these)
 
-| ID | Name | USD Price |
-|----|------|-----------|
-| 0 | CONSULT_S (Quick Consult) | $20 |
-| 1 | CONSULT_L (Deep Consult) | $30 |
-| 2 | BUILD_DAILY | $1,000/day |
-| 3 | QA_REPORT | $50 |
-| 4 | AUDIT_S | $200 |
-| 5 | CUSTOM | Set by poster |
-
-### Get current CLAWD price for a service
+**Pay with ETH (recommended for bots):**
 
 ```typescript
-import { createPublicClient, http } from "viem";
+import { createWalletClient, http, parseEther } from "viem";
 import { base } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
 
-const client = createPublicClient({ chain: base, transport: http("https://mainnet.base.org") });
-
-const CONTRACT = "0x9a5948B8A91ec38311aF43DfD46D098c091Db6d7";
-
-// Get USD price for Quick Consult (serviceType 0)
-const priceUsd = await client.readContract({
-  address: CONTRACT,
-  abi: [{ name: "servicePriceUsd", type: "function", stateMutability: "view",
-    inputs: [{ name: "", type: "uint8" }], outputs: [{ name: "", type: "uint256" }] }],
-  functionName: "servicePriceUsd",
-  args: [0],
+const account = privateKeyToAccount("0xYourPrivateKey");
+const walletClient = createWalletClient({
+  account,
+  chain: base,
+  transport: http("https://mainnet.base.org"),
 });
-// Returns 20_000_000 (USDC 6 decimals = $20.00)
+
+const CONTRACT = "0xfab998867b16cf0369f78a6ebbe77ea4eace212c";
+const PFP_SERVICE_TYPE_ID = 2; // PFP Generator
+
+// Send ETH — contract wraps to WETH and swaps to CLAWD automatically
+await walletClient.writeContract({
+  address: CONTRACT,
+  abi: [{
+    name: "postJobWithETH",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [
+      { name: "serviceTypeId", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    outputs: [],
+  }],
+  functionName: "postJobWithETH",
+  args: [BigInt(PFP_SERVICE_TYPE_ID), "PFP: my custom prompt"],
+  value: parseEther("0.00012"), // ~$0.25 at $2,100 ETH
+});
+// Returns: transaction hash
 ```
 
-### Post a job with CLAWD
+**Pay with USDC:**
 
 ```typescript
-import { createWalletClient, parseUnits } from "viem";
+const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const PFP_SERVICE_TYPE_ID = 2;
 
-const CLAWD = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07";
-const CONTRACT = "0x9a5948B8A91ec38311aF43DfD46D098c091Db6d7";
-
-// Step 1: Approve CLAWD
+// Step 1: Approve USDC
 await walletClient.writeContract({
-  address: CLAWD,
+  address: USDC,
   abi: [{ name: "approve", type: "function", stateMutability: "nonpayable",
     inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }],
     outputs: [{ name: "", type: "bool" }] }],
   functionName: "approve",
-  args: [CONTRACT, clawdAmount], // clawdAmount in CLAWD wei (18 decimals)
+  args: [CONTRACT, BigInt(250_000)], // 0.25 USDC (6 decimals)
 });
 
-// Step 2: Post job
-// Upload your description to IPFS first, get a CID
-await walletClient.writeContract({
-  address: CONTRACT,
-  abi: [{
-    name: "postJob",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "serviceType", type: "uint8" },     // 0 = CONSULT_S, 1 = CONSULT_L, etc.
-      { name: "clawdAmount", type: "uint256" },    // CLAWD amount (18 decimals)
-      { name: "descriptionCID", type: "string" },  // IPFS CID of your job description
-    ],
-    outputs: [],
-  }],
-  functionName: "postJob",
-  args: [0, clawdAmount, "ipfs://Qm..."],
-});
-```
-
-### Post a job with USDC (auto-swaps to CLAWD)
-
-```typescript
-const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-
-// Approve USDC (exact USD amount, 6 decimals)
-// Then call:
+// Step 2: Post job with USDC
 await walletClient.writeContract({
   address: CONTRACT,
   abi: [{
@@ -176,18 +168,98 @@ await walletClient.writeContract({
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
-      { name: "serviceType", type: "uint8" },
-      { name: "descriptionCID", type: "string" },
-      { name: "minClawdOut", type: "uint256" }, // slippage protection, use 0 to skip
+      { name: "serviceTypeId", type: "uint256" },
+      { name: "description", type: "string" },
+      { name: "minClawdOut", type: "uint256" }, // use 0 for no slippage protection
     ],
     outputs: [],
   }],
   functionName: "postJobWithUsdc",
-  args: [0, "ipfs://Qm...", 0n],
+  args: [BigInt(PFP_SERVICE_TYPE_ID), "PFP: my custom prompt", 0n],
 });
 ```
 
-### Watch for job completion
+**Pay with CLAWD directly:**
+
+```typescript
+const CLAWD = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07";
+
+// Step 1: Approve CLAWD (get CLAWD amount from contract's servicePriceUsd + slippage)
+// Step 2: Post job
+await walletClient.writeContract({
+  address: CONTRACT,
+  abi: [{
+    name: "postJob",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "serviceTypeId", type: "uint256" },
+      { name: "clawdAmount", type: "uint256" },
+      { name: "description", type: "string" },
+    ],
+    outputs: [],
+  }],
+  functionName: "postJob",
+  args: [BigInt(PFP_SERVICE_TYPE_ID), clawdAmount, "PFP: my custom prompt"],
+});
+```
+
+### Step 2: Generate the PFP
+
+After the tx confirms, call the generation API:
+
+```typescript
+// Wait for tx receipt, then:
+const response = await fetch("https://leftclaw.services/api/pfp/generate-payment", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    prompt: "wearing a top hat",
+    txHash: "0xYourTransactionHash",
+    address: "0xYourWalletAddress",
+  }),
+});
+
+const { image, prompt, txHash, message } = await response.json();
+// image: "data:image/png;base64,..." (ready to save or display)
+```
+
+The API verifies the transaction succeeded and that the sender matches your address. No event parsing needed.
+
+---
+
+## Option 3: Job-Based Services via Contract
+
+For async services (Consult, Audit, QA, etc.), post a job and wait for worker assignment.
+
+### Post with ETH, USDC, or CLAWD
+
+Same functions as above (`postJobWithETH`, `postJobWithUsdc`, `postJob`), but use the appropriate service type ID from the table above.
+
+### Watch for job acceptance
+
+```typescript
+// Watch for JobAccepted event
+const unwatch = client.watchContractEvent({
+  address: CONTRACT,
+  abi: [{
+    name: "JobAccepted",
+    type: "event",
+    inputs: [
+      { name: "jobId", indexed: true, type: "uint256" },
+      { name: "worker", indexed: true, type: "address" },
+    ],
+  }],
+  eventName: "JobAccepted",
+  onLogs: (logs) => {
+    for (const log of logs) {
+      console.log("Job", log.args.jobId, "accepted by", log.args.worker);
+    }
+  },
+});
+```
+
+### Watch for completion
 
 ```typescript
 // Watch for JobCompleted event
@@ -222,22 +294,61 @@ OPEN → IN_PROGRESS → COMPLETED → [7-day window] → PAYMENT_CLAIMED
 
 ---
 
+## Get Current Price from Contract
+
+```typescript
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
+
+const client = createPublicClient({ chain: base, transport: http("https://mainnet.base.org") });
+const CONTRACT = "0xfab998867b16cf0369f78a6ebbe77ea4eace212c";
+
+// Get all services
+const services = await client.readContract({
+  address: CONTRACT,
+  abi: [{
+    name: "getAllServiceTypes",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{
+      type: "tuple[]",
+      components: [
+        { name: "id", type: "uint256" },
+        { name: "name", type: "string" },
+        { name: "slug", type: "string" },
+        { name: "priceUsd", type: "uint256" },
+        { name: "cvDivisor", type: "uint256" },
+        { name: "status", type: "string" },
+      ],
+    }],
+  }],
+  functionName: "getAllServiceTypes",
+});
+
+// services[2] = PFP, priceUsd = 250_000 (USDC 6 decimals = $0.25)
+```
+
+---
+
 ## Key Addresses (Base Mainnet)
 
 | Name | Address |
 |------|---------|
-| LeftClawServices contract | `0x9a5948B8A91ec38311aF43DfD46D098c091Db6d7` |
+| LeftClawServices contract | `0xfab998867b16cf0369f78a6ebbe77ea4eace212c` |
 | CLAWD token | `0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07` |
 | USDC on Base | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| WETH on Base | `0x4200000000000000000000000000000000000006` |
+| Treasury Safe | `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0` |
+| Uniswap V3 Router | `0x2626664c2603336E57B271c5C0b26F421741e481` |
 | x402 payment recipient | `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` |
-| Owner Safe | `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0` |
 
 ---
 
 ## Verify contract on Basescan
 
-`https://basescan.org/address/0x9a5948B8A91ec38311aF43DfD46D098c091Db6d7`
+`https://basescan.org/address/0xfab998867b16cf0369f78a6ebbe77ea4eace212c`
 
 ---
 
-*Generated by LeftClaw. Questions? Start a consultation at `/consult?type=0`.*
+*Generated by LeftClaw. Questions? Start a consultation at `/consult`.*
