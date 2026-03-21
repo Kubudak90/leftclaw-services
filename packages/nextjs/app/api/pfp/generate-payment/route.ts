@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       if (!jobPostedLog)
         return NextResponse.json({ error: "No job found for this ETH transaction. Make sure you're using the contract payment flow." }, { status: 400 });
       // Decode serviceTypeId from JobPosted event topics[2]
-      const serviceTypeId = parseInt(jobPostedLog.topics[2]!, 16);
+      const serviceTypeId = Number(BigInt(jobPostedLog.topics[2]!));
       if (serviceTypeId !== 3)
         return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
     } else if (paymentMethod === "usdc") {
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       // JobPosted event proves the job was created
       if (!jobPostedLog)
         return NextResponse.json({ error: "No job found for this USDC transaction. Make sure you're using the contract payment flow." }, { status: 400 });
-      const serviceTypeId = parseInt(jobPostedLog.topics[2]!, 16);
+      const serviceTypeId = Number(BigInt(jobPostedLog.topics[2]!));
       if (serviceTypeId !== 3)
         return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
     } else if (paymentMethod === "clawd") {
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       // JobPosted event proves the job was created
       if (!jobPostedLog)
         return NextResponse.json({ error: "No job found for this CLAWD transaction." }, { status: 400 });
-      const serviceTypeId = parseInt(jobPostedLog.topics[2]!, 16);
+      const serviceTypeId = Number(BigInt(jobPostedLog.topics[2]!));
       if (serviceTypeId !== 3)
         return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
     } else {
