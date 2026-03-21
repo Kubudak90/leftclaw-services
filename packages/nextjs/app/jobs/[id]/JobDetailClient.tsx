@@ -35,19 +35,17 @@ const STATUS_LABELS: Record<number, { label: string; badge: string; desc: string
 };
 
 const SERVICE_NAMES: Record<number, string> = {
-  0: "Quick Consult",
-  1: "Deep Consult",
-  2: "Build",
-  3: "Build",
-  4: "Build",
-  5: "Build",
-  6: "QA Report",
-  7: "AI Audit",
-  8: "AI Audit (Multi-Contract)",
-  9: "Custom",
+  1: "Quick Consult",
+  2: "Deep Consult",
+  3: "PFP",
+  4: "Smart Contract Audit",
+  5: "Frontend QA",
+  6: "Full Day Build",
+  7: "Research Report",
+  8: "AI Judge",
 };
 
-const CONSULT_TYPES = new Set([0, 1]);
+const CONSULT_TYPES = new Set([1, 2]);
 
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
 const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
