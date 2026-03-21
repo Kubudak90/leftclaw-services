@@ -23,3 +23,7 @@ node_modules
 dist
 .vercel
 .env*.local
+
+# Test script secrets
+scripts/*.env
+scripts/test-pfp-output.png
