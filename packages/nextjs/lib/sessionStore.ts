@@ -25,6 +25,9 @@ const SESSION_LIMITS: Record<string, { maxMessages: number; ttlHours: number }> 
   CONSULT_DEEP: { maxMessages: 30, ttlHours: 168 },
   QA_REPORT: { maxMessages: 20, ttlHours: 168 },
   AUDIT: { maxMessages: 20, ttlHours: 168 },
+  RESEARCH: { maxMessages: 30, ttlHours: 168 },
+  JUDGE: { maxMessages: 20, ttlHours: 168 },
+  BUILD_DAILY: { maxMessages: 50, ttlHours: 336 },
 };
 
 // In-memory fallback for dev

@@ -85,7 +85,7 @@ export const POST = withX402(
       payTo: PAYMENT_ADDRESS,
     },
     description:
-      "CLAWD PFP Generator — Custom profile picture of the CLAWD mascot in any style you describe. $0.50",
+      "CLAWD PFP Generator — Custom profile picture of the CLAWD mascot in any style you describe. $0.25",
     extensions: {
       ...declareDiscoveryExtension({
         input: { prompt: "Description of how to modify the CLAWD character" },
