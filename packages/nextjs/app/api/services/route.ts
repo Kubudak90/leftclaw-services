@@ -5,16 +5,17 @@ import { BASE_NETWORK, PAYMENT_ADDRESS, getContractPriceUsd } from "~~/lib/x402"
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address;
 
 export async function GET() {
-  const [consultQuick, consultDeep, pfp, audit, qa, build, research, judge] = await Promise.all([
-    getContractPriceUsd(0),
+  // Contract is 1-indexed. IDs 1-5 exist on-chain. Build/research/judge not yet seeded.
+  const [consultQuick, consultDeep, pfp, audit, qa] = await Promise.all([
     getContractPriceUsd(1),
     getContractPriceUsd(2),
     getContractPriceUsd(3),
     getContractPriceUsd(4),
     getContractPriceUsd(5),
-    getContractPriceUsd(6),
-    getContractPriceUsd(7),
   ]);
+  const build = "$1000.00";   // not yet seeded on-chain
+  const research = "$100.00"; // not yet seeded on-chain
+  const judge = "$50.00";     // not yet seeded on-chain
 
   return NextResponse.json({
     name: "LeftClaw Services",

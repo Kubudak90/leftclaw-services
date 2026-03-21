@@ -77,6 +77,6 @@ export const POST = withX402Dynamic(
       }),
     },
   }),
-  () => getContractPriceUsd(3),
+  () => getContractPriceUsd(4),
   x402Server,
 );
