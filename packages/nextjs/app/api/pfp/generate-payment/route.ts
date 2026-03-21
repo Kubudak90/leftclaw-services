@@ -16,7 +16,7 @@ const JOB_POSTED_ABI = [
     name: "JobPosted",
     inputs: [
       { type: "uint256", name: "jobId", indexed: true },
-      { type: "uint256", name: "serviceTypeId", indexed: true },
+      { type: "uint256", name: "serviceTypeId", indexed: false },
       { type: "address", name: "client", indexed: true },
       { type: "uint256", name: "clawdAmount" },
       { type: "uint256", name: "priceUsd" },
