@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
 import { useAccount, usePublicClient, useReadContract, useReadContracts, useWriteContract } from "wagmi";
+import { base } from "viem/chains";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { AddressInput } from "@scaffold-ui/components";
 import { Address, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
@@ -159,6 +160,7 @@ function ServiceTypesPanel({ refetch }: { refetch: () => void }) {
         abi: CONTRACT_ABI,
         functionName: "updateServiceType",
         args: [id, e.name, e.slug, priceUsdc, BigInt(e.cvDivisor), e.status],
+        chainId: base.id,
       });
       await publicClient?.waitForTransactionReceipt({ hash });
       setRowMsg(m => ({ ...m, [key]: { type: "success", text: "Saved ✓" } }));
@@ -183,6 +185,7 @@ function ServiceTypesPanel({ refetch }: { refetch: () => void }) {
         abi: CONTRACT_ABI,
         functionName: "addServiceType",
         args: [newName, newSlug, priceUsdc, BigInt(newCvDiv)],
+        chainId: base.id,
       });
       await publicClient?.waitForTransactionReceipt({ hash });
       setAddMsg({ type: "success", text: "Added!" });
@@ -600,16 +603,16 @@ export default function AdminPage() {
     let hash: `0x${string}`;
     switch (action) {
       case "accept":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "acceptJob", args: [jobId] });
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "acceptJob", args: [jobId], chainId: base.id });
         break;
       case "decline":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "declineJob", args: [jobId] });
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "declineJob", args: [jobId], chainId: base.id });
         break;
       case "complete":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "completeJob", args: [jobId, args.resultCID] });
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "completeJob", args: [jobId, args.resultCID], chainId: base.id });
         break;
       case "logWork":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "logWork", args: [jobId, args.note, args.stage || ""] });
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "logWork", args: [jobId, args.note, args.stage || ""], chainId: base.id });
         break;
       default:
         throw new Error("Unknown action");
@@ -624,7 +627,7 @@ export default function AdminPage() {
     setOwnerBusy("add");
     setOwnerMsg(null);
     try {
-      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "addWorker", args: [addWorkerAddr as `0x${string}`] });
+      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "addWorker", args: [addWorkerAddr as `0x${string}`], chainId: base.id });
       await publicClient?.waitForTransactionReceipt({ hash });
       setAddWorkerAddr("");
       setOwnerMsg({ type: "success", text: `Worker added` });
@@ -642,7 +645,7 @@ export default function AdminPage() {
     setOwnerBusy("remove");
     setOwnerMsg(null);
     try {
-      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "removeWorker", args: [addr as `0x${string}`] });
+      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "removeWorker", args: [addr as `0x${string}`], chainId: base.id });
       await publicClient?.waitForTransactionReceipt({ hash });
       setRemoveWorkerAddr("");
       setOwnerMsg({ type: "success", text: `Worker removed` });

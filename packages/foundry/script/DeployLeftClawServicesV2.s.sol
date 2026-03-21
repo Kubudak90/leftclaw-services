@@ -65,9 +65,11 @@ contract DeployLeftClawServicesV2 is Script {
         services.addWorker(CLAWDHEART);
         services.addWorker(CLAWDGUT);
 
-        // Add deployer as worker
-        services.addWorker(msg.sender);
-        console.log("Added deployer as worker:", msg.sender);
+        // Note: do NOT add msg.sender as a worker here.
+        // DeployScript.sol uses `new DeployLeftClawServicesV2()` which creates an
+        // intermediate contract. That contract's address becomes msg.sender —
+        // adding it as a worker registers a useless address with no private key.
+        // Workers must be added manually by the owner after deployment.
 
         // Transfer ownership
         services.transferOwnership(OWNER);
