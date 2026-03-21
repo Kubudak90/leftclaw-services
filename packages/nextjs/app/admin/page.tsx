@@ -714,33 +714,22 @@ export default function AdminPage() {
                 ) : workers.length === 0 ? (
                   <p className="text-xs opacity-50">No workers registered</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="table table-xs w-full">
-                      <thead>
-                        <tr>
-                          <th>Address</th>
-                          <th>Active Jobs</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {workers.map(w => (
-                          <tr key={w.address}>
-                            <td><Address address={w.address as `0x${string}`} /></td>
-                            <td><span className="badge badge-sm badge-ghost">{w.activeJobs.length}</span></td>
-                            <td>
-                              <button
-                                className="btn btn-xs btn-error btn-outline"
-                                disabled={ownerBusy !== null}
-                                onClick={() => handleRemoveWorker(w.address)}
-                              >
-                                Remove
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-2">
+                    {workers.map(w => (
+                      <div key={w.address} className="flex items-center justify-between bg-base-300 rounded-lg px-4 py-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Address address={w.address as `0x${string}`} disableAddressLink />
+                          <span className="badge badge-sm badge-ghost">{w.activeJobs.length} active</span>
+                        </div>
+                        <button
+                          className="btn btn-xs btn-error btn-outline shrink-0"
+                          disabled={ownerBusy !== null}
+                          onClick={() => handleRemoveWorker(w.address)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
