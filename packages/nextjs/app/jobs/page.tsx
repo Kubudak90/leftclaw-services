@@ -43,7 +43,7 @@ function JobCard({ jobId }: { jobId: number }) {
     </div>
   );
 
-  const serviceType = Number(job.serviceType);
+  const serviceType = Number(job.serviceTypeId);
   const status = STATUS_LABELS[Number(job.status)] || { label: "Unknown", badge: "" };
   const price = formatUnits(job.paymentClawd, 18);
   const isConsult = serviceType <= 1;
