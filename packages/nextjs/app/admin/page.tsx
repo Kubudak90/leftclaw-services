@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
-import { useAccount, usePublicClient, useReadContract, useReadContracts, useWriteContract } from "wagmi";
-import { base } from "viem/chains";
+import { useAccount, usePublicClient, useReadContract, useReadContracts } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { AddressInput } from "@scaffold-ui/components";
 import { Address, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
 const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
@@ -93,8 +93,7 @@ interface ServiceTypeData {
 
 function ServiceTypesPanel({ refetch }: { refetch: () => void }) {
   const publicClient = usePublicClient();
-  const { address } = useAccount();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useScaffoldWriteContract("LeftClawServicesV2");
 
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,13 +156,10 @@ function ServiceTypesPanel({ refetch }: { refetch: () => void }) {
     try {
       const priceUsdc = parseUnits(e.priceUsd, 6);
       const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI,
         functionName: "updateServiceType",
         args: [id, e.name, e.slug, priceUsdc, BigInt(e.cvDivisor), e.status],
-        chainId: base.id,
       });
-      await publicClient?.waitForTransactionReceipt({ hash });
+
       setRowMsg(m => ({ ...m, [key]: { type: "success", text: "Saved ✓" } }));
       setTimeout(() => setRowMsg(m => ({ ...m, [key]: undefined as any })), 3000);
       await fetchTypes();
@@ -182,13 +178,10 @@ function ServiceTypesPanel({ refetch }: { refetch: () => void }) {
     try {
       const priceUsdc = parseUnits(newPrice, 6);
       const hash = await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi: CONTRACT_ABI,
         functionName: "addServiceType",
         args: [newName, newSlug, priceUsdc, BigInt(newCvDiv)],
-        chainId: base.id,
       });
-      await publicClient?.waitForTransactionReceipt({ hash });
+
       setAddMsg({ type: "success", text: "Added!" });
       setNewName("");
       setNewSlug("");
@@ -542,7 +535,7 @@ function JobCard({
 export default function AdminPage() {
   const { address } = useAccount();
   const clawdPrice = useCLAWDPrice();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useScaffoldWriteContract("LeftClawServicesV2");
   const publicClient = usePublicClient();
 
   const [statusFilter, setStatusFilter] = useState(-1);
@@ -601,24 +594,22 @@ export default function AdminPage() {
 
   // Job actions
   const handleJobAction = async (action: string, jobId: bigint, args?: any) => {
-    let hash: `0x${string}`;
     switch (action) {
       case "accept":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "acceptJob", args: [jobId], chainId: base.id, account: address });
+        await writeContractAsync({ functionName: "acceptJob", args: [jobId] });
         break;
       case "decline":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "declineJob", args: [jobId], chainId: base.id, account: address });
+        await writeContractAsync({ functionName: "declineJob", args: [jobId] });
         break;
       case "complete":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "completeJob", args: [jobId, args.resultCID], chainId: base.id, account: address });
+        await writeContractAsync({ functionName: "completeJob", args: [jobId, args.resultCID] });
         break;
       case "logWork":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "logWork", args: [jobId, args.note, args.stage || ""], chainId: base.id, account: address });
+        await writeContractAsync({ functionName: "logWork", args: [jobId, args.note, args.stage || ""] });
         break;
       default:
         throw new Error("Unknown action");
     }
-    await publicClient?.waitForTransactionReceipt({ hash });
     await refetchJobs();
   };
 
@@ -628,8 +619,8 @@ export default function AdminPage() {
     setOwnerBusy("add");
     setOwnerMsg(null);
     try {
-      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "addWorker", args: [addWorkerAddr as `0x${string}`], chainId: base.id, account: address });
-      await publicClient?.waitForTransactionReceipt({ hash });
+      const hash = await writeContractAsync({ functionName: "addWorker", args: [addWorkerAddr as `0x${string}`] });
+
       setAddWorkerAddr("");
       setOwnerMsg({ type: "success", text: `Worker added` });
       refetchWorkers();
@@ -646,8 +637,8 @@ export default function AdminPage() {
     setOwnerBusy("remove");
     setOwnerMsg(null);
     try {
-      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "removeWorker", args: [addr as `0x${string}`], chainId: base.id, account: address });
-      await publicClient?.waitForTransactionReceipt({ hash });
+      const hash = await writeContractAsync({ functionName: "removeWorker", args: [addr as `0x${string}`] });
+
       setRemoveWorkerAddr("");
       setOwnerMsg({ type: "success", text: `Worker removed` });
       refetchWorkers();
