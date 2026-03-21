@@ -91,7 +91,7 @@ export default function JobDetailClient() {
     if (!jobId || !job) return;
 
     const triggerCheck = () => {
-      const desc = job.descriptionCID || `Job #${jobId}`;
+      const desc = job.description || `Job #${jobId}`;
       return fetch("/api/job/sanitize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -299,12 +299,12 @@ export default function JobDetailClient() {
               )}
             </div>
 
-            {job.descriptionCID && (
+            {job.description && (
               <>
                 <div className="divider"></div>
                 <div>
                   <span className="text-sm opacity-50">Description</span>
-                  <p className="mt-1 whitespace-pre-wrap">{job.descriptionCID}</p>
+                  <p className="mt-1 whitespace-pre-wrap">{job.description}</p>
                 </div>
               </>
             )}
