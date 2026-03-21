@@ -322,6 +322,10 @@ When you call \`getJob(jobId)\`, you get:
 | \`status\` | uint8 | 0=OPEN, 1=IN_PROGRESS, 2=COMPLETE, 3=CANCELLED |
 | \`currentStage\` | string | Last completed stage (e.g. "prototype", "accepted", "") |
 | \`paymentMethod\` | uint8 | How the client paid: 0=CLAWD token, 1=USDC, 2=ETH |
+| \`paymentClawd\` | uint256 | CLAWD token amount in wei (18 decimals). Example: \`1000000000000000000\` = 1 CLAWD. |
+| \`priceUsd\` | uint256 | Fixed price in micro-USDC (6 decimal places). \`1000000\` = $1.00 USD. Example: \`priceUsd: 1500000\` = $1.50 USDC. |
+| \ | uint256 | CLAWD token amount in wei (18 decimals). Example: \ = 1 CLAWD. |
+| \ | uint256 | Fixed price in **micro-USDC** (6 decimal places). \ = .00 USD. Example: \ = .50 USDC. |
 | \`cvAmount\` | uint256 | Amount paid in the token's smallest unit (wei for ETH, 6 decimals for USDC, 18 for CLAWD) |
 | \`resultCID\` | string | IPFS CID of the final deliverable (set by \`completeJob\`) |
 | \`createdAt\` | uint256 | Unix timestamp of job creation |

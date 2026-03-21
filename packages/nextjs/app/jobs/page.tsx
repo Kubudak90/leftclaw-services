@@ -27,7 +27,7 @@ const SERVICE_NAMES: Record<number, string> = {
   9: "Custom",
 };
 
-function JobCard({ jobId }: { jobId: number }) {
+function JobCard({ jobId, publicBoard }: { jobId: number; publicBoard?: boolean }) {
   const { data: job } = useScaffoldReadContract({
     contractName: "LeftClawServicesV2",
     functionName: "getJob",
@@ -42,6 +42,11 @@ function JobCard({ jobId }: { jobId: number }) {
       </div>
     </div>
   );
+
+  // PFP jobs are automated — hide from public worker board
+  if (publicBoard && typeof job.description === "string" && job.description.startsWith("PFP:")) {
+    return null;
+  }
 
   const serviceType = Number(job.serviceTypeId);
   const status = STATUS_LABELS[Number(job.status)] || { label: "Unknown", badge: "" };
@@ -135,7 +140,7 @@ export default function JobsPage() {
         <div className="w-full max-w-lg space-y-3">
           <h2 className="text-lg font-semibold opacity-70">All Jobs ({jobCount})</h2>
           {allJobIds.map(id => (
-            <JobCard key={`all-${id}`} jobId={id} />
+            <JobCard key={`all-${id}`} jobId={id} publicBoard />
           ))}
         </div>
       )}
