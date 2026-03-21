@@ -93,7 +93,7 @@ interface ServiceTypeData {
 
 function ServiceTypesPanel({ refetch }: { refetch: () => void }) {
   const publicClient = usePublicClient();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useWriteContract({ chainId: base.id });
 
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -541,7 +541,7 @@ function JobCard({
 export default function AdminPage() {
   const { address } = useAccount();
   const clawdPrice = useCLAWDPrice();
-  const { writeContractAsync } = useWriteContract();
+  const { writeContractAsync } = useWriteContract({ chainId: base.id });
   const publicClient = usePublicClient();
 
   const [statusFilter, setStatusFilter] = useState(-1);
