@@ -18,19 +18,17 @@ export async function GET() {
     for (let i = 1n; i < nextJobId; i++) {
       const job = await client.readContract({ address, abi, functionName: "getJob", args: [i] }) as any;
 
-      // Status 0 = OPEN, must be sanitized
+      // Status 0 = OPEN
       if (Number(job.status) !== 0) continue;
-      if (!job.sanitized) continue;
 
       ready.push({
         id: Number(job.id),
         client: job.client,
-        serviceType: Number(job.serviceType),
+        serviceTypeId: Number(job.serviceTypeId),
         description: job.descriptionCID,
         priceUsd: Number(job.priceUsd),
         paymentClawd: job.paymentClawd.toString(),
         createdAt: Number(job.createdAt),
-        sanitized: true,
       });
     }
 

@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         id: Number(job.id),
         client: job.client,
         worker: job.worker,
-        serviceType: Number(job.serviceType),
+        serviceTypeId: Number(job.serviceTypeId),
         description: job.descriptionCID,
         priceUsd: Number(job.priceUsd),
         paymentClawd: job.paymentClawd.toString(),

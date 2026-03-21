@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { createPublicClient, createWalletClient, http } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { checkSanitization, setSanitization } from "~~/lib/sanitize";
 import deployedContracts from "~~/contracts/deployedContracts";
@@ -33,31 +32,26 @@ export async function POST(req: NextRequest) {
       return Response.json({ ...result, onChain: false });
     }
 
-    // Check on-chain flag first
-    const job = await client.readContract({ address, abi, functionName: "getJob", args: [BigInt(jobId)] }) as any;
-    if (job.sanitized && !force) {
-      return Response.json({ jobId: String(jobId), safe: true, onChain: true });
-    }
+    // Note: job.sanitized doesn't exist on-chain yet — markSanitized is not in the deployed ABI.
+    // Skip on-chain flag check; rely on Redis/KV for sanitization state.
 
     // Run Opus analysis
     const result = await checkSanitization(String(jobId), description);
 
-    // If safe, mark on-chain automatically
-    if (result.safe && process.env.SANITIZER_PRIVATE_KEY) {
-      try {
-        const account = privateKeyToAccount(process.env.SANITIZER_PRIVATE_KEY as `0x${string}`);
-        const wallet = createWalletClient({ account, chain: base, transport });
-        const hash = await wallet.writeContract({
-          address, abi,
-          functionName: "markSanitized",
-          args: [BigInt(jobId)],
-        });
-        return Response.json({ ...result, onChain: true, txHash: hash });
-      } catch (txErr: any) {
-        console.error("markSanitized tx failed:", txErr.message);
-        return Response.json({ ...result, onChain: false, txError: txErr.message });
-      }
-    }
+    // Placeholder: markSanitized doesn't exist in deployed contract ABI yet.
+    // When added, uncomment to write on-chain flag.
+    // if (result.safe && process.env.SANITIZER_PRIVATE_KEY) {
+    //   try {
+    //     const account = privateKeyToAccount(process.env.SANITIZER_PRIVATE_KEY as `0x${string}`);
+    //     const wallet = createWalletClient({ account, chain: base, transport });
+    //     const hash = await wallet.writeContract({
+    //       address, abi, functionName: "markSanitized", args: [BigInt(jobId)],
+    //     });
+    //     return Response.json({ ...result, onChain: true, txHash: hash });
+    //   } catch (txErr: any) {
+    //     console.error("markSanitized tx failed:", txErr.message);
+    //   }
+    // }
 
     return Response.json({ ...result, onChain: false });
   } catch (e) {
@@ -88,18 +82,19 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const job = await client.readContract({ address, abi, functionName: "getJob", args: [BigInt(jobId)] }) as any;
-    // If not yet sanitized on-chain, also check KV for error artifacts and clean them
-    if (!job.sanitized) {
-      const { getSanitization, deleteSanitization } = await import("~~/lib/sanitize");
-      const cached = await getSanitization(jobId);
-      if (cached && !cached.safe && cached.reason && /error|fail open|skipped|failed/i.test(cached.reason)) {
+    // Note: job.sanitized doesn't exist on-chain yet — check Redis/KV instead
+    const { getSanitization, deleteSanitization } = await import("~~/lib/sanitize");
+    const cached = await getSanitization(jobId);
+    if (cached) {
+      // Clean stale error artifacts
+      if (!cached.safe && cached.reason && /error|fail open|skipped|failed/i.test(cached.reason)) {
         await deleteSanitization(jobId);
+        return Response.json({ jobId, safe: null, pending: true, onChain: false });
       }
-      // Return pending state — frontend should poll/retry
-      return Response.json({ jobId, safe: null, pending: true, onChain: true });
+      return Response.json({ jobId, safe: cached.safe, reason: cached.reason, onChain: false });
     }
-    return Response.json({ jobId, safe: true, onChain: true });
+    // No KV entry — pending state
+    return Response.json({ jobId, safe: null, pending: true, onChain: false });
   } catch {
     return Response.json({ error: "Job not found", safe: null, pending: true }, { status: 404 });
   }

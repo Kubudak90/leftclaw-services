@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
 import { useAccount, usePublicClient, useReadContract, useReadContracts, useWriteContract } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { AddressInput } from "@scaffold-ui/components";
-import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
+import { Address, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
 import { useCLAWDPrice } from "~~/hooks/scaffold-eth/useCLAWDPrice";
 
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
@@ -47,6 +47,34 @@ function timeAgo(ts: number) {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
+}
+
+// ─── Workers Hook ──────────────────────────────────────────────
+
+interface WorkerInfo {
+  address: string;
+  activeJobs: number[];
+}
+
+function useWorkers() {
+  const [workers, setWorkers] = useState<WorkerInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchWorkers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/job/workers");
+      const data = await res.json();
+      setWorkers(data.workers || []);
+    } catch (e) {
+      console.error("Failed to fetch workers", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchWorkers(); }, [fetchWorkers]);
+
+  return { workers, loading, refetch: fetchWorkers };
 }
 
 // ─── Service Type ──────────────────────────────────────────────
@@ -542,6 +570,9 @@ export default function AdminPage() {
   const [ownerBusy, setOwnerBusy] = useState<string | null>(null);
   const [ownerMsg, setOwnerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Workers list
+  const { workers, loading: workersLoading, refetch: refetchWorkers } = useWorkers();
+
   // Total jobs
   const { data: totalJobsData } = useReadContract({
     address: CONTRACT_ADDRESS,
@@ -597,6 +628,7 @@ export default function AdminPage() {
       await publicClient?.waitForTransactionReceipt({ hash });
       setAddWorkerAddr("");
       setOwnerMsg({ type: "success", text: `Worker added` });
+      refetchWorkers();
     } catch (e) {
       setOwnerMsg({ type: "error", text: parseError(e) });
     } finally {
@@ -604,15 +636,17 @@ export default function AdminPage() {
     }
   };
 
-  const handleRemoveWorker = async () => {
-    if (!removeWorkerAddr) return;
+  const handleRemoveWorker = async (addrOverride?: string) => {
+    const addr = addrOverride || removeWorkerAddr;
+    if (!addr) return;
     setOwnerBusy("remove");
     setOwnerMsg(null);
     try {
-      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "removeWorker", args: [removeWorkerAddr as `0x${string}`] });
+      const hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "removeWorker", args: [addr as `0x${string}`] });
       await publicClient?.waitForTransactionReceipt({ hash });
       setRemoveWorkerAddr("");
       setOwnerMsg({ type: "success", text: `Worker removed` });
+      refetchWorkers();
     } catch (e) {
       setOwnerMsg({ type: "error", text: parseError(e) });
     } finally {
@@ -671,6 +705,45 @@ export default function AdminPage() {
                 </button>
               </div>
               {ownerMsg && <p className={`text-xs mt-2 ${ownerMsg.type === "success" ? "text-success" : "text-error"}`}>{ownerMsg.text}</p>}
+
+              {/* Workers List */}
+              <div className="border-t border-base-300 mt-4 pt-4">
+                <h3 className="text-sm font-bold mb-3">👷 Workers ({workers.length})</h3>
+                {workersLoading ? (
+                  <span className="loading loading-spinner loading-sm" />
+                ) : workers.length === 0 ? (
+                  <p className="text-xs opacity-50">No workers registered</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="table table-xs w-full">
+                      <thead>
+                        <tr>
+                          <th>Address</th>
+                          <th>Active Jobs</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {workers.map(w => (
+                          <tr key={w.address}>
+                            <td><Address address={w.address as `0x${string}`} /></td>
+                            <td><span className="badge badge-sm badge-ghost">{w.activeJobs.length}</span></td>
+                            <td>
+                              <button
+                                className="btn btn-xs btn-error btn-outline"
+                                disabled={ownerBusy !== null}
+                                onClick={() => handleRemoveWorker(w.address)}
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
