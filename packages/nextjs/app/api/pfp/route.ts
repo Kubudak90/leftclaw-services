@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withX402 } from "~~/lib/x402-next-adapter";
+import { withX402Dynamic } from "~~/lib/x402-next-adapter";
 import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import OpenAI, { toFile } from "openai";
-import { BASE_NETWORK, PAYMENT_ADDRESS, SERVICE_PRICES, x402Server } from "~~/lib/x402";
+import { BASE_NETWORK, PAYMENT_ADDRESS, getContractPriceUsd, x402Server } from "~~/lib/x402";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw.services";
 
@@ -75,17 +75,17 @@ const handler = async (req: NextRequest): Promise<NextResponse> => {
   }
 };
 
-export const POST = withX402(
+export const POST = withX402Dynamic(
   handler,
-  {
+  (price) => ({
     accepts: {
       scheme: "exact",
-      price: SERVICE_PRICES.PFP_GENERATE,
+      price,
       network: BASE_NETWORK,
       payTo: PAYMENT_ADDRESS,
     },
     description:
-      "CLAWD PFP Generator — Custom profile picture of the CLAWD mascot in any style you describe. $0.25",
+      "CLAWD PFP Generator — Custom profile picture of the CLAWD mascot in any style you describe",
     extensions: {
       ...declareDiscoveryExtension({
         input: { prompt: "Description of how to modify the CLAWD character" },
@@ -109,6 +109,7 @@ export const POST = withX402(
         },
       }),
     },
-  },
+  }),
+  () => getContractPriceUsd(2),
   x402Server,
 );

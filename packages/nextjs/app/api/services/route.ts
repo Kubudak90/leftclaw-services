@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import deployedContracts from "~~/contracts/deployedContracts";
-import { BASE_NETWORK, PAYMENT_ADDRESS, SERVICE_PRICES } from "~~/lib/x402";
+import { BASE_NETWORK, PAYMENT_ADDRESS, getContractPriceUsd } from "~~/lib/x402";
 
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address;
 
 export async function GET() {
+  const [consultQuick, consultDeep, pfp, audit, qa, build, research, judge] = await Promise.all([
+    getContractPriceUsd(0),
+    getContractPriceUsd(1),
+    getContractPriceUsd(2),
+    getContractPriceUsd(3),
+    getContractPriceUsd(4),
+    getContractPriceUsd(5),
+    getContractPriceUsd(6),
+    getContractPriceUsd(7),
+  ]);
+
   return NextResponse.json({
     name: "LeftClaw Services",
     description:
@@ -19,7 +30,7 @@ export async function GET() {
         method: "POST",
         name: "Quick Consultation",
         description: "A focused 15-message chat session about your idea. Returns a written build plan.",
-        price: SERVICE_PRICES.CONSULT_QUICK,
+        price: consultQuick,
         responseType: "session",
       },
       {
@@ -27,7 +38,7 @@ export async function GET() {
         method: "POST",
         name: "Deep Consultation",
         description: "A 30-message deep-dive on complex architecture, protocol design, or strategy.",
-        price: SERVICE_PRICES.CONSULT_DEEP,
+        price: consultDeep,
         responseType: "session",
       },
       {
@@ -35,7 +46,7 @@ export async function GET() {
         method: "POST",
         name: "QA Report",
         description: "Pre-ship dApp quality audit. Send your dApp URL or contract address.",
-        price: SERVICE_PRICES.QA_REPORT,
+        price: qa,
         responseType: "session",
       },
       {
@@ -44,7 +55,7 @@ export async function GET() {
         name: "Smart Contract Audit",
         description:
           "Security review of a smart contract. Send contract address (verified on Basescan/Etherscan) or source code.",
-        price: SERVICE_PRICES.AUDIT_QUICK,
+        price: audit,
         responseType: "session",
       },
       {
@@ -53,8 +64,32 @@ export async function GET() {
         name: "CLAWD PFP Generator",
         description:
           "Custom CLAWD mascot profile picture. Describe how to modify the character, get a 1024x1024 PNG inline.",
-        price: SERVICE_PRICES.PFP_GENERATE,
+        price: pfp,
         responseType: "inline",
+      },
+      {
+        endpoint: "/api/build",
+        method: "POST",
+        name: "Full Day Build",
+        description: "A dedicated day of building whatever you need.",
+        price: build,
+        responseType: "session",
+      },
+      {
+        endpoint: "/api/research",
+        method: "POST",
+        name: "Deep Research",
+        description: "Comprehensive research on a protocol, topic, or codebase.",
+        price: research,
+        responseType: "session",
+      },
+      {
+        endpoint: "/api/judge",
+        method: "POST",
+        name: "AI Judge",
+        description: "Impartial evaluation of disputes, design decisions, or architecture choices.",
+        price: judge,
+        responseType: "session",
       },
     ],
     clientExample: {

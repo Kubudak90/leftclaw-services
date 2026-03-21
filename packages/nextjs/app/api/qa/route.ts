@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withX402 } from "~~/lib/x402-next-adapter";
+import { withX402Dynamic } from "~~/lib/x402-next-adapter";
 import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import { createSession } from "~~/lib/sessionStore";
-import { BASE_NETWORK, PAYMENT_ADDRESS, SERVICE_PRICES, x402Server } from "~~/lib/x402";
+import { BASE_NETWORK, PAYMENT_ADDRESS, getContractPriceUsd, x402Server } from "~~/lib/x402";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw.services";
 
@@ -38,12 +38,12 @@ const handler = async (req: NextRequest): Promise<NextResponse> => {
   }
 };
 
-export const POST = withX402(
+export const POST = withX402Dynamic(
   handler,
-  {
+  (price) => ({
     accepts: {
       scheme: "exact",
-      price: SERVICE_PRICES.QA_REPORT,
+      price,
       network: BASE_NETWORK,
       payTo: PAYMENT_ADDRESS,
     },
@@ -73,6 +73,7 @@ export const POST = withX402(
         },
       }),
     },
-  },
+  }),
+  () => getContractPriceUsd(4),
   x402Server,
 );
