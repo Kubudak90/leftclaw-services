@@ -94,7 +94,7 @@ interface ServiceTypeData {
 function ServiceTypesPanel({ refetch }: { refetch: () => void }) {
   const publicClient = usePublicClient();
   const { address } = useAccount();
-  const { writeContractAsync } = useWriteContract({ chainId: base.id, account: address });
+  const { writeContractAsync } = useWriteContract();
 
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -542,7 +542,7 @@ function JobCard({
 export default function AdminPage() {
   const { address } = useAccount();
   const clawdPrice = useCLAWDPrice();
-  const { writeContractAsync } = useWriteContract({ chainId: base.id, account: address });
+  const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
   const [statusFilter, setStatusFilter] = useState(-1);
@@ -604,16 +604,16 @@ export default function AdminPage() {
     let hash: `0x${string}`;
     switch (action) {
       case "accept":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "acceptJob", args: [jobId], chainId: base.id, account: address };
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "acceptJob", args: [jobId], chainId: base.id, account: address });
         break;
       case "decline":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "declineJob", args: [jobId], chainId: base.id, account: address };
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "declineJob", args: [jobId], chainId: base.id, account: address });
         break;
       case "complete":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "completeJob", args: [jobId, args.resultCID], chainId: base.id, account: address };
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "completeJob", args: [jobId, args.resultCID], chainId: base.id, account: address });
         break;
       case "logWork":
-        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "logWork", args: [jobId, args.note, args.stage || ""], chainId: base.id, account: address };
+        hash = await writeContractAsync({ address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any, functionName: "logWork", args: [jobId, args.note, args.stage || ""], chainId: base.id, account: address });
         break;
       default:
         throw new Error("Unknown action");
@@ -704,7 +704,7 @@ export default function AdminPage() {
                   <label className="text-xs opacity-50 mb-1 block">Remove Worker</label>
                   <AddressInput value={removeWorkerAddr} onChange={setRemoveWorkerAddr} placeholder="0x..." disabled={ownerBusy !== null} />
                 </div>
-                <button className="btn btn-sm btn-error btn-outline" disabled={ownerBusy !== null || !removeWorkerAddr} onClick={handleRemoveWorker}>
+                <button className="btn btn-sm btn-error btn-outline" disabled={ownerBusy !== null || !removeWorkerAddr} onClick={() => handleRemoveWorker()}>
                   {ownerBusy === "remove" ? <span className="loading loading-spinner loading-xs" /> : "Remove Worker"}
                 </button>
               </div>
