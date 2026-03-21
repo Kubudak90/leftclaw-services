@@ -34,7 +34,7 @@ function parseError(e: unknown): string {
   if (/user rejected|user denied/i.test(msg)) return "Cancelled";
   const m = msg.match(/reverted[^"']*["']([^"']{3,80})["']/i);
   if (m) return m[1];
-  return "Transaction failed";
+  return msg.length > 200 ? msg.slice(0, 200) + "…" : msg || "Transaction failed";
 }
 
 function truncAddr(addr: string) {
