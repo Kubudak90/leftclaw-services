@@ -4,12 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { BlockieAvatar } from "./BlockieAvatar";
 import { CheckCircleIcon, DocumentDuplicateIcon } from "@heroicons/react/24/outline";
+import { useEnsName } from "wagmi";
+import { base } from "viem/chains";
 
 interface AddressProps {
   address?: string;
   disableAddressLink?: boolean;
   format?: "short" | "long";
   size?: "xs" | "sm" | "base" | "lg" | "xl" | "2xl" | "3xl";
+  disableEns?: boolean;
 }
 
 const sizeMap = {
@@ -32,8 +35,14 @@ const blockieSizeMap = {
   "3xl": 15,
 };
 
-export function Address({ address, disableAddressLink = false, format = "short", size = "base" }: AddressProps) {
+export function Address({ address, disableAddressLink = false, format = "short", size = "base", disableEns = false }: AddressProps) {
   const [copied, setCopied] = useState(false);
+
+  const { data: ensName } = useEnsName({
+    address: address as `0x${string}` | undefined,
+    chainId: base.id,
+    query: { enabled: !disableEns && !!address },
+  });
 
   if (!address) return null;
 
@@ -54,7 +63,7 @@ export function Address({ address, disableAddressLink = false, format = "short",
     <div className={`flex items-center gap-1.5 ${sizeMap[size]}`}>
       <BlockieAvatar address={address} size={blockieSizeMap[size]} />
       {disableAddressLink ? (
-        <span className="font-mono">{displayAddress}</span>
+        <span className="font-mono">{ensName ?? displayAddress}</span>
       ) : (
         <Link
           href={basescanUrl}
@@ -62,7 +71,7 @@ export function Address({ address, disableAddressLink = false, format = "short",
           rel="noopener noreferrer"
           className="font-mono hover:underline"
         >
-          {displayAddress}
+          {ensName ?? displayAddress}
         </Link>
       )}
       <button
