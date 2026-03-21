@@ -2,13 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 120; // 2 min — receipt wait + OpenAI image gen
 import OpenAI, { toFile } from "openai";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, parseEventLogs } from "viem";
 import { base } from "viem/chains";
 import { getKV } from "~~/lib/kv";
 
 const CLAWD_ADDRESS = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07";
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xfab998867b16cf0369f78a6ebbe77ea4eace212c";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw-services-nextjs.vercel.app";
+
+const JOB_POSTED_ABI = [
+  {
+    type: "event",
+    name: "JobPosted",
+    inputs: [
+      { type: "uint256", name: "jobId", indexed: true },
+      { type: "uint256", name: "serviceTypeId", indexed: true },
+      { type: "address", name: "client", indexed: true },
+      { type: "uint256", name: "clawdAmount" },
+      { type: "uint256", name: "priceUsd" },
+      { type: "string", name: "description" },
+    ],
+  },
+] as const;
 
 let baseImageCache: Buffer | null = null;
 async function getBaseImage(): Promise<Buffer> {
@@ -57,45 +72,26 @@ export async function POST(req: NextRequest) {
     if (tx.from.toLowerCase() !== requesterAddress.toLowerCase())
       return NextResponse.json({ error: "Transaction sender does not match your address" }, { status: 403 });
 
-    // For payments via contract (postJobWithETH, postJobWithUsdc, postJob), funds go to the
-    // contract and get swapped to CLAWD. The job is recorded via the JobPosted event.
-    // For legacy direct treasury transfers, we also check treasury transfers.
-    const contractAddressLower = CONTRACT_ADDRESS.toLowerCase();
+    // Parse JobPosted events from the contract
+    const parsedLogs = parseEventLogs({
+      logs: receipt.logs,
+      abi: JOB_POSTED_ABI,
+      eventName: "JobPosted",
+    });
 
-    // Find JobPosted event from the contract (proves job was created via contract)
-    const jobPostedLog = receipt.logs.find(log =>
-      log.address.toLowerCase() === contractAddressLower &&
-      log.topics[0] === "0xfedb08719ec013458bbe9c86e0b87a10413be78ff76c974a0dac8cce68e73e8a"
+    const jobPostedEvent = parsedLogs.find(
+      log => log.address.toLowerCase() === CONTRACT_ADDRESS.toLowerCase()
     );
 
-    if (paymentMethod === "eth") {
-      // ETH via contract: tx goes to contract, contract wraps+swaps to CLAWD
-      // JobPosted event proves the job was created
-      if (!jobPostedLog)
-        return NextResponse.json({ error: "No job found for this ETH transaction. Make sure you're using the contract payment flow." }, { status: 400 });
-      // Decode serviceTypeId from JobPosted event topics[2]
-      const serviceTypeId = Number(BigInt(jobPostedLog.topics[2]!));
-      if (serviceTypeId !== 3)
-        return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
-    } else if (paymentMethod === "usdc") {
-      // USDC via contract: tx goes to contract, contract swaps to CLAWD
-      // JobPosted event proves the job was created
-      if (!jobPostedLog)
-        return NextResponse.json({ error: "No job found for this USDC transaction. Make sure you're using the contract payment flow." }, { status: 400 });
-      const serviceTypeId = Number(BigInt(jobPostedLog.topics[2]!));
-      if (serviceTypeId !== 3)
-        return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
-    } else if (paymentMethod === "clawd") {
-      // CLAWD via contract: tx goes to contract
-      // JobPosted event proves the job was created
-      if (!jobPostedLog)
-        return NextResponse.json({ error: "No job found for this CLAWD transaction." }, { status: 400 });
-      const serviceTypeId = Number(BigInt(jobPostedLog.topics[2]!));
-      if (serviceTypeId !== 3)
-        return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
-    } else {
-      return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
+    // For payments via contract (postJobWithETH, postJobWithUsdc, postJob), funds go to the
+    // contract and get swapped to CLAWD. The job is recorded via the JobPosted event.
+    if (!jobPostedEvent) {
+      return NextResponse.json({ error: "No job found for this transaction. Make sure you're using the contract payment flow." }, { status: 400 });
     }
+
+    const { serviceTypeId } = jobPostedEvent.args;
+    if (serviceTypeId !== 3n)
+      return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
 
     // Dedup — atomic SET NX to prevent race conditions
     const kv = getKV();
