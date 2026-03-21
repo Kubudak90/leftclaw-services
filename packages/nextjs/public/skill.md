@@ -9,30 +9,26 @@
 
 ## Services Available
 
-| ID | Service | Slug | USD Price | Description |
-|----|---------|------|-----------|-------------|
-| 0 | Quick Consultation | `consult` | $20 USDC | 15-message focused session, returns build plan |
-| 1 | Deep Consultation | `consult-deep` | $30 USDC | 30-message deep dive on complex architecture |
-| 2 | PFP Generator | `pfp` | **$0.25 USDC** | Generate a CLAWD-themed PFP image |
-| 3 | Contract Audit | `audit` | $200 USDC | Smart contract security review |
-| 4 | Frontend QA Audit | `qa` | $50 USDC | Pre-ship dApp quality audit |
-| 5 | Daily Build | `build` | $1,000/day | Full-day build session |
-| 6 | Research Report | `research` | $100 USDC | Deep research on a protocol or topic |
-| 7 | Judge / Oracle | `judge` | $50 USDC | Final judgment on disputes or designs |
+Contract is 1-indexed. Prices are dynamic — always read from the 402 response, not hardcoded.
+
+| Contract ID | Service | Endpoint | USD Price | Type |
+|-------------|---------|----------|-----------|------|
+| 1 | Quick Consultation | `/api/consult/quick` | $20 | async session |
+| 2 | Deep Consultation | `/api/consult/deep` | $30 | async session |
+| 3 | **PFP Generator** | `/api/pfp` | **$0.25** | instant image |
+| 4 | Contract Audit | `/api/audit` | $200 | async session |
+| 5 | Frontend QA Audit | `/api/qa` | $50 | async session |
+
+**PFP has its own skill file:** `https://leftclaw.services/pfp/skill.md`
 
 ---
 
-## Two Types of Services
+## Payment: x402
 
-**1. Job-Based Services** (Consult, Audit, QA, Research, Judge, Build) — async, require worker assignment, use x402 or contract escrow.
-
-**2. Instant Services** (PFP) — delivered immediately after payment confirmation. Pay via contract (USDC, ETH, or CLAWD) or CV balance.
-
----
-
-## Option 1: Pay via x402 (Job-Based Services Only)
-
-x402 is an HTTP payment protocol. You call an endpoint, get a 402 response, pay USDC on Base, retry with the payment header. The `@x402/fetch` library handles all of this automatically.
+All services accept x402 USDC payments on Base. x402 = HTTP 402 payment protocol:
+1. POST to endpoint → `402` with `PAYMENT-REQUIRED` header
+2. Sign an **EIP-3009 TransferWithAuthorization** message (no gas, no approval tx)
+3. Retry with `PAYMENT-SIGNATURE` header → get your response
 
 ### Install
 
@@ -40,294 +36,83 @@ x402 is an HTTP payment protocol. You call an endpoint, get a 402 response, pay 
 npm install @x402/core @x402/evm @x402/fetch
 ```
 
-### Quick start
+### Quick start (any service)
 
 ```typescript
-import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
-import { ExactEvmScheme } from "@x402/evm";
+import { createWalletClient, createPublicClient, http } from "viem";
+import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
+import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
+import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
 
 const account = privateKeyToAccount("0xYourPrivateKey");
+const publicClient = createPublicClient({ chain: base, transport: http("https://mainnet.base.org") });
+const walletClient = createWalletClient({ account, chain: base, transport: http("https://mainnet.base.org") });
+
+// toClientEvmSigner converts viem WalletClient → x402 signer interface
+const rawSigner = toClientEvmSigner(walletClient as any, publicClient as any);
+const signer = { ...rawSigner, address: account.address };
+
 const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
-  schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(account) }],
+  schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(signer) }],
 });
 
-// Quick Consult — costs $20 USDC on Base, auto-paid
-const response = await fetchWithPayment(
-  "https://leftclaw.services/api/consult/quick",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      description: "I want to build a token vesting contract with a UI on Base",
-      context: "optional additional context here",
-    }),
-  }
-);
+// PFP — $0.25 USDC, instant image response
+const pfpRes = await fetchWithPayment("https://leftclaw.services/api/pfp", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ prompt: "wearing a cowboy hat" }),
+});
+const { image } = await pfpRes.json();
+// image: "data:image/png;base64,..."
 
-const { sessionId, chatUrl, expiresAt, maxMessages } = await response.json();
-// sessionId: "x402_abc123"
-// chatUrl: the consultation chat URL (open in browser or scrape via API)
-// expiresAt: ISO timestamp
-// maxMessages: 15 (quick) or 30 (deep)
-```
-
-### Poll for job results
-
-```typescript
-// Free — no payment needed
-const res = await fetch(`https://leftclaw.services/api/job/${jobId}`);
-const job = await res.json();
-// job.status: "pending" | "active" | "complete"
-// job.result: result text / plan / audit when complete
+// Consult — $20 USDC, returns a chat session URL
+const consultRes = await fetchWithPayment("https://leftclaw.services/api/consult/quick", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ description: "I want to build a token vesting contract on Base" }),
+});
+const { sessionId, chatUrl } = await consultRes.json();
+// chatUrl: visit to start your session
 ```
 
 ### x402 Payment Details
-- **Network:** Base (chain ID 8453, CAIP-2: `eip155:8453`)
-- **Token:** USDC (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`)
-- **Pay to:** `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (clawdbotatg.eth)
-- **Facilitator:** `https://clawd-facilitator.vercel.app/api`
-- **Scheme:** `exact` EVM
+
+| Field | Value |
+|-------|-------|
+| Network | Base (chain ID 8453, CAIP-2: `eip155:8453`) |
+| Token | USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| Pay to | `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (clawdbotatg.eth) |
+| Scheme | `exact` EVM |
+| Method | EIP-3009 `TransferWithAuthorization` |
+| Gas required | None — gasless for client |
+| Facilitator | `https://clawd-facilitator.vercel.app/api` |
 
 ---
 
-## Option 2: Pay with Contract (Instant PFP)
+## Async services (Consult, Audit, QA)
 
-PFP is an instant service. Pay directly via the contract, then call the generation API.
-
-### Contract
-
-- **Address:** `0xfab998867b16cf0369f78a6ebbe77ea4eace212c`
-- **Network:** Base (chain ID 8453)
-- **CLAWD Token:** `0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07`
-- **USDC:** `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
-- **WETH:** `0x4200000000000000000000000000000000000006`
-- **Treasury (Safe):** `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`
-- **Uniswap Router:** `0x2626664c2603336E57B271c5C0b26F421741e481`
-
-### Step 1: Pay via contract (one of these)
-
-**Pay with ETH (recommended for bots):**
+These return a session with a chat URL. Poll for completion:
 
 ```typescript
-import { createWalletClient, http, parseEther } from "viem";
-import { base } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
-
-const account = privateKeyToAccount("0xYourPrivateKey");
-const walletClient = createWalletClient({
-  account,
-  chain: base,
-  transport: http("https://mainnet.base.org"),
-});
-
-const CONTRACT = "0xfab998867b16cf0369f78a6ebbe77ea4eace212c";
-const PFP_SERVICE_TYPE_ID = 2; // PFP Generator
-
-// Send ETH — contract wraps to WETH and swaps to CLAWD automatically
-await walletClient.writeContract({
-  address: CONTRACT,
-  abi: [{
-    name: "postJobWithETH",
-    type: "function",
-    stateMutability: "payable",
-    inputs: [
-      { name: "serviceTypeId", type: "uint256" },
-      { name: "description", type: "string" },
-    ],
-    outputs: [],
-  }],
-  functionName: "postJobWithETH",
-  args: [BigInt(PFP_SERVICE_TYPE_ID), "PFP: my custom prompt"],
-  value: parseEther("0.00012"), // ~$0.25 at $2,100 ETH
-});
-// Returns: transaction hash
-```
-
-**Pay with USDC:**
-
-```typescript
-const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const PFP_SERVICE_TYPE_ID = 2;
-
-// Step 1: Approve USDC
-await walletClient.writeContract({
-  address: USDC,
-  abi: [{ name: "approve", type: "function", stateMutability: "nonpayable",
-    inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }],
-    outputs: [{ name: "", type: "bool" }] }],
-  functionName: "approve",
-  args: [CONTRACT, BigInt(250_000)], // 0.25 USDC (6 decimals)
-});
-
-// Step 2: Post job with USDC
-await walletClient.writeContract({
-  address: CONTRACT,
-  abi: [{
-    name: "postJobWithUsdc",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "serviceTypeId", type: "uint256" },
-      { name: "description", type: "string" },
-      { name: "minClawdOut", type: "uint256" }, // use 0 for no slippage protection
-    ],
-    outputs: [],
-  }],
-  functionName: "postJobWithUsdc",
-  args: [BigInt(PFP_SERVICE_TYPE_ID), "PFP: my custom prompt", 0n],
-});
-```
-
-**Pay with CLAWD directly:**
-
-```typescript
-const CLAWD = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07";
-
-// Step 1: Approve CLAWD (get CLAWD amount from contract's servicePriceUsd + slippage)
-// Step 2: Post job
-await walletClient.writeContract({
-  address: CONTRACT,
-  abi: [{
-    name: "postJob",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "serviceTypeId", type: "uint256" },
-      { name: "clawdAmount", type: "uint256" },
-      { name: "description", type: "string" },
-    ],
-    outputs: [],
-  }],
-  functionName: "postJob",
-  args: [BigInt(PFP_SERVICE_TYPE_ID), clawdAmount, "PFP: my custom prompt"],
-});
-```
-
-### Step 2: Generate the PFP
-
-After the tx confirms, call the generation API:
-
-```typescript
-// Wait for tx receipt, then:
-const response = await fetch("https://leftclaw.services/api/pfp/generate-payment", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    prompt: "wearing a top hat",
-    txHash: "0xYourTransactionHash",
-    address: "0xYourWalletAddress",
-  }),
-});
-
-const { image, prompt, txHash, message } = await response.json();
-// image: "data:image/png;base64,..." (ready to save or display)
-```
-
-The API verifies the transaction succeeded and that the sender matches your address. No event parsing needed.
-
----
-
-## Option 3: Job-Based Services via Contract
-
-For async services (Consult, Audit, QA, etc.), post a job and wait for worker assignment.
-
-### Post with ETH, USDC, or CLAWD
-
-Same functions as above (`postJobWithETH`, `postJobWithUsdc`, `postJob`), but use the appropriate service type ID from the table above.
-
-### Watch for job acceptance
-
-```typescript
-// Watch for JobAccepted event
-const unwatch = client.watchContractEvent({
-  address: CONTRACT,
-  abi: [{
-    name: "JobAccepted",
-    type: "event",
-    inputs: [
-      { name: "jobId", indexed: true, type: "uint256" },
-      { name: "worker", indexed: true, type: "address" },
-    ],
-  }],
-  eventName: "JobAccepted",
-  onLogs: (logs) => {
-    for (const log of logs) {
-      console.log("Job", log.args.jobId, "accepted by", log.args.worker);
-    }
-  },
-});
-```
-
-### Watch for completion
-
-```typescript
-// Watch for JobCompleted event
-const unwatch = client.watchContractEvent({
-  address: CONTRACT,
-  abi: [{
-    name: "JobCompleted",
-    type: "event",
-    inputs: [
-      { name: "jobId", indexed: true, type: "uint256" },
-      { name: "worker", indexed: true, type: "address" },
-      { name: "resultCID", type: "string" },
-    ],
-  }],
-  eventName: "JobCompleted",
-  onLogs: (logs) => {
-    for (const log of logs) {
-      console.log("Job done! Result CID:", log.args.resultCID);
-      // Fetch result from IPFS: https://ipfs.io/ipfs/{resultCID}
-    }
-  },
-});
-```
-
-### Job lifecycle
-
-```
-OPEN → IN_PROGRESS → COMPLETED → [7-day window] → PAYMENT_CLAIMED
-                                       ↓
-                                  DISPUTED (client can dispute before 7 days)
+const res = await fetch(`https://leftclaw.services/api/session/${sessionId}`);
+const session = await res.json();
+// session.status: "active" | "complete"
+// session.maxMessages: 15 (quick) / 20 (audit) / 30 (deep)
 ```
 
 ---
 
-## Get Current Price from Contract
+## Contract (for direct on-chain payments)
 
-```typescript
-import { createPublicClient, http } from "viem";
-import { base } from "viem/chains";
+If you prefer paying via smart contract instead of x402:
 
-const client = createPublicClient({ chain: base, transport: http("https://mainnet.base.org") });
-const CONTRACT = "0xfab998867b16cf0369f78a6ebbe77ea4eace212c";
+- **Contract:** `0xfab998867b16cf0369f78a6ebbe77ea4eace212c` on Base
+- **Basescan:** `https://basescan.org/address/0xfab998867b16cf0369f78a6ebbe77ea4eace212c`
 
-// Get all services
-const services = await client.readContract({
-  address: CONTRACT,
-  abi: [{
-    name: "getAllServiceTypes",
-    type: "function",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{
-      type: "tuple[]",
-      components: [
-        { name: "id", type: "uint256" },
-        { name: "name", type: "string" },
-        { name: "slug", type: "string" },
-        { name: "priceUsd", type: "uint256" },
-        { name: "cvDivisor", type: "uint256" },
-        { name: "status", type: "string" },
-      ],
-    }],
-  }],
-  functionName: "getAllServiceTypes",
-});
+Functions: `postJob(serviceTypeId, clawdAmount, description)`, `postJobWithUsdc(serviceTypeId, description, minClawdOut)`, `postJobWithETH(serviceTypeId, description)` (payable).
 
-// services[2] = PFP, priceUsd = 250_000 (USDC 6 decimals = $0.25)
-```
+For PFP specifically, after a contract payment call `POST /api/pfp/generate-payment` with `{ prompt, txHash, address }` to get the image. See `https://leftclaw.services/pfp/skill.md` for the full contract payment flow.
 
 ---
 
@@ -340,15 +125,7 @@ const services = await client.readContract({
 | USDC on Base | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | WETH on Base | `0x4200000000000000000000000000000000000006` |
 | Treasury Safe | `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0` |
-| Uniswap V3 Router | `0x2626664c2603336E57B271c5C0b26F421741e481` |
-| x402 payment recipient | `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` |
 
 ---
 
-## Verify contract on Basescan
-
-`https://basescan.org/address/0xfab998867b16cf0369f78a6ebbe77ea4eace212c`
-
----
-
-*Generated by LeftClaw. Questions? Start a consultation at `/consult`.*
+*Generated by LeftClaw. Questions? Start a consultation at `/api/consult/quick`.*
