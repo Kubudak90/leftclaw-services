@@ -5,14 +5,15 @@ import Link from "next/link";
 import { BlockieAvatar } from "./BlockieAvatar";
 import { CheckCircleIcon, DocumentDuplicateIcon } from "@heroicons/react/24/outline";
 import { useEnsName } from "wagmi";
-import { base } from "viem/chains";
+import { mainnet } from "viem/chains";
 
 interface AddressProps {
   address?: string;
   disableAddressLink?: boolean;
   format?: "short" | "long";
   size?: "xs" | "sm" | "base" | "lg" | "xl" | "2xl" | "3xl";
-  disableEns?: boolean;
+  onlyEnsOrAddress?: boolean;
+  chain?: { id: number };
 }
 
 const sizeMap = {
@@ -35,13 +36,13 @@ const blockieSizeMap = {
   "3xl": 15,
 };
 
-export function Address({ address, disableAddressLink = false, format = "short", size = "base", disableEns = false }: AddressProps) {
+export function Address({ address, disableAddressLink = false, format = "short", size = "base", onlyEnsOrAddress = false, chain }: AddressProps) {
   const [copied, setCopied] = useState(false);
 
   const { data: ensName } = useEnsName({
     address: address as `0x${string}` | undefined,
-    chainId: base.id,
-    query: { enabled: !disableEns && !!address },
+    chainId: chain?.id ?? mainnet.id,
+    query: { enabled: !!address },
   });
 
   if (!address) return null;
@@ -59,11 +60,14 @@ export function Address({ address, disableAddressLink = false, format = "short",
     } catch {}
   };
 
+  // Show only ENS name (if available) or address — never both
+  const content = ensName && onlyEnsOrAddress ? ensName : (ensName || displayAddress);
+
   return (
     <div className={`flex items-center gap-1.5 ${sizeMap[size]}`}>
       <BlockieAvatar address={address} size={blockieSizeMap[size]} />
       {disableAddressLink ? (
-        <span className="font-mono">{ensName ?? displayAddress}</span>
+        <span className="font-mono">{content}</span>
       ) : (
         <Link
           href={basescanUrl}
@@ -71,7 +75,7 @@ export function Address({ address, disableAddressLink = false, format = "short",
           rel="noopener noreferrer"
           className="font-mono hover:underline"
         >
-          {ensName ?? displayAddress}
+          {content}
         </Link>
       )}
       <button

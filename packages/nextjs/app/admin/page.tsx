@@ -718,7 +718,7 @@ export default function AdminPage() {
                     {workers.map(w => (
                       <div key={w.address} className="flex items-center justify-between bg-base-300 rounded-lg px-4 py-2">
                         <div className="flex items-center gap-3 min-w-0">
-                          <Address address={w.address as `0x${string}`} disableAddressLink />
+                          <Address address={w.address as `0x${string}`} onlyEnsOrAddress disableAddressLink />
                           <span className="badge badge-sm badge-ghost">{w.activeJobs.length} active</span>
                         </div>
                         <button
