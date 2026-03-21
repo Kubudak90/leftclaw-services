@@ -7,12 +7,8 @@ import { base } from "viem/chains";
 import { getKV } from "~~/lib/kv";
 
 const CLAWD_ADDRESS = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07";
-const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const TREASURY_ADDRESS = "0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xfab998867b16cf0369f78a6ebbe77ea4eace212c";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw-services-nextjs.vercel.app";
-const MIN_USDC = BigInt(3_500_000); // $3.50 minimum (allow slight slippage on $4.00)
-const MIN_ETH_USD_VALUE = 3.50; // $3.50 minimum (allow slight slippage on $4.00)
-const MIN_CLAWD_TRANSFER = BigInt("1000") * BigInt(10) ** BigInt(18); // 1K CLAWD minimum
 
 let baseImageCache: Buffer | null = null;
 async function getBaseImage(): Promise<Buffer> {
@@ -61,40 +57,42 @@ export async function POST(req: NextRequest) {
     if (tx.from.toLowerCase() !== requesterAddress.toLowerCase())
       return NextResponse.json({ error: "Transaction sender does not match your address" }, { status: 403 });
 
-    if (paymentMethod === "usdc") {
-      const transferLog = receipt.logs.find(log => {
-        if (log.address.toLowerCase() !== USDC_ADDRESS.toLowerCase()) return false;
-        if (log.topics.length < 3) return false;
-        const toAddr = "0x" + log.topics[2]!.slice(26);
-        return toAddr.toLowerCase() === TREASURY_ADDRESS.toLowerCase();
-      });
-      if (!transferLog)
-        return NextResponse.json({ error: "No USDC transfer to treasury found in transaction" }, { status: 400 });
-      const amount = BigInt(transferLog.data);
-      if (amount < MIN_USDC)
-        return NextResponse.json({ error: `Insufficient USDC. Minimum $3.50, sent $${Number(amount) / 1e6}` }, { status: 400 });
-    } else if (paymentMethod === "eth") {
-      if (tx.to?.toLowerCase() !== TREASURY_ADDRESS.toLowerCase())
-        return NextResponse.json({ error: "ETH not sent to treasury" }, { status: 400 });
-      const priceRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
-      const priceData = await priceRes.json();
-      const ethPriceUsd = priceData?.ethereum?.usd || 2000;
-      const ethSentUsd = (Number(tx.value) / 1e18) * ethPriceUsd;
-      if (ethSentUsd < MIN_ETH_USD_VALUE)
-        return NextResponse.json({ error: `Insufficient ETH. Minimum $${MIN_ETH_USD_VALUE}, sent $${ethSentUsd.toFixed(2)}` }, { status: 400 });
+    // For payments via contract (postJobWithETH, postJobWithUsdc, postJob), funds go to the
+    // contract and get swapped to CLAWD. The job is recorded via the JobPosted event.
+    // For legacy direct treasury transfers, we also check treasury transfers.
+    const contractAddressLower = CONTRACT_ADDRESS.toLowerCase();
+
+    // Find JobPosted event from the contract (proves job was created via contract)
+    const jobPostedLog = receipt.logs.find(log =>
+      log.address.toLowerCase() === contractAddressLower &&
+      log.topics[0] === "0xfedb08719ec013458bbe9c86e0b87a10413be78ff76c974a0dac8cce68e73e8a"
+    );
+
+    if (paymentMethod === "eth") {
+      // ETH via contract: tx goes to contract, contract wraps+swaps to CLAWD
+      // JobPosted event proves the job was created
+      if (!jobPostedLog)
+        return NextResponse.json({ error: "No job found for this ETH transaction. Make sure you're using the contract payment flow." }, { status: 400 });
+      // Decode serviceTypeId from JobPosted event topics[2]
+      const serviceTypeId = parseInt(jobPostedLog.topics[2]!, 16);
+      if (serviceTypeId !== 3)
+        return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
+    } else if (paymentMethod === "usdc") {
+      // USDC via contract: tx goes to contract, contract swaps to CLAWD
+      // JobPosted event proves the job was created
+      if (!jobPostedLog)
+        return NextResponse.json({ error: "No job found for this USDC transaction. Make sure you're using the contract payment flow." }, { status: 400 });
+      const serviceTypeId = parseInt(jobPostedLog.topics[2]!, 16);
+      if (serviceTypeId !== 3)
+        return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
     } else if (paymentMethod === "clawd") {
-      // CLAWD direct transfer to treasury
-      const transferLog = receipt.logs.find(log => {
-        if (log.address.toLowerCase() !== CLAWD_ADDRESS.toLowerCase()) return false;
-        if (log.topics.length < 3) return false;
-        const toAddr = "0x" + log.topics[2]!.slice(26);
-        return toAddr.toLowerCase() === TREASURY_ADDRESS.toLowerCase();
-      });
-      if (!transferLog)
-        return NextResponse.json({ error: "No CLAWD transfer to treasury found in transaction" }, { status: 400 });
-      const amount = BigInt(transferLog.data);
-      if (amount < MIN_CLAWD_TRANSFER)
-        return NextResponse.json({ error: `Insufficient CLAWD. Minimum 1,000 CLAWD` }, { status: 400 });
+      // CLAWD via contract: tx goes to contract
+      // JobPosted event proves the job was created
+      if (!jobPostedLog)
+        return NextResponse.json({ error: "No job found for this CLAWD transaction." }, { status: 400 });
+      const serviceTypeId = parseInt(jobPostedLog.topics[2]!, 16);
+      if (serviceTypeId !== 3)
+        return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
     } else {
       return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
