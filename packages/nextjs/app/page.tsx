@@ -2,10 +2,104 @@
 
 import Link from "next/link";
 import type { NextPage } from "next";
+import { useAccount } from "wagmi";
+import { formatUnits } from "viem";
 import { Address } from "~~/components/scaffold-eth";
+import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import deployedContracts from "~~/contracts/deployedContracts";
 
 const CONTRACT_ADDRESS = (deployedContracts[8453] as any)?.LeftClawServicesV2?.address ?? (deployedContracts[8453] as any)?.LeftClawServices?.address;
+
+const SERVICE_NAMES: Record<number, string> = {
+  1: "Quick Consult",
+  2: "Deep Consult",
+  3: "PFP",
+  4: "Smart Contract Audit",
+  5: "Frontend QA",
+  6: "Full Day Build",
+  7: "Research Report",
+  8: "AI Judge",
+};
+
+const CONSULT_TYPES = new Set([1, 2]);
+
+const STATUS_LABELS: Record<number, { label: string; badge: string }> = {
+  0: { label: "Open", badge: "badge-success" },
+  1: { label: "In Progress", badge: "badge-warning" },
+};
+
+function ActiveJobCard({ jobId }: { jobId: number }) {
+  const { data: job } = useScaffoldReadContract({
+    contractName: "LeftClawServicesV2",
+    functionName: "getJob",
+    args: [BigInt(jobId)],
+  });
+
+  if (!job) return null;
+
+  const statusNum = Number(job.status);
+  if (statusNum !== 0 && statusNum !== 1) return null;
+
+  const serviceType = Number(job.serviceTypeId);
+  const status = STATUS_LABELS[statusNum] || { label: "Unknown", badge: "" };
+  const price = formatUnits(job.paymentClawd, 18);
+  const isConsult = CONSULT_TYPES.has(serviceType);
+  const cvAmount = job.cvAmount ? Number(job.cvAmount) : 0;
+  const actionLink = isConsult ? `/chat/${jobId}` : `/jobs/${jobId}`;
+  const actionLabel = isConsult
+    ? (statusNum === 0 ? "Continue Chat →" : "View Chat →")
+    : "View Details →";
+
+  return (
+    <Link href={actionLink} className="card bg-base-200 hover:bg-base-300 transition-colors cursor-pointer">
+      <div className="card-body py-4 px-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm opacity-60">#{jobId}</span>
+            <span className="font-semibold">{SERVICE_NAMES[serviceType] || "Unknown"}</span>
+          </div>
+          <span className={`badge ${status.badge} badge-sm`}>{status.label}</span>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-sm opacity-60">
+            {Number(price) > 0 ? `${Number(price).toLocaleString()} CLAWD` : ""}
+            {cvAmount > 0 ? `${cvAmount.toLocaleString()} CV` : ""}
+            {Number(price) === 0 && cvAmount === 0 ? "Paid" : ""}
+          </span>
+          <span className="text-xs text-primary">{actionLabel}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function MyActiveJobs() {
+  const { address } = useAccount();
+
+  const { data: clientJobIds } = useScaffoldReadContract({
+    contractName: "LeftClawServicesV2",
+    functionName: "getJobsByClient",
+    args: [address || "0x0000000000000000000000000000000000000000"],
+  });
+
+  if (!address || !clientJobIds || clientJobIds.length === 0) return null;
+
+  const jobIds = [...clientJobIds].map(Number).reverse();
+
+  return (
+    <div className="w-full max-w-5xl mb-8">
+      <h2 className="text-2xl font-bold mb-4">📋 My Active Jobs</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {jobIds.map(id => (
+          <ActiveJobCard key={id} jobId={id} />
+        ))}
+      </div>
+      <div className="mt-3 text-right">
+        <Link href="/jobs" className="text-sm text-primary hover:underline">View all jobs →</Link>
+      </div>
+    </div>
+  );
+}
 
 const textShadow = { textShadow: "0 2px 8px rgba(0,0,0,0.7)" };
 
@@ -33,6 +127,9 @@ const Home: NextPage = () => {
             </div>
           </div>
         </div>
+
+        {/* My Active Jobs (connected wallet only) */}
+        <MyActiveJobs />
 
         {/* PFP Generator — text LEFT */}
         <div className="relative w-full rounded-xl overflow-hidden mb-8">

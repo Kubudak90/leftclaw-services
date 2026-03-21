@@ -50,6 +50,7 @@
     "verify": "yarn foundry:verify"
   },
   "devDependencies": {
+    "@x402/evm": "^2.7.0",
     "husky": "~9.1.6",
     "lint-staged": "~13.2.2"
   },
