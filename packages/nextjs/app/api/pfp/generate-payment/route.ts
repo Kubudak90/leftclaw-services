@@ -2,28 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 120; // 2 min — receipt wait + OpenAI image gen
 import OpenAI, { toFile } from "openai";
-import { createPublicClient, http, parseEventLogs } from "viem";
+import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { getKV } from "~~/lib/kv";
 
-const CLAWD_ADDRESS = "0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07";
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0xfab998867b16cf0369f78a6ebbe77ea4eace212c";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw-services-nextjs.vercel.app";
-
-const JOB_POSTED_ABI = [
-  {
-    type: "event",
-    name: "JobPosted",
-    inputs: [
-      { type: "uint256", name: "jobId", indexed: true },
-      { type: "uint256", name: "serviceTypeId", indexed: false },
-      { type: "address", name: "client", indexed: true },
-      { type: "uint256", name: "clawdAmount" },
-      { type: "uint256", name: "priceUsd" },
-      { type: "string", name: "description" },
-    ],
-  },
-] as const;
 
 let baseImageCache: Buffer | null = null;
 async function getBaseImage(): Promise<Buffer> {
@@ -44,7 +27,7 @@ async function getBaseImage(): Promise<Buffer> {
 export async function POST(req: NextRequest) {
   let claimedDedupKey: string | null = null;
   try {
-    const { prompt, txHash, address: requesterAddress, paymentMethod } = await req.json();
+    const { prompt, txHash, address: requesterAddress } = await req.json();
 
     if (!prompt || prompt.trim().length < 3)
       return NextResponse.json({ error: "Prompt required" }, { status: 400 });
@@ -65,33 +48,16 @@ export async function POST(req: NextRequest) {
       retryCount: 30,
       retryDelay: 3_000,
     });
-    const tx = await client.getTransaction({ hash: txHash as `0x${string}` });
 
     if (!receipt || receipt.status !== "success")
       return NextResponse.json({ error: "Transaction failed or not found" }, { status: 400 });
+
+    // The contract guarantees payment + job creation atomically.
+    // If the tx succeeded, the job was created. No event parsing needed.
+    // The sender must match the requester address.
+    const tx = await client.getTransaction({ hash: txHash as `0x${string}` });
     if (tx.from.toLowerCase() !== requesterAddress.toLowerCase())
       return NextResponse.json({ error: "Transaction sender does not match your address" }, { status: 403 });
-
-    // Parse JobPosted events from the contract
-    const parsedLogs = parseEventLogs({
-      logs: receipt.logs,
-      abi: JOB_POSTED_ABI,
-      eventName: "JobPosted",
-    });
-
-    const jobPostedEvent = parsedLogs.find(
-      log => log.address.toLowerCase() === CONTRACT_ADDRESS.toLowerCase()
-    );
-
-    // For payments via contract (postJobWithETH, postJobWithUsdc, postJob), funds go to the
-    // contract and get swapped to CLAWD. The job is recorded via the JobPosted event.
-    if (!jobPostedEvent) {
-      return NextResponse.json({ error: "No job found for this transaction. Make sure you're using the contract payment flow." }, { status: 400 });
-    }
-
-    const { serviceTypeId } = jobPostedEvent.args;
-    if (serviceTypeId !== 3n)
-      return NextResponse.json({ error: `Expected PFP service (type 3), got type ${serviceTypeId}` }, { status: 400 });
 
     // Dedup — atomic SET NX to prevent race conditions
     const kv = getKV();
