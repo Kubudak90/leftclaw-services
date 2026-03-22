@@ -52,6 +52,7 @@ For each job, check \`serviceTypeId\` to know which flow applies. Not every job 
 | 6 | Full Day Build | Full multi-stage pipeline |
 | 7 | Research Report | Research flow |
 | 8 | AI Judge | Oracle setup flow |
+| 9 | HumanQA | Human QA flow |
 
 ### Quick Consult (1) & Deep Consult (2) — Chat Flow
 
@@ -128,6 +129,22 @@ This is the full pipeline documented in detail below. All stages from \`create_r
 5. Test the setup thoroughly
 6. \`logWork(jobId, "Oracle configured: <description>", "oracle_setup")\`
 7. \`completeJob(jobId, resultCID)\` — resultCID = IPFS CID of the oracle configuration/documentation
+
+---
+
+### HumanQA (9) — Human Frontend QA
+
+> A real human reviews the dApp frontend and delivers a prioritized written report of UX issues, accessibility gaps, and functionality problems.
+
+**Flow:**
+1. \`acceptJob(jobId)\`
+2. Read the job description for the target dApp URL and any specific areas of focus
+3. Manually navigate and inspect the frontend
+4. Compile findings into a structured report
+5. \`logWork(jobId, "Human QA complete: X critical, Y medium, Z low", "human_qa")\`
+6. \`completeJob(jobId, resultCID)\` — resultCID = IPFS CID of the QA report
+
+**Deliverable:** A written report (markdown or PDF) with prioritized findings: Critical / Medium / Low.
 
 ---
 
@@ -541,6 +558,7 @@ This resets \`job.currentStage\` on-chain. Always explain WHY you're moving it b
    - **6 (Full Build):** Accept → start at \`create_repo\` → work through full pipeline → stop at \`ready\`
    - **7 (Research):** Accept → research → write report → complete with report CID
    - **8 (AI Judge):** Accept → set up oracle → test → complete with config CID
+   - **9 (HumanQA):** Accept → manually review frontend → write report → complete with report CID
 3. \`GET /api/job/pipeline\` — any in-progress jobs? Find what stage they need next.
 4. Read work logs for context, do the work, \`logWork\` when done.
 5. Move to the next job or next stage.

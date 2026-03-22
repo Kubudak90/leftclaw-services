@@ -25,6 +25,7 @@ const SERVICE_NAMES: Record<number, string> = {
   7: "AI Audit",
   8: "AI Audit (Multi)",
   9: "Custom",
+  10: "HumanQA",
 };
 
 function JobCard({ jobId, publicBoard }: { jobId: number; publicBoard?: boolean }) {

@@ -19,6 +19,7 @@ const SERVICE_NAMES: Record<number, string> = {
   6: "Full Day Build",
   7: "Research Report",
   8: "AI Judge",
+  9: "HumanQA",
 };
 
 const CONSULT_TYPES = new Set([1, 2]);
@@ -208,6 +209,22 @@ const Home: NextPage = () => {
                 — automatically, trustlessly, with a full audit trail.
               </p>
               <Link href="/judge" className="btn btn-primary">⚖️ Set up an Oracle Job →</Link>
+            </div>
+          </div>
+        </div>
+
+        {/* HumanQA — text RIGHT */}
+        <div className="relative w-full rounded-xl overflow-hidden mb-8">
+          <img src="/hero-humanqa.png" alt="HumanQA Clawd" className="w-full object-cover" style={{ height: "480px" }} />
+          <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 flex flex-col justify-center items-end p-10 md:p-16">
+            <div className="max-w-lg text-right">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 drop-shadow-lg" style={textShadow}>Human QA</h2>
+              <p className="text-white/80 mb-6 text-lg" style={textShadow}>
+                Human-powered frontend QA. A real person reviews your dApp, catches what automated tools miss,
+                and delivers a prioritized report of UX wins, accessibility issues, and functionality gaps.
+              </p>
+              <Link href="/humanqa" className="btn btn-primary">👤 Order Human QA →</Link>
             </div>
           </div>
         </div>
