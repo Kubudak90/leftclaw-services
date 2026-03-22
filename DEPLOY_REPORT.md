@@ -9,7 +9,7 @@ Built and deployed a job marketplace where clients can hire LeftClaw for Ethereu
 
 | Asset | Location |
 |-------|----------|
-| **Contract** | [`0x1e70Adc6211196532578C0A5770b51c12ea14A9F`](https://basescan.org/address/0x1e70Adc6211196532578C0A5770b51c12ea14A9F) on Base |
+| **Contract** | [`0xfab998867b16cf0369f78a6ebbe77ea4eace212c`](https://basescan.org/address/0xfab998867b16cf0369f78a6ebbe77ea4eace212c) on Base |
 | **Owner** | Safe [`0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`](https://basescan.org/address/0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0) |
 | **Frontend** | [leftclaw.services](https://leftclaw.services) |
 | **IPFS CID** | `bafybeiaa6rwuam6dbeuschagut5ac5djtawd3ayby35urrqsudulfpn7nm` |
@@ -21,15 +21,15 @@ Built and deployed a job marketplace where clients can hire LeftClaw for Ethereu
 - 10 service types (consults, builds, audits, custom)
 - CLAWD token payment with escrow
 - USDC → CLAWD auto-swap via Uniswap V3 multi-hop (USDC → WETH → CLAWD)
-- Job lifecycle: OPEN → IN_PROGRESS → COMPLETED → claim after 7-day dispute window
-- Dispute resolution by owner
-- 5% protocol fee (capped at 10%)
+- Job lifecycle: OPEN → IN_PROGRESS (payment to treasury) → COMPLETED
+- No dispute window — payment is final on acceptance
+- No protocol fee in V2
 - Executor management system
 - Full test suite: **17 tests passing** (16 unit + 1 fuzz, on Base fork)
 
 ### Security Audit
 - No critical findings
-- 1 HIGH fixed (fee underflow on dispute refund)
+- 1 HIGH fixed in V1 (fee underflow on dispute refund — no longer applicable in V2)
 - 2 MEDIUM fixed (min custom amount, stuck token recovery)
 - ReentrancyGuard, SafeERC20, Ownable
 - All state-changing functions protected

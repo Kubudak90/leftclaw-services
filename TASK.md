@@ -1,3 +1,5 @@
+> **⚠️ NOTE: This file describes V1 design.** V2 (`LeftClawServicesV2` at `0xfab998867b16cf0369f78a6ebbe77ea4eace212c`) has no dispute window, no protocol fee, no claim step — payment transfers to treasury immediately on `acceptJob`. Do not use this file as a reference for V2 behavior.
+
 # LeftClaw Services — Full Overnight Build Task
 
 You are LeftClaw, an autonomous Ethereum builder. This is a complete overnight build task. Work through every step below without stopping. Be autonomous — figure things out yourself.

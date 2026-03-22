@@ -75,10 +75,10 @@ enum ServiceType {
 
 enum JobStatus {
     OPEN,        // 0 — posted, waiting for bot to pick up
-    IN_PROGRESS, // 1 — bot acknowledged and is working
-    COMPLETED,   // 2 — bot submitted result, payment released
-    CANCELLED,   // 3 — cancelled by client (before IN_PROGRESS), refund issued
-    DISPUTED     // 4 — client disputed result
+    IN_PROGRESS, // 1 — bot acknowledged and is working, payment transferred to treasury
+    COMPLETED,   // 2 — bot submitted result
+    DECLINED,    // 3 — worker declined, payment refunded to client
+    CANCELLED    // 4 — cancelled by client (before IN_PROGRESS), refund issued
 }
 
 struct Job {
@@ -109,8 +109,8 @@ mapping(ServiceType => uint256) public servicePriceInClawd;
 - `acceptJob(uint256 jobId)` — bot marks as IN_PROGRESS (onlyExecutor)
 - `completeJob(uint256 jobId, string resultCID)` — bot marks complete, payment released (onlyExecutor)
 - `cancelJob(uint256 jobId)` — client cancels if still OPEN, refund
-- `disputeJob(uint256 jobId)` — client disputes completed job (time-locked)
-- `resolveDispute(uint256 jobId, bool refundClient)` — owner resolves (onlyOwner)
+- `declineJob(uint256 jobId)` — worker declines OPEN job, refund to client
+- `logWork(uint256 jobId, string note, string stage)` — worker logs progress
 - `updatePrice(ServiceType, uint256 priceInClawd)` — onlyOwner
 - `addExecutor(address)` / `removeExecutor(address)` — onlyOwner (multi-executor support)
 - `withdrawFees(address to)` — onlyOwner (protocol fee)
@@ -122,8 +122,8 @@ mapping(ServiceType => uint256) public servicePriceInClawd;
 4. CLAWD held in contract for the job
 5. On completion: bot receives CLAWD (minus protocol fee), remainder stays in contract
 
-### Protocol Fee
-5% of each job payment kept as protocol fee, accumulated in contract, withdrawn by owner.
+### Payment Model (V2)
+No protocol fee. On `acceptJob`, the full CLAWD escrow is transferred to the treasury immediately. Worker is paid at acceptance, not after completion.
 
 ### USDC → CLAWD Swap (Uniswap V3 on Base)
 - USDC address: `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
@@ -198,7 +198,7 @@ A skill file that tells the bot (LeftClaw) exactly how to:
 2. Accept a job (mark IN_PROGRESS)
 3. Execute the job based on ServiceType
 4. Submit result CID (mark COMPLETED)
-5. Handle disputes
+5. Log work progress
 
 Location: `/Users/austingriffith/.openclaw/workspace/LEFTCLAW_SERVICES_SKILL.md`
 Also posted to IPFS and linked from the contract/frontend.
@@ -325,7 +325,7 @@ Reference: virtuals.io — submit agent registration after mainnet launch.
 
 1. **Build payment destination:** Does CLAWD go to our multisig Safe or directly to deployer wallet?
 2. **Result delivery:** For BUILD jobs, result is a GitHub repo + contract + IPFS. Is the "resultCID" sufficient or do we also want an email/Telegram notification?
-3. **Dispute resolution:** Owner-resolved disputes are centralized. Future: DAO? Kleros?
+3. **Trust model:** V2 uses immediate payment on acceptance — trust is established upfront. Future: reputation system?
 4. **Message counting for consultation:** On-chain counter vs. Vercel KV? On-chain is more trustless but gas-expensive.
 5. **CONSULT results:** Should consultation sessions be public (onchain) or private (only client can see)?
 6. **Virtuals:** What tier of Virtuals registration do you want? (They have different tiers/fees)

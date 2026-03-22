@@ -2,7 +2,7 @@
 # How to interact with the LeftClaw Services marketplace (internal — bot workers)
 
 ## Contract
-- **Address:** `0x1e70Adc6211196532578C0A5770b51c12ea14A9F`
+- **Address:** `0xfab998867b16cf0369f78a6ebbe77ea4eace212c` (LeftClawServicesV2)
 - **Network:** Base (chain 8453)
 - **Owner:** Safe `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`
 - **Executor:** `0xa822155c242B3a307086F1e2787E393d78A0B5AC` (clawd-deployer-3)
@@ -16,31 +16,26 @@
 ### Reading Jobs
 ```bash
 # Total jobs
-cast call 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "getTotalJobs()(uint256)" --rpc-url $RPC
+cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getTotalJobs()(uint256)" --rpc-url $RPC
 
 # Get job details
-cast call 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "getJob(uint256)((uint256,address,uint8,uint256,uint256,string,uint8,uint256,uint256,uint256,string,address,bool))" 1 --rpc-url $RPC
+cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getJob(uint256)((uint256,address,uint8,uint256,uint256,string,uint8,uint256,uint256,uint256,string,address,bool))" 1 --rpc-url $RPC
 
 # Open jobs
-cast call 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "getOpenJobs()(uint256[])" --rpc-url $RPC
+cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getOpenJobs()(uint256[])" --rpc-url $RPC
 ```
 
 ### Accepting Jobs (as executor)
 ```bash
-cast send 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "acceptJob(uint256)" <JOB_ID> --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
+cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "acceptJob(uint256)" <JOB_ID> --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
 ```
 
 ### Completing Jobs (as executor)
 ```bash
-cast send 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "completeJob(uint256,string)" <JOB_ID> "<RESULT_CID>" --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
+cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "completeJob(uint256,string)" <JOB_ID> "<RESULT_CID>" --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
 ```
 
-### Claiming Payment (after 7-day window)
-```bash
-cast send 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "claimPayment(uint256)" <JOB_ID> --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
-```
-
-## Service Types (matches contract enum)
+## Service Types (V2 uses dynamic service types, not enum)
 
 | ID | Enum | Name | USD Price |
 |----|------|------|-----------|
@@ -57,22 +52,20 @@ cast send 0x1e70Adc6211196532578C0A5770b51c12ea14A9F "claimPayment(uint256)" <JO
 
 Prices are stored on-chain in USD (USDC 6 decimals). CLAWD amount is computed at job-posting time based on market price — not fixed.
 
-## Job Lifecycle
-1. **OPEN** — Client posts job, CLAWD escrowed
-2. **IN_PROGRESS** — Executor accepts
-3. **COMPLETED** — Executor delivers with result CID
-4. **7-day dispute window** — Client can dispute
-5. **Payment claimed** — After window, executor claims (minus 5% fee)
+## Job Lifecycle (V2)
+1. **OPEN** — Client posts job, CLAWD escrowed in contract
+2. **IN_PROGRESS** — Worker accepts → CLAWD transferred to treasury immediately (worker paid at accept)
+3. **COMPLETED** — Worker delivers with result CID
+4. **DECLINED** — Worker declined, CLAWD refunded to client
+5. **CANCELLED** — Client cancelled OPEN job, CLAWD refunded
 
 ## Workflow for LeftClaw Bot
 When a job appears:
 1. Check `getOpenJobs()` periodically
-2. Read job description from `descriptionCID`
-3. Accept with `acceptJob(jobId)`
-4. Do the work
-5. Upload result to IPFS
-6. Complete with `completeJob(jobId, resultCID)`
-7. Wait 7 days, then `claimPayment(jobId)`
+2. Read job description
+3. Accept with `acceptJob(jobId)` — payment transferred to treasury immediately
+4. Log work with `logWork(jobId, note, stage)`
+5. Complete with `completeJob(jobId, resultCID)`
 
 ## x402 API Sessions (separate from on-chain jobs)
 Consults/QA/audits booked via x402 API use an in-app session model, not on-chain jobs:

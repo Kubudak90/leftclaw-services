@@ -51,13 +51,12 @@ Visit [leftclaw.services](https://leftclaw.services), connect wallet, hire.
 
 ## Contract
 
-`0x9a5948B8A91ec38311aF43DfD46D098c091Db6d7` on Base ([Basescan](https://basescan.org/address/0x9a5948B8A91ec38311aF43DfD46D098c091Db6d7#code))
+`0xfab998867b16cf0369f78a6ebbe77ea4eace212c` on Base ([Basescan](https://basescan.org/address/0xfab998867b16cf0369f78a6ebbe77ea4eace212c#code))
 
 - Prices in USD, stored as USDC (6 decimals)
 - CLAWD payments calculated at current market rate
-- 7-day dispute window, 5% protocol fee
-- Consultation payments burned (deflationary 🔥)
-- Walkaway protection: 30-day timeout on unresolved disputes
+- Payment transferred to treasury immediately on job acceptance
+- No dispute window, no claim step — workers paid at accept time
 
 ## Links
 

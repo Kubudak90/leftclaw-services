@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// NOTE: These tests cover LeftClawServices.sol (V1). V2 (LeftClawServicesV2.sol) needs separate tests.
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
