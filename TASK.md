@@ -6,8 +6,8 @@ You are LeftClaw, an autonomous Ethereum builder. This is a complete overnight b
 
 ## Your Identity & Access
 - **GitHub:** ALWAYS push as `clawdbotatg` — NEVER `austintgriffith`
-- **Deployer wallet keystore:** `clawd-deployer-3` → address `0xa822155c242B3a307086F1e2787E393d78A0B5AC`
-- **Deployer password:** `security find-generic-password -s "clawd-deployer-3" -a "clawd" -w`
+- **Deployer wallet keystore:** `clawd-deployer-local` → address `0xa822155c242B3a307086F1e2787E393d78A0B5AC`
+- **Deployer password:** `security find-generic-password -s "clawd-deployer-local" -a "clawd" -w`
 - **MetaMask password:** `security find-generic-password -s "metamask" -a "clawd" -w`
 - **Foundry PATH:** ALWAYS run `export PATH="$HOME/.foundry/bin:$PATH"` before any forge/cast command
 - **ENS rule:** ALWAYS `.eth.link` — NEVER `.eth.limo`
@@ -350,7 +350,7 @@ slither contracts/LeftClawServices.sol --solc-remaps "@openzeppelin=lib/openzepp
 
 ```bash
 export PATH="$HOME/.foundry/bin:$PATH"
-DEPLOYER_PASS=$(security find-generic-password -s "clawd-deployer-3" -a "clawd" -w)
+DEPLOYER_PASS=$(security find-generic-password -s "clawd-deployer-local" -a "clawd" -w)
 cd ~/projects/leftclaw-services/packages/foundry
 ```
 
@@ -380,7 +380,7 @@ Deploy:
 ```bash
 forge script script/DeployLeftClawServices.s.sol \
   --rpc-url https://base-mainnet.g.alchemy.com/v2/8GVG8WjDs-sGFRr6Rm839 \
-  --account clawd-deployer-3 \
+  --account clawd-deployer-local \
   --password "$DEPLOYER_PASS" \
   --broadcast \
   -vvvv
@@ -403,7 +403,7 @@ If no etherscan key, skip verification — address is what matters.
 ```bash
 cast send <CONTRACT_ADDRESS> "transferOwnership(address)" \
   0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0 \
-  --account clawd-deployer-3 \
+  --account clawd-deployer-local \
   --password "$DEPLOYER_PASS" \
   --rpc-url https://base-mainnet.g.alchemy.com/v2/8GVG8WjDs-sGFRr6Rm839
 ```
@@ -634,8 +634,8 @@ Create `~/projects/leftclaw-services/LEFTCLAW_SERVICES_SKILL.md`:
 
 ## Executor Setup
 - Deployer address: 0xa822155c242B3a307086F1e2787E393d78A0B5AC
-- Keystore: clawd-deployer-3
-- Password: security find-generic-password -s "clawd-deployer-3" -a "clawd" -w
+- Keystore: clawd-deployer-local
+- Password: security find-generic-password -s "clawd-deployer-local" -a "clawd" -w
 
 ## Check for Open Jobs
 cast call [ADDRESS] "getOpenJobs()(uint256[])" --rpc-url https://base-mainnet.g.alchemy.com/v2/8GVG8WjDs-sGFRr6Rm839
@@ -645,14 +645,12 @@ cast call [ADDRESS] "jobs(uint256)(uint256,address,uint8,uint256,uint256,string,
 
 ## Accept Job
 export PATH="$HOME/.foundry/bin:$PATH"
-DEPLOYER_PASS=$(security find-generic-password -s "clawd-deployer-3" -a "clawd" -w)
-cast send [ADDRESS] "acceptJob(uint256)" <jobId> --account clawd-deployer-3 --password "$DEPLOYER_PASS" --rpc-url ...
+DEPLOYER_PASS=$(security find-generic-password -s "clawd-deployer-local" -a "clawd" -w)
+cast send [ADDRESS] "acceptJob(uint256)" <jobId> --account clawd-deployer-local --password "$DEPLOYER_PASS" --rpc-url ...
 
 ## Complete Job
-cast send [ADDRESS] "completeJob(uint256,string)" <jobId> "<resultCID>" --account clawd-deployer-3 --password "$DEPLOYER_PASS" --rpc-url ...
+cast send [ADDRESS] "completeJob(uint256,string)" <jobId> "<resultCID>" --account clawd-deployer-local --password "$DEPLOYER_PASS" --rpc-url ...
 
-## Claim Payment (after 7-day window)
-cast send [ADDRESS] "claimPayment(uint256)" <jobId> --account clawd-deployer-3 --password "$DEPLOYER_PASS" --rpc-url ...
 
 ## Service Types
 0: CONSULT_S — 15-message consultation. Respond with thoughtful advice via Telegram/chat.
@@ -673,8 +671,7 @@ cast send [ADDRESS] "claimPayment(uint256)" <jobId> --account clawd-deployer-3 -
 4. acceptJob(jobId) — marks IN_PROGRESS
 5. Execute the work (build/audit/consult based on serviceType)
 6. Upload result to IPFS: node ~/nerve-cord/upload-ipfs.js <file>
-7. completeJob(jobId, "<resultCID>") — marks COMPLETED, starts dispute window
-8. After 7 days: claimPayment(jobId) — receive CLAWD
+7. completeJob(jobId, "<resultUrl>") — marks COMPLETED (no dispute window in V2)
 ```
 
 Also copy to workspace:

@@ -333,8 +333,9 @@ Reference: virtuals.io — submit agent registration after mainnet launch.
 ---
 
 ## Addresses
-- Deployer: `0xa822155c242B3a307086F1e2787E393d78A0B5AC` (clawd-deployer-3 keystore)
-- Owner/Treasury: `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0` (Safe multisig)
+- Owner: `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (clawdbotatg.eth)
+- Treasury: `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0` (Safe multisig)
+- Worker (leftclaw): `0xa822155c242B3a307086F1e2787E393d78A0B5AC`
 - CLAWD token: `0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07`
 - USDC (Base): `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`
 - Uniswap V3 Router (Base): `0x2626664c2603336E57B271c5C0b26F421741e481`
