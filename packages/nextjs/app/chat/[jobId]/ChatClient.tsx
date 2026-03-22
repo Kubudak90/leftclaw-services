@@ -36,6 +36,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chatClosed, setChatClosed] = useState(false);
   const [planGistUrl, setPlanGistUrl] = useState<string | null>(null);
   const [planDescription, setPlanDescription] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -87,7 +88,7 @@ export default function ChatPage() {
   }, [messages]);
 
   const sendMessage = useCallback(async (text: string, opts?: { isOpening?: boolean }) => {
-    if (!text.trim() || isStreaming) return;
+    if (!text.trim() || isStreaming || chatClosed) return;
     setError(null);
     const userMsg: Message = { role: "user", content: text.trim() };
     const newMessages = [...messages, userMsg];
@@ -99,12 +100,18 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, jobId, isOpening: opts?.isOpening }),
+        body: JSON.stringify({ messages: newMessages, jobId, isOpening: opts?.isOpening, clientAddress: address }),
       });
 
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
-        setError(errBody.error || `Failed to get response (${res.status})`);
+        const errMsg = errBody.error || `Failed to get response (${res.status})`;
+        if (errMsg.includes("Chat closed")) {
+          setChatClosed(true);
+          setError(null);
+        } else {
+          setError(errMsg);
+        }
         setIsStreaming(false);
         return;
       }
@@ -378,6 +385,11 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="px-3 sm:px-4 py-2 border-t border-base-300">
+        {chatClosed && (
+          <div className="alert alert-info mb-2 py-2 text-sm">
+            💬 Chat closed — job is complete. Open a new job if you need more work.
+          </div>
+        )}
         {error && (
           <div className="alert alert-error mb-2 py-2 text-sm">{error}</div>
         )}
@@ -391,17 +403,17 @@ export default function ChatPage() {
             maxLength={MAX_CHARS}
             value={input}
             onChange={e => setInput(e.target.value)}
-            disabled={isStreaming}
+            disabled={isStreaming || chatClosed}
             onKeyDown={e => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (input.trim() && !isStreaming) sendMessage(input);
+                if (input.trim() && !isStreaming && !chatClosed) sendMessage(input);
               }
             }}
           />
           <button
             className="btn btn-primary btn-sm sm:btn-md"
-            disabled={isStreaming || !input.trim()}
+            disabled={isStreaming || !input.trim() || chatClosed}
             onClick={() => sendMessage(input)}
           >
             {isStreaming ? <span className="loading loading-spinner loading-sm" /> : "Send"}

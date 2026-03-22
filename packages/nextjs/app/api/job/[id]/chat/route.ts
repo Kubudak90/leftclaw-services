@@ -22,10 +22,24 @@ const viemClient = createPublicClient({
 });
 
 // Rate limiting: in-memory Map
+// - Per-window (hourly) rate limit for active jobs: 3/hour per client per job
+// - Post-completion: max 2 messages after job reaches COMPLETED/DECLINED/CANCELLED, then hard close forever
 const rateLimits = new Map<string, number[]>();
+const postCompletionCounts = new Map<string, number>();
 
-function checkRateLimit(jobId: string, clientAddress: string): { allowed: boolean; used: number; remaining: number } {
+function checkRateLimit(jobId: string, clientAddress: string, jobStatus: number): { allowed: boolean; used: number; remaining: number; closed?: boolean } {
   const key = `chat:${jobId}:${clientAddress.toLowerCase()}`;
+
+  // If job is in a terminal state, check post-completion cap
+  if (jobStatus === 2 || jobStatus === 3 || jobStatus === 4) {
+    const used = postCompletionCounts.get(key) || 0;
+    if (used >= 2) {
+      return { allowed: false, used, remaining: 0, closed: true };
+    }
+    return { allowed: true, used, remaining: 2 - used, closed: false };
+  }
+
+  // Active job: sliding hourly window, 3 max
   const now = Date.now();
   const hourAgo = now - 60 * 60 * 1000;
   const timestamps = (rateLimits.get(key) || []).filter(t => t > hourAgo);
@@ -36,8 +50,17 @@ function checkRateLimit(jobId: string, clientAddress: string): { allowed: boolea
   return { allowed: true, used: timestamps.length, remaining: 3 - timestamps.length };
 }
 
-function recordUsage(jobId: string, clientAddress: string) {
+function recordUsage(jobId: string, clientAddress: string, jobStatus: number) {
   const key = `chat:${jobId}:${clientAddress.toLowerCase()}`;
+
+  // If job is in a terminal state, increment post-completion counter (never resets)
+  if (jobStatus === 2 || jobStatus === 3 || jobStatus === 4) {
+    const used = postCompletionCounts.get(key) || 0;
+    postCompletionCounts.set(key, used + 1);
+    return;
+  }
+
+  // Active job: sliding hourly window
   const now = Date.now();
   const hourAgo = now - 60 * 60 * 1000;
   const timestamps = (rateLimits.get(key) || []).filter(t => t > hourAgo);
@@ -183,9 +206,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // Rate limit
-  const rl = checkRateLimit(jobId, clientAddress);
+  const rl = checkRateLimit(jobId, clientAddress, Number(job.status));
   if (!rl.allowed) {
-    return Response.json({ error: "Rate limit exceeded (3/hour)", messagesUsed: rl.used, messagesRemaining: 0 }, { status: 429 });
+    if (rl.closed) {
+      return Response.json({ error: "Chat closed — job is complete. Open a new job if you need more work." }, { status: 429 });
+    }
+    return Response.json({ error: "Rate limit exceeded (3/hour for active jobs)", messagesUsed: rl.used, messagesRemaining: 0 }, { status: 429 });
   }
 
   // Fetch context
@@ -207,7 +233,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Store client message
   await addJobMessage(jobId, { type: "client_message", from: "client", content: message });
-  recordUsage(jobId, clientAddress);
+  recordUsage(jobId, clientAddress, Number(job.status));
 
   const serviceTypeName = SERVICE_TYPE_NAMES[Number(job.serviceType)] || `Unknown (${Number(job.serviceType)})`;
   const cvAmount = Number(job.paymentClawd) / 1e18;
@@ -437,7 +463,7 @@ You can use your tools to read additional repo files, answer escalations, or req
   // Store AI response
   await addJobMessage(jobId, { type: "ai_response", from: "ai", content: finalText });
 
-  const updatedRl = checkRateLimit(jobId, clientAddress);
+  const updatedRl = checkRateLimit(jobId, clientAddress, Number(job.status));
 
   return Response.json({
     reply: finalText,
@@ -450,5 +476,6 @@ You can use your tools to read additional repo files, answer escalations, or req
     })),
     messagesUsed: updatedRl.used,
     messagesRemaining: updatedRl.remaining,
+    chatClosed: updatedRl.closed || false,
   });
 }

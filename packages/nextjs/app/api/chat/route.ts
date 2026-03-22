@@ -1,6 +1,37 @@
 import { NextRequest } from "next/server";
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
 import { getSanitization } from "~~/lib/sanitize";
 import { addMessage, getSession, saveJobMessage } from "~~/lib/sessionStore";
+import deployedContracts from "~~/contracts/deployedContracts";
+
+const { address: contractAddress, abi } = deployedContracts[8453].LeftClawServicesV2;
+
+const viemClient = createPublicClient({
+  chain: base,
+  transport: http(),
+});
+
+// Post-completion rate limiting: max 2 messages after job reaches terminal state
+// Key: `${jobId}:${clientAddress}` → permanently capped at 2 after completion
+const postCompletionCounts = new Map<string, number>();
+
+function checkChatClosed(jobId: string, clientAddress: string, jobStatus: number): { closed: boolean; used: number; remaining: number } {
+  if (jobStatus === 2 || jobStatus === 3 || jobStatus === 4) {
+    const key = `${jobId}:${clientAddress.toLowerCase()}`;
+    const used = postCompletionCounts.get(key) || 0;
+    if (used >= 2) {
+      return { closed: true, used, remaining: 0 };
+    }
+    return { closed: false, used, remaining: 2 - used };
+  }
+  return { closed: false, used: 0, remaining: -1 }; // -1 = no post-completion limit
+}
+
+function recordPostCompletionMessage(jobId: string, clientAddress: string) {
+  const key = `${jobId}:${clientAddress.toLowerCase()}`;
+  postCompletionCounts.set(key, (postCompletionCounts.get(key) || 0) + 1);
+}
 
 const SYSTEM_PROMPT = `You are LeftClaw, an expert Ethereum/Web3 builder and consultant. You work under the CLAWD brand — a builder-first community in the Ethereum ecosystem created by Austin Griffith.
 
@@ -193,7 +224,7 @@ Output EXACTLY this — no variations, no extra markers:
 The ---PLAN START--- and ---PLAN END--- markers must be EXACTLY on their own lines, unchanged.`;
 
 export async function POST(req: NextRequest) {
-  const { messages, isOpening, isGreeting, sessionId, jobId } = await req.json();
+  const { messages, isOpening, isGreeting, sessionId, jobId, clientAddress } = await req.json();
 
   if (!messages || !Array.isArray(messages)) {
     return new Response(JSON.stringify({ error: "messages required" }), { status: 400 });
@@ -210,6 +241,30 @@ export async function POST(req: NextRequest) {
         JSON.stringify({ error: `Job blocked: ${reason}. Please wait for security review.` }),
         { status: 403 },
       );
+    }
+  }
+
+  // Post-completion rate limit: max 2 messages after job is COMPLETED/DECLINED/CANCELLED
+  if (jobId && clientAddress && !sessionId) {
+    try {
+      const numericJobId = isCvJob ? BigInt(String(jobId).slice(3)) : BigInt(String(jobId));
+      const job = await viemClient.readContract({
+        address: contractAddress,
+        abi,
+        functionName: "getJob",
+        args: [numericJobId],
+      }) as any;
+      const rl = checkChatClosed(String(jobId), clientAddress, Number(job.status));
+      if (rl.closed) {
+        return new Response(
+          JSON.stringify({ error: "Chat closed — job is complete. Open a new job if you need more work." }),
+          { status: 429 },
+        );
+      }
+      // Record this message for post-completion counting
+      recordPostCompletionMessage(String(jobId), clientAddress);
+    } catch {
+      // Job not on-chain or CV job with no on-chain record — skip post-completion check
     }
   }
 
