@@ -17,10 +17,7 @@ function parseError(e: unknown): string {
   if (/insufficient funds for gas/i.test(msg)) return "Not enough ETH for gas fees";
   if (/Not the client/i.test(msg)) return "Only the job client can do this";
   if (/Can only cancel OPEN jobs/i.test(msg)) return "You can only cancel jobs that are still open";
-  if (/Dispute window active/i.test(msg)) return "Dispute window is still open — executor must wait to claim";
-  if (/Dispute window expired/i.test(msg)) return "Dispute window has expired";
   if (/Job not COMPLETED/i.test(msg)) return "This job has not been completed yet";
-  if (/Job not claimable/i.test(msg)) return "Payment cannot be claimed yet";
   const revertMatch = msg.match(/reverted[^"']*["']([^"']{3,80})["']/i);
   if (revertMatch) return revertMatch[1];
   return "Transaction failed — please try again";
@@ -29,9 +26,9 @@ function parseError(e: unknown): string {
 const STATUS_LABELS: Record<number, { label: string; badge: string; desc: string }> = {
   0: { label: "Open", badge: "badge-success", desc: "Waiting for LeftClaw to accept" },
   1: { label: "In Progress", badge: "badge-warning", desc: "LeftClaw is working on this" },
-  2: { label: "Completed", badge: "badge-info", desc: "Work delivered. 7-day dispute window active." },
-  3: { label: "Cancelled", badge: "badge-error", desc: "Job was cancelled. Payment refunded." },
-  4: { label: "Disputed", badge: "badge-error", desc: "Client disputed. Awaiting owner resolution." },
+  2: { label: "Completed", badge: "badge-info", desc: "Work delivered." },
+  3: { label: "Declined", badge: "badge-error", desc: "Worker declined. Payment refunded." },
+  4: { label: "Cancelled", badge: "badge-error", desc: "Job was cancelled. Payment refunded." },
 };
 
 const SERVICE_NAMES: Record<number, string> = {
@@ -142,14 +139,11 @@ export default function JobDetailClient() {
   const priceUsd = clawdPrice ? (Number(price) * clawdPrice).toFixed(2) : null;
   const createdAt = new Date(Number(job.createdAt) * 1000);
   const completedAt = job.completedAt > 0 ? new Date(Number(job.completedAt) * 1000) : null;
-  const disputeEnd = completedAt ? new Date(completedAt.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
-
   const isClient = address?.toLowerCase() === job.client?.toLowerCase();
   const isAssignedWorker = address?.toLowerCase() === job.worker?.toLowerCase();
   const isOpen = jobStatus === 0;
   const isCompleted = jobStatus === 2;
   const isConsult = CONSULT_TYPES.has(serviceType);
-  const disputeWindowOver = disputeEnd ? new Date() > disputeEnd : false;
 
   const call = async (functionName: string) => {
     setActionError(null);
@@ -319,18 +313,9 @@ export default function JobDetailClient() {
               </>
             )}
 
-            {disputeEnd && isCompleted && !job.paymentClaimed && (
-              <>
-                <div className="divider"></div>
-                <div className="alert alert-warning">
-                  <span>⏰ Dispute window ends: {disputeEnd.toLocaleString()}</span>
-                </div>
-              </>
-            )}
-
             {job.paymentClaimed && (
               <div className="alert alert-success mt-4">
-                <span>✅ Payment claimed by executor</span>
+                <span>✅ Payment transferred to treasury on acceptance</span>
               </div>
             )}
 
@@ -345,15 +330,6 @@ export default function JobDetailClient() {
                     </Link>
                   )}
                   {/* Cancel button hidden — jobs should not be cancelled by users */}
-                  {isCompleted && !job.paymentClaimed && !disputeWindowOver && (
-                    <button className="btn btn-warning" onClick={() => call("disputeJob")} disabled={!!pending}>
-                      {pending === "disputeJob" ? (
-                        <span className="loading loading-spinner loading-sm" />
-                      ) : (
-                        "⚠️ Dispute"
-                      )}
-                    </button>
-                  )}
                 </div>
               </>
             )}
@@ -423,20 +399,7 @@ export default function JobDetailClient() {
                       </>
                     )}
 
-                    {/* Claim payment (COMPLETED, dispute window over) */}
-                    {isAssignedWorker && isCompleted && !job.paymentClaimed && disputeWindowOver && (
-                      <button
-                        className="btn btn-success w-full"
-                        onClick={() => call("claimPayment")}
-                        disabled={!!pending}
-                      >
-                        {pending === "claimPayment" ? (
-                          <span className="loading loading-spinner loading-sm" />
-                        ) : (
-                          "💰 Claim Payment"
-                        )}
-                      </button>
-                    )}
+                    {/* V2: Payment transferred to treasury on accept — no claim step */}
                   </div>
                 </div>
               </>
