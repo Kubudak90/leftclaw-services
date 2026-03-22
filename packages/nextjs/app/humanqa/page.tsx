@@ -41,7 +41,7 @@ export default function HumanqaPage() {
           args: [BigInt(SERVICE_TYPE_ID)],
         }) as ServiceType;
 
-        if (svc.status === "active") {
+        if (svc && svc.status === "active") {
           setService(svc);
         } else {
           setNotFound(true);
@@ -80,11 +80,11 @@ export default function HumanqaPage() {
       <div className="w-full max-w-lg">
         <ServiceHero
           name="Human QA"
-          emoji={meta.emoji}
-          tagline={meta.tagline}
-          bullets={meta.bullets}
-          heroImage={meta.heroImage}
-          heroPosition={meta.heroPosition}
+          emoji={meta?.emoji || "👤"}
+          tagline={meta?.tagline || "Human-powered frontend QA review."}
+          bullets={meta?.bullets || ["Real human review of your dApp frontend", "Prioritized written report", "Tracked on-chain"]}
+          heroImage={meta?.heroImage || "/hero-humanqa.png"}
+          heroPosition={meta?.heroPosition || "left"}
         />
 
         <UnifiedPaymentFlow
@@ -92,8 +92,8 @@ export default function HumanqaPage() {
           priceUsd={priceUsd}
           cvDivisor={cvDivisor}
           serviceName="Human QA Report"
-          descriptionLabel={meta.descriptionLabel}
-          descriptionPlaceholder={meta.descriptionPlaceholder}
+          descriptionLabel={meta?.descriptionLabel || "What dApp should we review?"}
+          descriptionPlaceholder={meta?.descriptionPlaceholder || "Include the dApp URL, contract address, or GitHub repo."}
           descriptionRequired={true}
           onSuccess={jobId => `/jobs/${jobId}`}
         />
