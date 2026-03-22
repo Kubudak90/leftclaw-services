@@ -119,4 +119,18 @@ export const EXTRA_SERVICE_META: Record<string, ServiceMeta & { contractSlug?: s
     descriptionLabel: "What should we research?",
     descriptionPlaceholder: "Include the topic, specific questions, relevant URLs, and how you plan to use the research.",
   },
+  humanqa: {
+    emoji: "👤",
+    tagline: "Human-powered frontend QA. A real person reviews your dApp.",
+    bullets: [
+      "Real human manual review — catches what automated tools miss",
+      "UX wins, accessibility gaps, functionality problems",
+      "Prioritized written report with findings",
+      "Delivered as a job result on-chain",
+    ],
+    heroImage: "/hero-humanqa.png",
+    heroPosition: "left",
+    descriptionLabel: "What dApp should we review?",
+    descriptionPlaceholder: "Include the dApp URL, contract address, or GitHub repo. Mention specific areas of focus if any.",
+  },
 };
