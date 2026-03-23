@@ -31,15 +31,17 @@ const STATUS_LABELS: Record<number, { label: string; badge: string; desc: string
   4: { label: "Cancelled", badge: "badge-error", desc: "Job was cancelled. Payment refunded." },
 };
 
+// Service type IDs from on-chain LeftClawServicesV2.getAllServiceTypes()
 const SERVICE_NAMES: Record<number, string> = {
-  1: "Quick Consult",
-  2: "Deep Consult",
-  3: "PFP",
-  4: "Smart Contract Audit",
-  5: "Frontend QA",
-  6: "Full Day Build",
+  1: "Quick Consultation",
+  2: "Deep Consultation",
+  3: "PFP Generator",
+  4: "Contract Audit",
+  5: "Frontend QA Audit",
+  6: "Daily Build",
   7: "Research Report",
-  8: "AI Judge",
+  8: "Judge / Oracle",
+  9: "HumanQA",
 };
 
 const CONSULT_TYPES = new Set([1, 2]);

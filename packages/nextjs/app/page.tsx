@@ -10,15 +10,16 @@ import deployedContracts from "~~/contracts/deployedContracts";
 
 const CONTRACT_ADDRESS = (deployedContracts[8453] as any)?.LeftClawServicesV2?.address ?? (deployedContracts[8453] as any)?.LeftClawServices?.address;
 
+// Service type IDs from on-chain LeftClawServicesV2.getAllServiceTypes()
 const SERVICE_NAMES: Record<number, string> = {
-  1: "Quick Consult",
-  2: "Deep Consult",
-  3: "PFP",
-  4: "Smart Contract Audit",
-  5: "Frontend QA",
-  6: "Full Day Build",
+  1: "Quick Consultation",
+  2: "Deep Consultation",
+  3: "PFP Generator",
+  4: "Contract Audit",
+  5: "Frontend QA Audit",
+  6: "Daily Build",
   7: "Research Report",
-  8: "AI Judge",
+  8: "Judge / Oracle",
   9: "HumanQA",
 };
 

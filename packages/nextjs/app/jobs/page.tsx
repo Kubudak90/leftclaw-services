@@ -14,18 +14,18 @@ const STATUS_LABELS: Record<number, { label: string; badge: string }> = {
   4: { label: "Disputed", badge: "badge-error" },
 };
 
+// Service type IDs from on-chain LeftClawServicesV2.getAllServiceTypes()
+// Update this map when new service types are added to the contract
 const SERVICE_NAMES: Record<number, string> = {
-  0: "Quick Consult",
-  1: "Deep Consult",
-  2: "Build (1 day)",
-  3: "Build (Multi-day)",
-  4: "Build (Large)",
-  5: "Build (XL)",
-  6: "QA Report",
-  7: "AI Audit",
-  8: "AI Audit (Multi)",
-  9: "Custom",
-  10: "HumanQA",
+  1: "Quick Consultation",
+  2: "Deep Consultation",
+  3: "PFP Generator",
+  4: "Contract Audit",
+  5: "Frontend QA Audit",
+  6: "Daily Build",
+  7: "Research Report",
+  8: "Judge / Oracle",
+  9: "HumanQA",
 };
 
 function JobCard({ jobId, publicBoard }: { jobId: number; publicBoard?: boolean }) {
