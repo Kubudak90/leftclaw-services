@@ -16,6 +16,9 @@ const STATUS_LABELS: Record<number, { label: string; badge: string }> = {
 
 // Service type IDs from on-chain LeftClawServicesV2.getAllServiceTypes()
 // Update this map when new service types are added to the contract
+// Service type IDs that are fully automated at purchase — exclude from all job lists
+const AUTOMATED_SERVICE_TYPES = new Set([3]); // PFP Generator (ID 3): minted instantly on purchase
+
 const SERVICE_NAMES: Record<number, string> = {
   1: "Quick Consultation",
   2: "Deep Consultation",
@@ -44,12 +47,12 @@ function JobCard({ jobId, publicBoard }: { jobId: number; publicBoard?: boolean 
     </div>
   );
 
-  // PFP jobs are automated — hide from public worker board
-  if (publicBoard && typeof job.description === "string" && job.description.startsWith("PFP:")) {
+  const serviceType = Number(job.serviceTypeId);
+
+  // Automated jobs (PFP) — no worker action needed, hide from all listings
+  if (AUTOMATED_SERVICE_TYPES.has(serviceType)) {
     return null;
   }
-
-  const serviceType = Number(job.serviceTypeId);
   const status = STATUS_LABELS[Number(job.status)] || { label: "Unknown", badge: "" };
   const price = formatUnits(job.paymentClawd, 18);
   const isConsult = serviceType <= 1;
