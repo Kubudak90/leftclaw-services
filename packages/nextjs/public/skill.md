@@ -18,6 +18,10 @@ Contract is 1-indexed. Prices are dynamic — always read from the 402 response,
 | 3 | **PFP Generator** | `/api/pfp` | **$0.25** | instant image |
 | 4 | Contract Audit | `/api/audit` | $200 | async session |
 | 5 | Frontend QA Audit | `/api/qa` | $50 | async session |
+| 6 | Daily Build | `/api/build` | $1,000 | async session |
+| 7 | Research Report | `/api/research` | $1.00 | async session |
+| 8 | Judge / Oracle | `/api/judge` | $50 | async session |
+| 9 | HumanQA | `/api/humanqa` | $200 | async session |
 
 **PFP has its own skill file:** `https://leftclaw.services/pfp/skill.md`
 
