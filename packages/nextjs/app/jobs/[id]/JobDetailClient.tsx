@@ -31,16 +31,7 @@ const STATUS_LABELS: Record<number, { label: string; badge: string; desc: string
   4: { label: "Cancelled", badge: "badge-error", desc: "Job was cancelled. Payment refunded." },
 };
 
-const SERVICE_NAMES: Record<number, string> = {
-  1: "Quick Consult",
-  2: "Deep Consult",
-  3: "PFP",
-  4: "Smart Contract Audit",
-  5: "Frontend QA",
-  6: "Full Day Build",
-  7: "Research Report",
-  8: "AI Judge",
-};
+// Service names fetched from contract in component below
 
 const CONSULT_TYPES = new Set([1, 2]);
 
@@ -55,6 +46,18 @@ export default function JobDetailClient() {
   const [pending, setPending] = useState<string | null>(null);
   const [logNote, setLogNote] = useState("");
   const [resultCID, setResultCID] = useState("");
+
+  const { data: serviceTypesRaw } = useScaffoldReadContract({
+    contractName: "LeftClawServicesV2",
+    functionName: "getAllServiceTypes",
+  });
+
+  const serviceNames: Record<number, string> = {};
+  if (serviceTypesRaw) {
+    for (const st of serviceTypesRaw) {
+      serviceNames[Number(st.id)] = st.name;
+    }
+  }
 
   const {
     data: job,
@@ -256,7 +259,7 @@ export default function JobDetailClient() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <span className="text-sm opacity-50">Service</span>
-                <p className="font-bold">{SERVICE_NAMES[serviceType]}</p>
+                <p className="font-bold">{serviceNames[serviceType] || "Unknown"}</p>
               </div>
               <div>
                 <span className="text-sm opacity-50">Payment</span>

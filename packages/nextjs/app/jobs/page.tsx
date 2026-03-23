@@ -14,21 +14,7 @@ const STATUS_LABELS: Record<number, { label: string; badge: string }> = {
   4: { label: "Disputed", badge: "badge-error" },
 };
 
-const SERVICE_NAMES: Record<number, string> = {
-  0: "Quick Consult",
-  1: "Deep Consult",
-  2: "Build (1 day)",
-  3: "Build (Multi-day)",
-  4: "Build (Large)",
-  5: "Build (XL)",
-  6: "QA Report",
-  7: "AI Audit",
-  8: "AI Audit (Multi)",
-  9: "Custom",
-  10: "HumanQA",
-};
-
-function JobCard({ jobId, publicBoard }: { jobId: number; publicBoard?: boolean }) {
+function JobCard({ jobId, publicBoard, serviceNames }: { jobId: number; publicBoard?: boolean; serviceNames: Record<number, string> }) {
   const { data: job } = useScaffoldReadContract({
     contractName: "LeftClawServicesV2",
     functionName: "getJob",
@@ -67,7 +53,7 @@ function JobCard({ jobId, publicBoard }: { jobId: number; publicBoard?: boolean 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm opacity-60">#{jobId}</span>
-            <span className="font-semibold">{SERVICE_NAMES[serviceType] || "Unknown"}</span>
+            <span className="font-semibold">{serviceNames[serviceType] || "Unknown"}</span>
           </div>
           <span className={`badge ${status.badge} badge-sm`}>{status.label}</span>
         </div>
@@ -86,6 +72,18 @@ function JobCard({ jobId, publicBoard }: { jobId: number; publicBoard?: boolean 
 
 export default function JobsPage() {
   const { address } = useAccount();
+
+  const { data: serviceTypesRaw } = useScaffoldReadContract({
+    contractName: "LeftClawServicesV2",
+    functionName: "getAllServiceTypes",
+  });
+
+  const serviceNames: Record<number, string> = {};
+  if (serviceTypesRaw) {
+    for (const st of serviceTypesRaw) {
+      serviceNames[Number(st.id)] = st.name;
+    }
+  }
 
   const { data: clientJobIds } = useScaffoldReadContract({
     contractName: "LeftClawServicesV2",
@@ -131,7 +129,7 @@ export default function JobsPage() {
         <div className="w-full max-w-lg space-y-3 mb-8">
           <h2 className="text-lg font-semibold opacity-70">My Jobs ({myJobs.length})</h2>
           {myJobs.map(id => (
-            <JobCard key={id} jobId={id} />
+            <JobCard key={id} jobId={id} serviceNames={serviceNames} />
           ))}
         </div>
       )}
@@ -141,7 +139,7 @@ export default function JobsPage() {
         <div className="w-full max-w-lg space-y-3">
           <h2 className="text-lg font-semibold opacity-70">All Jobs ({jobCount})</h2>
           {allJobIds.map(id => (
-            <JobCard key={`all-${id}`} jobId={id} publicBoard />
+            <JobCard key={`all-${id}`} jobId={id} publicBoard serviceNames={serviceNames} />
           ))}
         </div>
       )}
