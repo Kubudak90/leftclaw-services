@@ -5,7 +5,7 @@
 - **Address:** `0xfab998867b16cf0369f78a6ebbe77ea4eace212c` (LeftClawServicesV2)
 - **Network:** Base (chain 8453)
 - **Owner:** Safe `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`
-- **Executor:** `0xa822155c242B3a307086F1e2787E393d78A0B5AC` (clawd-deployer-3)
+- **Executor:** `0x845E8c808E22469aAF07ace9Ab7D26C875fBE44F` (clawd-deployer-local)
 
 ## Frontend
 - **ENS:** `leftclaw.services`
@@ -27,28 +27,27 @@ cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getOpenJobs()(uint256[])" 
 
 ### Accepting Jobs (as executor)
 ```bash
-cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "acceptJob(uint256)" <JOB_ID> --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
+cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "acceptJob(uint256)" <JOB_ID> --account clawd-deployer-local --password "$PASS" --rpc-url $RPC
 ```
 
 ### Completing Jobs (as executor)
 ```bash
-cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "completeJob(uint256,string)" <JOB_ID> "<RESULT_CID>" --account clawd-deployer-3 --password "$PASS" --rpc-url $RPC
+cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "completeJob(uint256,string)" <JOB_ID> "<RESULT_CID>" --account clawd-deployer-local --password "$PASS" --rpc-url $RPC
 ```
 
 ## Service Types (V2 uses dynamic service types, not enum)
 
-| ID | Enum | Name | USD Price |
+| ID | Slug | Name | USD Price |
 |----|------|------|-----------|
-| 0 | `CONSULT_S` | Quick Consult | $20 |
-| 1 | `CONSULT_L` | Deep Consult | $30 |
-| 2 | `BUILD_DAILY` | Daily Build | $1,000 |
-| 3 | `BUILD_M` | reserved | — |
-| 4 | `BUILD_L` | reserved | — |
-| 5 | `BUILD_XL` | reserved | — |
-| 6 | `QA_REPORT` | QA Report | $50 |
-| 7 | `AUDIT_S` | Quick Audit | $200 |
-| 8 | `AUDIT_L` | reserved | — |
-| 9 | `CUSTOM` | Custom | Set by poster |
+| 1 | `consult` | Quick Consultation | $20 |
+| 2 | `consult-deep` | Deep Consultation | $30 |
+| 3 | `pfp` | PFP Generator | $0.25 |
+| 4 | `audit` | Contract Audit | $200 |
+| 5 | `qa` | Frontend QA Audit | $50 |
+| 6 | `build` | Daily Build | $1,000 |
+| 7 | `research` | Research Report | $1.00 |
+| 8 | `judge` | Judge / Oracle | $50 |
+| 9 | `humanqa` | HumanQA | $200 |
 
 Prices are stored on-chain in USD (USDC 6 decimals). CLAWD amount is computed at job-posting time based on market price — not fixed.
 
