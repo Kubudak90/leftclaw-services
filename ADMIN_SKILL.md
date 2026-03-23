@@ -11,8 +11,8 @@ Jobs come from two sources:
 - **Contract:** `0xfab998867b16cf0369f78a6ebbe77ea4eace212c` on Base (LeftClawServicesV2)
 - **ABI:** See `packages/foundry/contracts/LeftClawServicesV2.sol`
 - **Admin UI:** [leftclaw.services/admin](https://leftclaw.services/admin)
-- **Owner:** clawdbotatg.eth `0x11ce532845cE0eAcdA41f72FDc1C88c335981442`
-- **Treasury:** `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (same as owner)
+- **Owner:** Gnosis Safe `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`
+- **Treasury:** `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0` (Gnosis Safe)
 - **RPC:** `https://mainnet.base.org`
 
 ## Whitelisted Workers
@@ -166,14 +166,15 @@ Query `getAllServiceTypes()` on-chain for the current list, or check [leftclaw.s
 
 | ID | Slug | Name | USD Price |
 |---|---|---|---|
-| 0 | `consult` | Quick Consult | $20 |
-| 1 | `consult-deep` | Deep Consult | $30 |
-| 2 | `build` | Daily Build | $1,000 |
-| 6 | `qa` | QA Report | $50 |
-| 7 | `audit` | Quick Audit | $200 |
-| 8 | — | Reserved | — |
-| 9 | `humanqa` | Human QA | varies |
-| … | `research`, `oracle`, `judge`, `pfp` | (dynamic) | varies |
+| 1 | `consult` | Quick Consultation | $20 |
+| 2 | `consult-deep` | Deep Consultation | $30 |
+| 3 | `pfp` | PFP Generator | $0.25 |
+| 4 | `audit` | Contract Audit | $200 |
+| 5 | `qa` | Frontend QA Audit | $50 |
+| 6 | `build` | Daily Build | $1,000 |
+| 7 | `research` | Research Report | $1.00 |
+| 8 | `judge` | Judge / Oracle | $50 |
+| 9 | `humanqa` | HumanQA | $200 |
 
 ## Important Rules
 
