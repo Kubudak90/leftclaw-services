@@ -12,25 +12,50 @@ const viemClient = createPublicClient({
   transport: http(),
 });
 
-// Post-completion rate limiting: max 2 messages after job reaches terminal state
-// Key: `${jobId}:${clientAddress}` → permanently capped at 2 after completion
+// Rate limiting:
+// - Active jobs (OPEN/IN_PROGRESS): 3 messages/hour per client per job (sliding window)
+// - Post-completion (COMPLETED/DECLINED/CANCELLED): max 2 messages total, then hard close forever
+const hourlyCounters = new Map<string, number[]>();
 const postCompletionCounts = new Map<string, number>();
 
-function checkChatClosed(jobId: string, clientAddress: string, jobStatus: number): { closed: boolean; used: number; remaining: number } {
+type RateLimitResult = { allowed: boolean; used: number; remaining: number; closed?: boolean; type?: "active" | "post-completion" };
+
+function checkRateLimit(jobId: string, clientAddress: string, jobStatus: number): RateLimitResult {
+  const key = `${jobId}:${clientAddress.toLowerCase()}`;
+
+  // Post-completion: hard cap of 2, never resets
   if (jobStatus === 2 || jobStatus === 3 || jobStatus === 4) {
-    const key = `${jobId}:${clientAddress.toLowerCase()}`;
     const used = postCompletionCounts.get(key) || 0;
     if (used >= 2) {
-      return { closed: true, used, remaining: 0 };
+      return { allowed: false, used, remaining: 0, closed: true, type: "post-completion" };
     }
-    return { closed: false, used, remaining: 2 - used };
+    return { allowed: true, used, remaining: 2 - used, closed: false, type: "post-completion" };
   }
-  return { closed: false, used: 0, remaining: -1 }; // -1 = no post-completion limit
+
+  // Active job: sliding hourly window, 3 max
+  const now = Date.now();
+  const hourAgo = now - 60 * 60 * 1000;
+  const timestamps = (hourlyCounters.get(key) || []).filter(t => t > hourAgo);
+  hourlyCounters.set(key, timestamps);
+  if (timestamps.length >= 3) {
+    return { allowed: false, used: timestamps.length, remaining: 0, type: "active" };
+  }
+  return { allowed: true, used: timestamps.length, remaining: 3 - timestamps.length, type: "active" };
 }
 
-function recordPostCompletionMessage(jobId: string, clientAddress: string) {
+function recordMessage(jobId: string, clientAddress: string, jobStatus: number) {
   const key = `${jobId}:${clientAddress.toLowerCase()}`;
-  postCompletionCounts.set(key, (postCompletionCounts.get(key) || 0) + 1);
+
+  if (jobStatus === 2 || jobStatus === 3 || jobStatus === 4) {
+    postCompletionCounts.set(key, (postCompletionCounts.get(key) || 0) + 1);
+    return;
+  }
+
+  const now = Date.now();
+  const hourAgo = now - 60 * 60 * 1000;
+  const timestamps = (hourlyCounters.get(key) || []).filter(t => t > hourAgo);
+  timestamps.push(now);
+  hourlyCounters.set(key, timestamps);
 }
 
 const SYSTEM_PROMPT = `You are LeftClaw, an expert Ethereum/Web3 builder and consultant. You work under the CLAWD brand — a builder-first community in the Ethereum ecosystem created by Austin Griffith.
@@ -254,15 +279,21 @@ export async function POST(req: NextRequest) {
         functionName: "getJob",
         args: [numericJobId],
       }) as any;
-      const rl = checkChatClosed(String(jobId), clientAddress, Number(job.status));
-      if (rl.closed) {
+      const rl = checkRateLimit(String(jobId), clientAddress, Number(job.status));
+      if (!rl.allowed) {
+        if (rl.closed) {
+          return new Response(
+            JSON.stringify({ error: "Chat closed — job is complete. Open a new job if you need more work." }),
+            { status: 429 },
+          );
+        }
         return new Response(
-          JSON.stringify({ error: "Chat closed — job is complete. Open a new job if you need more work." }),
+          JSON.stringify({ error: "Rate limit exceeded (3 messages/hour for active jobs)" }),
           { status: 429 },
         );
       }
-      // Record this message for post-completion counting
-      recordPostCompletionMessage(String(jobId), clientAddress);
+      // Record this message for rate limiting
+      recordMessage(String(jobId), clientAddress, Number(job.status));
     } catch {
       // Job not on-chain or CV job with no on-chain record — skip post-completion check
     }
