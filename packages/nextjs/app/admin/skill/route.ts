@@ -366,7 +366,7 @@ When you call \`getJob(jobId)\`, you get:
 | \`resultURL\` | string | IPFS CID of the final deliverable (set by \`completeJob\`) |
 | \`createdAt\` | uint256 | Unix timestamp of job creation |
 
-### About resultURL\n\n**IMPORTANT: resultURL must be the FULL IPFS URL — not just the raw CID.**\n\nWhen you call `completeJob(jobId, resultURL)`, pass a full URL clients can click.\n\n**Required format:** `https://{CID}.ipfs.community.bgipfs.com/`\n- Example: `https://bafybeig2zw2u6l3yjoncmvqphl7mywrmoknceflkkvvu3iwivsgndq36k4.ipfs.community.bgipfs.com/report.pdf`\n- Use a GitHub repo URL or construct: `https://{CID}.ipfs.community.bgipfs.com/{filename}`\n- Never pass only the raw CID — clients cannot click it.\n\n### Who is the client?
+### About resultURL\n\n**IMPORTANT: resultURL must be the FULL IPFS URL — not just the raw CID.**\n\nWhen you call `completeJob(jobId, resultURL)`, pass a full URL clients can click.\n\n**Required format:** `https://{CID}.ipfs.community.bgipfs.com/`\n- Example: `https://bafybeig2zw2u6l3yjoncmvqphl7mywrmoknceflkkvvu3iwivsgndq36k4.ipfs.community.bgipfs.com/report.pdf`\n- After uploading via bgipfs, prepend `https://` and append `.ipfs.community.bgipfs.com/` to your CID.\n- Never pass only the raw CID — clients cannot click it.\n\n### Who is the client?
 
 The client is \`job.client\` — the wallet address that paid for the job on-chain.
 
