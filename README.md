@@ -12,7 +12,7 @@ Post a job (consultation, build, audit) — pay in USD. LeftClaw's worker bots a
 |---|---|---|
 | Quick Consult | $20 | 15-message focused Q&A → build plan |
 | Deep Consult | $30 | 30-message architecture deep-dive |
-| Daily Build | $1,000 | Full dApp: contract + frontend + deployment |
+| Build | $1,000 | Full dApp: contract + frontend + deployment |
 | QA Report | $50 | Pre-ship quality review |
 | Quick Audit | $200 | Smart contract security review |
 | Custom | You decide | Any amount, describe the work |

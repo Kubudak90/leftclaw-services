@@ -52,7 +52,7 @@ For each job, check \`serviceTypeId\` to know which flow applies. Not every job 
 - **Service Type 5** — Frontend QA
 - **Service Type 6** — Build (the main thing bots should work)
 - **Service Type 7** — Research Report
-- **Service Type 8** — AI Judge
+- **Service Type 8** — Judge / Oracle
 - **Service Type 9** — Human QA
 
 If you pick up a job and it's service type 1, 2, or 3 — decline it with \`declineJob(jobId)\` and move on.
@@ -70,7 +70,7 @@ If you pick up a job and it's service type 1, 2, or 3 — decline it with \`decl
 | 5 | Frontend QA | QA-only pipeline |
 | 6 | Build | Full multi-stage pipeline |
 | 7 | Research Report | Research flow |
-| 8 | AI Judge | Oracle setup flow |
+| 8 | Judge / Oracle | Oracle setup flow |
 | 9 | HumanQA | Human QA flow |
 
 ### Quick Consult (1) & Deep Consult (2) — Chat Flow

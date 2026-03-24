@@ -18,8 +18,8 @@
 # Total jobs
 cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getTotalJobs()(uint256)" --rpc-url $RPC
 
-# Get job details
-cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getJob(uint256)((uint256,address,uint8,uint256,uint256,string,uint8,uint256,uint256,uint256,string,address,bool))" 1 --rpc-url $RPC
+# Get job details (V2 has 16 fields: id, client, serviceTypeId, paymentClawd, priceUsd, description, status, createdAt, startedAt, completedAt, resultCID, worker, paymentClaimed, paymentMethod, cvAmount, currentStage)
+cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getJob(uint256)((uint256,address,uint256,uint256,uint256,string,uint8,uint256,uint256,uint256,string,address,bool,uint8,uint256,string))" 1 --rpc-url $RPC
 
 # Open jobs
 cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getOpenJobs()(uint256[])" --rpc-url $RPC
@@ -44,8 +44,8 @@ cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "completeJob(uint256,string
 | 3 | `pfp` | PFP Generator | $0.25 |
 | 4 | `audit` | Contract Audit | $200 |
 | 5 | `qa` | Frontend QA Audit | $50 |
-| 6 | `build` | Daily Build | $1,000 |
-| 7 | `research` | Research Report | $1.00 |
+| 6 | `build` | Build | $1,000 |
+| 7 | `research` | Research Report | $100 |
 | 8 | `judge` | Judge / Oracle | $50 |
 | 9 | `humanqa` | HumanQA | $200 |
 

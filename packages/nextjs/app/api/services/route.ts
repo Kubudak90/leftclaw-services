@@ -5,7 +5,7 @@ import { BASE_NETWORK, PAYMENT_ADDRESS, getContractPriceUsd } from "~~/lib/x402"
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address;
 
 export async function GET() {
-  // Contract is 1-indexed. IDs 1-8 exist on-chain.
+  // Contract is 1-indexed. IDs 1-9 exist on-chain.
   const [consultQuick, consultDeep, pfp, audit, qa, build, research, judge] = await Promise.all([
     getContractPriceUsd(1),
     getContractPriceUsd(2),
@@ -45,7 +45,7 @@ export async function GET() {
       {
         endpoint: "/api/qa",
         method: "POST",
-        name: "QA Report",
+        name: "Frontend QA Audit",
         description: "Pre-ship dApp quality audit. Send your dApp URL or contract address.",
         price: qa,
         responseType: "session",
@@ -79,7 +79,7 @@ export async function GET() {
       {
         endpoint: "/api/research",
         method: "POST",
-        name: "Deep Research",
+        name: "Research Report",
         description: "Comprehensive research on a protocol, topic, or codebase.",
         price: research,
         responseType: "session",
@@ -87,7 +87,7 @@ export async function GET() {
       {
         endpoint: "/api/judge",
         method: "POST",
-        name: "AI Judge",
+        name: "Judge / Oracle",
         description: "Impartial evaluation of disputes, design decisions, or architecture choices.",
         price: judge,
         responseType: "session",

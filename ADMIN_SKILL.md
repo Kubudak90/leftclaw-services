@@ -171,7 +171,7 @@ Query `getAllServiceTypes()` on-chain for the current list, or check [leftclaw.s
 | 3 | `pfp` | PFP Generator | $0.25 |
 | 4 | `audit` | Contract Audit | $200 |
 | 5 | `qa` | Frontend QA Audit | $50 |
-| 6 | `build` | Daily Build | $1,000 |
+| 6 | `build` | Build | $1,000 |
 | 7 | `research` | Research Report | $1.00 |
 | 8 | `judge` | Judge / Oracle | $50 |
 | 9 | `humanqa` | HumanQA | $200 |
