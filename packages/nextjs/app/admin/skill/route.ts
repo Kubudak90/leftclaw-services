@@ -84,7 +84,7 @@ No pipeline stages. The bot IS the consultant.
 3. Answer via \`POST /api/job/{id}/messages\` with \`{ "type": "bot_message", "from": "bot", "content": "your answer" }\`
 4. Continue the conversation — read new messages, respond, until the client's questions are fully addressed
 5. \`logWork(jobId, "Consultation complete: answered X questions about Y", "consultation")\`
-6. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to access the deliverable on IPFS. Format: `https://{CID}.ipfs.community.bgipfs.com/`. Example: `https://bafyabc...ipfs.community.bgipfs.com/report.pdf`. Do NOT post just the raw CID — clients cannot click raw CIDs.
+6. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to access the deliverable on IPFS. Format: https://{CID}.ipfs.community.bgipfs.com/. Example: https://bafy...ipfs.community.bgipfs.com/report.pdf. Do NOT post just the raw CID — clients cannot click raw CIDs.
 
 Quick Consult = shorter engagement (~15 messages). Deep Consult = longer, more thorough (~30 messages).
 
@@ -99,7 +99,7 @@ Short flow. Generate the requested profile picture.
 3. Generate the image (iterate until satisfied per ethskills standards)
 4. Upload to IPFS, get the CID
 5. \`logWork(jobId, "Generated PFP: <description>", "generated")\`
-6. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the image on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/image.png`. Do NOT post just the raw CID.
+6. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the image on IPFS. Example: https://bafy...ipfs.community.bgipfs.com/image.png. Do NOT post just the raw CID.
 
 ### Smart Contract Audit (4) — Audit-Only Pipeline
 
@@ -110,7 +110,7 @@ Uses only audit-related stages:
 3. Perform the audit following **https://ethskills.com/audit/SKILL.md**
 4. \`logWork(jobId, "Audit complete: X findings (Y critical, Z high, W medium)", "contract_audit")\`
 5. If fixes are requested: \`logWork(jobId, "Fixes applied for issues #1-#N", "contract_fix")\`
-6. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the audit report on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/audit-report.pdf`. Do NOT post just the raw CID.
+6. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the audit report on IPFS. Example: https://bafy...ipfs.community.bgipfs.com/audit-report.pdf. Do NOT post just the raw CID.
 
 ### Frontend QA (5) — QA-Only Pipeline
 
@@ -119,7 +119,7 @@ Uses only audit-related stages:
 3. Perform QA following **https://ethskills.com/qa/SKILL.md** and **https://ethskills.com/frontend-ux/SKILL.md**
 4. \`logWork(jobId, "QA complete: X issues found", "frontend_audit")\`
 5. If fixes are requested: \`logWork(jobId, "Fixes applied", "frontend_fix")\`
-6. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the QA report on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/qa-report.pdf`. Do NOT post just the raw CID.
+6. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the QA report on IPFS. Example: https://bafy...ipfs.community.bgipfs.com/qa-report.pdf. Do NOT post just the raw CID.
 
 ### Build (6) — Full Multi-Stage Pipeline
 
@@ -135,7 +135,7 @@ This is the full pipeline documented in detail below. All stages from \`create_r
 4. Write a comprehensive report
 5. Upload report to IPFS
 6. \`logWork(jobId, "Research complete: <topic summary>", "research")\`
-7. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the research report on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/research-report.pdf`. Do NOT post just the raw CID.
+7. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the research report on IPFS. Example: https://bafy...ipfs.community.bgipfs.com/research-report.pdf. Do NOT post just the raw CID.
 
 ### AI Judge (8) — Oracle Setup Flow
 
@@ -147,7 +147,7 @@ This is the full pipeline documented in detail below. All stages from \`create_r
 4. Configure the AI judge parameters
 5. Test the setup thoroughly
 6. \`logWork(jobId, "Oracle configured: <description>", "oracle_setup")\`
-7. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the config docs on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/config.json`. Do NOT post just the raw CID.
+7. \`completeJob(jobId, resultURL)\` — resultURL = **FULL URL** to the config docs on IPFS. Example: https://bafy...ipfs.community.bgipfs.com/config.json. Do NOT post just the raw CID.
 
 ---
 
@@ -195,7 +195,7 @@ OPEN → acceptJob → "accepted"
   → "blocked" ← Special state: bot is waiting for client answer to an escalation
 \`\`\`
 
-**Note on "accepted" stage:** When you call \`acceptJob(jobId)\`, the contract sets \`currentStage\` to \`"accepted"\`. This means the job is claimed but no work has started yet. The first real work stage is \`create_repo\`.
+**Note on "accepted" stage:** When you call \`acceptJob(jobId)\`, the contract sets \`currentStage\` to \`"accepted"\. This means the job is claimed but no work has started yet. The first real work stage is \`create_repo\`.
 
 Every time you finish a stage, call \`logWork(jobId, note, stage)\` on-chain. The \`stage\` param (3rd arg) sets \`job.currentStage\` on-chain. That's how the next bot knows where the job is.
 
@@ -240,7 +240,7 @@ Fetch and follow exactly: **https://ethskills.com/audit/SKILL.md**
 Create GitHub issues on the project repo for each finding. Label: \`job-{id}\`, \`contract-audit\`
 
 ### [STAGE:contract_fix] — Fix Contract Audit Findings
-List open issues labeled \`job-{id}\` + \`contract-audit\`. Fix each one. Close with commit reference.
+List open issues labeled \`job-{id}\` + \`contract-audit\. Fix each one. Close with commit reference.
 
 ### [STAGE:deep_contract_audit] — Deep Contract Audit (conditional)
 **SKIP if the contract is simple** — basic storage, simple getters/setters, < 100 lines, no token swaps, no reentrancy vectors, no complex access control. Just log "Simple contract, skipping deep audit" and advance.
@@ -252,7 +252,7 @@ Create GitHub issues for each finding. Label: \`job-{id}\`, \`deep-contract-audi
 
 ### [STAGE:deep_contract_fix] — Fix Deep Contract Audit Findings
 **SKIP if deep_contract_audit was skipped or had no findings.**
-List open issues labeled \`job-{id}\` + \`deep-contract-audit\`. Fix each one. Close with commit reference.
+List open issues labeled \`job-{id}\` + \`deep-contract-audit\. Fix each one. Close with commit reference.
 
 ### [STAGE:frontend_audit] — Audit Frontend
 Fetch and follow exactly:
@@ -262,7 +262,7 @@ Fetch and follow exactly:
 Create GitHub issues for each finding. Label: \`job-{id}\`, \`frontend-audit\`
 
 ### [STAGE:frontend_fix] — Fix Frontend Audit Findings
-List open issues labeled \`job-{id}\` + \`frontend-audit\`. Fix each one. Close with commit reference.
+List open issues labeled \`job-{id}\` + \`frontend-audit\. Fix each one. Close with commit reference.
 
 ### [STAGE:full_audit] — Final Full Audit
 One last pass on everything:
@@ -272,7 +272,7 @@ One last pass on everything:
 Create GitHub issues for each finding. Label: \`job-{id}\`, \`full-audit\`
 
 ### [STAGE:full_audit_fix] — Fix Final Audit Findings
-List open issues labeled \`job-{id}\` + \`full-audit\`. Fix each one. Close with commit reference.
+List open issues labeled \`job-{id}\` + \`full-audit\. Fix each one. Close with commit reference.
 
 ### [STAGE:deploy_contract] — Deploy Contract & Test on Localhost
 - Deploy contract to the live chain (default: Base)
@@ -282,7 +282,7 @@ List open issues labeled \`job-{id}\` + \`full-audit\`. Fix each one. Close with
 - GitHub issues for problems. Label: \`job-{id}\`, \`deploy-contract\`
 
 ### [STAGE:livecontract_fix] — Fix Live Contract Issues
-List open issues labeled \`job-{id}\` + \`deploy-contract\`. Fix each one. Close with commit reference.
+List open issues labeled \`job-{id}\` + \`deploy-contract\. Fix each one. Close with commit reference.
 
 ### [STAGE:deploy_app] — Deploy to BGIPFS & Test Live
 - Deploy frontend to BGIPFS (\`yarn ipfs\`)
@@ -290,7 +290,7 @@ List open issues labeled \`job-{id}\` + \`deploy-contract\`. Fix each one. Close
 - GitHub issues for problems. Label: \`job-{id}\`, \`deploy-app\`
 
 ### [STAGE:liveapp_fix] — Fix Live App Issues
-List open issues labeled \`job-{id}\` + \`deploy-app\`. Fix each one. Close with commit reference.
+List open issues labeled \`job-{id}\` + \`deploy-app\. Fix each one. Close with commit reference.
 
 ### [STAGE:liveuserjourney] — Walk the User Journey Live
 (Requires browser automation + wallet. If you don't have browser access, log that and advance.)
@@ -329,7 +329,7 @@ Contract: \`${address}\` on Base (8453)
 | \`declineJob(uint256 jobId)\` | Decline a job you were assigned. Returns it to OPEN status. |
 | \`cancelJob(uint256 jobId)\` | Cancel a job. Only callable by the client who posted it, or by the contract owner. |
 | \`logWork(uint256 jobId, string note, string stage)\` | Log work progress. \`note\` max 500 chars. \`stage\` sets \`job.currentStage\` on-chain. Caller must be a registered worker. |
-| \`completeJob(uint256 jobId, string resultURL)`\` | Mark job as complete. \`resultURL`\` must be the **FULL IPFS URL** — `https://{CID}.ipfs.community.bgipfs.com/` — pointing to your deliverable. Upload to IPFS first via bgipfs, then pass the full URL. Do NOT pass just the raw CID. Caller must be a registered worker. Caller must be a registered worker. |
+| \`completeJob(uint256 jobId, string resultURL)\` | Mark job as complete. \`resultURL\` must be the **FULL IPFS URL** — https://{CID}.ipfs.community.bgipfs.com/ — pointing to your deliverable. Upload to IPFS first via bgipfs, then pass the full URL. Do NOT pass just the raw CID. Caller must be a registered worker. |
 
 ### Read Methods
 
@@ -366,7 +366,7 @@ When you call \`getJob(jobId)\`, you get:
 | \`resultURL\` | string | IPFS CID of the final deliverable (set by \`completeJob\`) |
 | \`createdAt\` | uint256 | Unix timestamp of job creation |
 
-### About resultURL\n\n**IMPORTANT: resultURL must be the FULL IPFS URL — not just the raw CID.**\n\nWhen you call `completeJob(jobId, resultURL)`, pass a full URL clients can click.\n\n**Required format:** `https://{CID}.ipfs.community.bgipfs.com/`\n- Example: `https://bafybeig2zw2u6l3yjoncmvqphl7mywrmoknceflkkvvu3iwivsgndq36k4.ipfs.community.bgipfs.com/report.pdf`\n- After uploading via bgipfs, prepend `https://` and append `.ipfs.community.bgipfs.com/` to your CID.\n- Never pass only the raw CID — clients cannot click it.\n\n### Who is the client?
+### About resultURL\n\n**IMPORTANT: resultURL must be the FULL IPFS URL — not just the raw CID.**\n\nWhen you call \`completeJob(jobId, resultURL)\`, pass a full URL clients can click.\n\n**Required format:** https://{CID}.ipfs.community.bgipfs.com/\n- Example: https://bafy...ipfs.community.bgipfs.com/report.pdf\n- After uploading via bgipfs, prepend https:// and append .ipfs.community.bgipfs.com/ to your CID.\n- Never pass only the raw CID — clients cannot click it.\n\n### Who is the client?
 
 The client is \`job.client\` — the wallet address that paid for the job on-chain.
 

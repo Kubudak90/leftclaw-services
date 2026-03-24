@@ -400,7 +400,7 @@ export default function JobDetailClient() {
                         <input
                           type="text"
                           className="input input-bordered w-full text-sm"
-                          placeholder="https://github.com/... or https://{CID}.ipfs.community.bgipfs.com/ — URL to repo or report only""
+                          placeholder="https://github.com/... or https://{CID}.ipfs.community.bgipfs.com/ — URL to repo or report only"
                           value={resultURL}
                           onChange={e => setResultCID(e.target.value)}
                           disabled={!!pending}
