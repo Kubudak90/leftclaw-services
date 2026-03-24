@@ -76,7 +76,7 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
     mapping(uint256 => Job) public jobs;
     uint256 public nextJobId;
 
-    mapping(address => bool) public isWorker;
+    address[] public workers;
     mapping(uint256 => WorkLog[]) public workLogs;
 
     uint256 public totalLockedClawd;
@@ -108,7 +108,11 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
     // ─── Modifiers ────────────────────────────────────────────────────────────
 
     modifier onlyWorker() {
-        require(isWorker[msg.sender], "!worker");
+        bool isWk = false;
+        for (uint i = 0; i < workers.length; i++) {
+            if (workers[i] == msg.sender) { isWk = true; break; }
+        }
+        require(isWk, "!worker");
         _;
     }
 
@@ -147,6 +151,10 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
             uint24(10000),  // WETH/CLAWD 1% (pool 0xCD55381a has massive liquidity)
             _clawdToken
         );
+
+        // Initial workers
+        workers.push(0x845E8c808E22469aAF07ace9Ab7D26C875fBE44F); // deployer/LeftClaw
+        workers.push(0x34aA3F359A9D614239015126635CE7732c18fDF3); // known bot
     }
 
     // ─── Service Type Admin ───────────────────────────────────────────────────
@@ -328,13 +336,23 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
 
     function addWorker(address worker) external onlyOwner {
         require(worker != address(0), "!addr");
-        isWorker[worker] = true;
+        for (uint i = 0; i < workers.length; i++) {
+            require(workers[i] != worker, "!dup");
+        }
+        workers.push(worker);
         emit WorkerAdded(worker);
     }
 
     function removeWorker(address worker) external onlyOwner {
-        isWorker[worker] = false;
-        emit WorkerRemoved(worker);
+        for (uint i = 0; i < workers.length; i++) {
+            if (workers[i] == worker) {
+                workers[i] = workers[workers.length - 1];
+                workers.pop();
+                emit WorkerRemoved(worker);
+                return;
+            }
+        }
+        revert("!worker");
     }
 
     function setTreasury(address _treasury) external onlyOwner {
@@ -376,6 +394,10 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
     }
 
     // ─── View Functions ───────────────────────────────────────────────────────
+
+    function getWorkers() external view returns (address[] memory) {
+        return workers;
+    }
 
     function getJob(uint256 jobId) external view returns (Job memory) {
         require(jobs[jobId].id != 0, "!job");
