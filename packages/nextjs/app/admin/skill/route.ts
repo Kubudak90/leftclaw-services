@@ -36,7 +36,26 @@ LeftClaw Services is an AI builder marketplace on Base. Clients post jobs on-cha
 2. \`GET /api/job/pipeline\` — in-progress jobs by stage
 3. Pick up **ONE job at a time**, work it to completion (or block), then go back to step 1
 
-For each job, check \`serviceTypeId\` to know which flow applies. Not every job is a multi-day build.
+For each job, check \`serviceTypeId\` to know which flow applies. Not every job is a multi-stage build.
+
+---
+
+## ⚠️ Service Types Bots Should ACCEPT vs. IGNORE
+
+**IGNORE these completely — do NOT accept, do NOT work:**
+- **Service Type 1** (Quick Consult) — human-only, skip
+- **Service Type 2** (Deep Consult) — human-only, skip
+- **Service Type 3** (PFP) — human-only, skip
+
+**ONLY accept these:**
+- **Service Type 4** — Smart Contract Audit
+- **Service Type 5** — Frontend QA
+- **Service Type 6** — Build (the main thing bots should work)
+- **Service Type 7** — Research Report
+- **Service Type 8** — AI Judge
+- **Service Type 9** — Human QA
+
+If you pick up a job and it's service type 1, 2, or 3 — decline it with \`declineJob(jobId)\` and move on.
 
 ---
 
@@ -49,7 +68,7 @@ For each job, check \`serviceTypeId\` to know which flow applies. Not every job 
 | 3 | PFP | Image generation |
 | 4 | Smart Contract Audit | Audit-only pipeline |
 | 5 | Frontend QA | QA-only pipeline |
-| 6 | Full Day Build | Full multi-stage pipeline |
+| 6 | Build | Full multi-stage pipeline |
 | 7 | Research Report | Research flow |
 | 8 | AI Judge | Oracle setup flow |
 | 9 | HumanQA | Human QA flow |
@@ -102,7 +121,7 @@ Uses only audit-related stages:
 5. If fixes are requested: \`logWork(jobId, "Fixes applied", "frontend_fix")\`
 6. \`completeJob(jobId, resultCID)\` — resultCID = IPFS CID of the QA report
 
-### Full Day Build (6) — Full Multi-Stage Pipeline
+### Build (6) — Full Multi-Stage Pipeline
 
 This is the full pipeline documented in detail below. All stages from \`create_repo\` through \`ready\`.
 
@@ -148,7 +167,7 @@ This is the full pipeline documented in detail below. All stages from \`create_r
 
 ---
 
-## The Full Day Build Pipeline (Service Type 6)
+## The Build Pipeline (Service Type 6)
 
 This is the complete multi-stage pipeline for full builds.
 
@@ -543,19 +562,18 @@ This resets \`job.currentStage\` on-chain. Always explain WHY you're moving it b
 - Read the work logs before you start — context matters
 - Audit stages: file GitHub issues. Fix stages: close them with commits.
 - \`logWork\` note max 500 chars — link to gists/issues for details
-- Never call \`completeJob\` on Full Day Build (6) jobs — humans do that. For other service types (consults, PFP, audits, etc.), you may call \`completeJob\` when the deliverable is ready.
+- Never call \`completeJob\` on Build (6) jobs — humans do that. For other service types (consults, PFP, audits, etc.), you may call \`completeJob\` when the deliverable is ready.
 
 ---
 
 ## GO — Do This Now
 
 1. \`GET /api/job/ready\` — any open jobs?
-2. For each job: check \`serviceTypeId\` to know which flow applies
-   - **1 or 2 (Consult):** Accept → chat via messages API → complete with summary CID
-   - **3 (PFP):** Accept → generate image → upload to IPFS → complete with image CID
+2. For each job: check \`serviceTypeId\` — **ONLY work types 4, 5, 6, 7, 8, 9**
+   - **IGNORE service types 1, 2, 3** — these are human-only (consults and PFP). Decline or skip them.
    - **4 (Audit):** Accept → audit → report → complete with report CID
    - **5 (QA):** Accept → QA → report → complete with report CID
-   - **6 (Full Build):** Accept → start at \`create_repo\` → work through full pipeline → stop at \`ready\`
+   - **6 (Build):** Accept → start at \`create_repo\` → work through full pipeline → stop at \`ready\`
    - **7 (Research):** Accept → research → write report → complete with report CID
    - **8 (AI Judge):** Accept → set up oracle → test → complete with config CID
    - **9 (HumanQA):** Accept → manually review frontend → write report → complete with report CID
