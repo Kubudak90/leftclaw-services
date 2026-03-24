@@ -305,28 +305,28 @@ export default function JobDetailClient() {
               </>
             )}
 
-            {job.resultURL && (
+            {job.resultCID && (
               <>
                 <div className="divider"></div>
                 <div>
                   <span className="text-sm opacity-50">Result</span>
-                  {job.resultURL.startsWith("http") ? (
+                  {job.resultCID.startsWith("http") ? (
                     <a
-                      href={job.resultURL}
+                      href={job.resultCID}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-1 font-mono text-sm text-blue-400 hover:text-blue-300 underline break-all block"
                     >
-                      {job.resultURL}
+                      {job.resultCID}
                     </a>
                   ) : (
                     <a
-                      href={`https://${job.resultURL}.ipfs.community.bgipfs.com/`}
+                      href={`https://${job.resultCID}.ipfs.community.bgipfs.com/`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-1 font-mono text-sm text-blue-400 hover:text-blue-300 underline break-all block"
                     >
-                      {job.resultURL}
+                      {job.resultCID}
                     </a>
                   )}
                 </div>
