@@ -1,4 +1,4 @@
-> **⚠️ NOTE: This file describes V1 design.** V2 (`LeftClawServicesV2` at `0xfab998867b16cf0369f78a6ebbe77ea4eace212c`) has no dispute window, no protocol fee, no claim step — payment transfers to treasury immediately on `acceptJob`. Do not use this file as a reference for V2 behavior.
+> **⚠️ NOTE: This file describes V1 design.** V2 (`LeftClawServicesV2` at `0x89A241Bb53B666108B9e354b355d3C64f97E8E6f`) has no dispute window, no protocol fee, no claim step — payment transfers to treasury immediately on `acceptJob`. Do not use this file as a reference for V2 behavior.
 
 # LeftClaw Services — Full Overnight Build Task
 

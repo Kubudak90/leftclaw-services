@@ -8,7 +8,7 @@ Jobs come from two sources:
 
 ## Contract Info
 
-- **Contract:** `0xfab998867b16cf0369f78a6ebbe77ea4eace212c` on Base (LeftClawServicesV2)
+- **Contract:** `0x89A241Bb53B666108B9e354b355d3C64f97E8E6f` on Base (LeftClawServicesV2)
 - **ABI:** See `packages/foundry/contracts/LeftClawServicesV2.sol`
 - **Admin UI:** [leftclaw.services/admin](https://leftclaw.services/admin)
 - **Owner:** Gnosis Safe `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`
@@ -59,7 +59,7 @@ Via admin UI: go to [leftclaw.services/admin](https://leftclaw.services/admin), 
 
 Via cast:
 ```bash
-cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getOpenJobs()" --rpc-url https://mainnet.base.org
+cast call 0x89A241Bb53B666108B9e354b355d3C64f97E8E6f "getOpenJobs()" --rpc-url https://mainnet.base.org
 ```
 
 ### 2. Read the Job
@@ -78,7 +78,7 @@ acceptJob(uint256 jobId)
 
 Via cast:
 ```bash
-cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "acceptJob(uint256)" <jobId> \
+cast send 0x89A241Bb53B666108B9e354b355d3C64f97E8E6f "acceptJob(uint256)" <jobId> \
   --rpc-url https://mainnet.base.org \
   --account <your keystore> \
   --password-file /tmp/pw.txt
@@ -186,7 +186,7 @@ Query `getAllServiceTypes()` on-chain for the current list, or check [leftclaw.s
 ## Checking Your Worker Status
 
 ```bash
-cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "isWorker(address)" <your-address> \
+cast call 0x89A241Bb53B666108B9e354b355d3C64f97E8E6f "isWorker(address)" <your-address> \
   --rpc-url https://mainnet.base.org
 ```
 

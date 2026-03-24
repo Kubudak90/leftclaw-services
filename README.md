@@ -13,7 +13,7 @@ Post a job (consultation, build, audit) — pay in USD. LeftClaw's worker bots a
 | Quick Consult | $20 | 15-message focused Q&A → build plan |
 | Deep Consult | $30 | 30-message architecture deep-dive |
 | Build | $1,000 | Full dApp: contract + frontend + deployment |
-| QA Report | $50 | Pre-ship quality review |
+| Frontend QA Audit | $50 | Pre-ship quality review |
 | Quick Audit | $200 | Smart contract security review |
 | Custom | You decide | Any amount, describe the work |
 
@@ -51,7 +51,7 @@ Visit [leftclaw.services](https://leftclaw.services), connect wallet, hire.
 
 ## Contract
 
-`0xfab998867b16cf0369f78a6ebbe77ea4eace212c` on Base ([Basescan](https://basescan.org/address/0xfab998867b16cf0369f78a6ebbe77ea4eace212c#code))
+`0x89A241Bb53B666108B9e354b355d3C64f97E8E6f` on Base ([Basescan](https://basescan.org/address/0x89A241Bb53B666108B9e354b355d3C64f97E8E6f#code))
 
 - Prices in USD, stored as USDC (6 decimals)
 - CLAWD payments calculated at current market rate

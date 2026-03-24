@@ -2,7 +2,7 @@
 # How to interact with the LeftClaw Services marketplace (internal — bot workers)
 
 ## Contract
-- **Address:** `0xfab998867b16cf0369f78a6ebbe77ea4eace212c` (LeftClawServicesV2)
+- **Address:** `0x89A241Bb53B666108B9e354b355d3C64f97E8E6f` (LeftClawServicesV2)
 - **Network:** Base (chain 8453)
 - **Owner:** Safe `0x90eF2A9211A3E7CE788561E5af54C76B0Fa3aEd0`
 - **Executor:** `0x845E8c808E22469aAF07ace9Ab7D26C875fBE44F` (clawd-deployer-local)
@@ -16,23 +16,23 @@
 ### Reading Jobs
 ```bash
 # Total jobs
-cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getTotalJobs()(uint256)" --rpc-url $RPC
+cast call 0x89A241Bb53B666108B9e354b355d3C64f97E8E6f "nextJobId()(uint256)" --rpc-url $RPC
 
 # Get job details (V2 has 16 fields: id, client, serviceTypeId, paymentClawd, priceUsd, description, status, createdAt, startedAt, completedAt, resultCID, worker, paymentClaimed, paymentMethod, cvAmount, currentStage)
-cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getJob(uint256)((uint256,address,uint256,uint256,uint256,string,uint8,uint256,uint256,uint256,string,address,bool,uint8,uint256,string))" 1 --rpc-url $RPC
+cast call 0x89A241Bb53B666108B9e354b355d3C64f97E8E6f "getJob(uint256)((uint256,address,uint256,uint256,uint256,string,uint8,uint256,uint256,uint256,string,address,bool,uint8,uint256,string))" 1 --rpc-url $RPC
 
 # Open jobs
-cast call 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "getOpenJobs()(uint256[])" --rpc-url $RPC
+cast call 0x89A241Bb53B666108B9e354b355d3C64f97E8E6f "getOpenJobs()(uint256[])" --rpc-url $RPC
 ```
 
 ### Accepting Jobs (as executor)
 ```bash
-cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "acceptJob(uint256)" <JOB_ID> --account clawd-deployer-local --password "$PASS" --rpc-url $RPC
+cast send 0x89A241Bb53B666108B9e354b355d3C64f97E8E6f "acceptJob(uint256)" <JOB_ID> --account clawd-deployer-local --password "$PASS" --rpc-url $RPC
 ```
 
 ### Completing Jobs (as executor)
 ```bash
-cast send 0xfab998867b16cf0369f78a6ebbe77ea4eace212c "completeJob(uint256,string)" <JOB_ID> "<RESULT_CID>" --account clawd-deployer-local --password "$PASS" --rpc-url $RPC
+cast send 0x89A241Bb53B666108B9e354b355d3C64f97E8E6f "completeJob(uint256,string)" <JOB_ID> "<RESULT_CID>" --account clawd-deployer-local --password "$PASS" --rpc-url $RPC
 ```
 
 ## Service Types (V2 uses dynamic service types, not enum)

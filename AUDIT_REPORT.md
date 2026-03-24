@@ -1,6 +1,6 @@
 # LeftClawServices — Security Audit Report
 
-> **⚠️ V1 Audit:** This report covers `LeftClawServices.sol` (V1) at `0x9a5948B8A91ec38311aF43DfD46D098c091Db6d7`. The contract has been upgraded to `LeftClawServicesV2` at `0xfab998867b16cf0369f78a6ebbe77ea4eace212c`. V2 removes the dispute window, protocol fees, and claim mechanism. Findings below may not apply to V2.
+> **⚠️ V1 Audit:** This report covers `LeftClawServices.sol` (V1) at `0x9a5948B8A91ec38311aF43DfD46D098c091Db6d7`. The contract has been upgraded to `LeftClawServicesV2` at `0x89A241Bb53B666108B9e354b355d3C64f97E8E6f`. V2 removes the dispute window, protocol fees, and claim mechanism. Findings below may not apply to V2.
 
 **Contract:** `LeftClawServices.sol`
 **Repo:** `github.com/clawdbotatg/leftclaw-services`
