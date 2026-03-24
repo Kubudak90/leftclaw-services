@@ -350,14 +350,17 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/json",
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
-      "anthropic-beta": "web-search-2025-03-05",
+      "anthropic-beta": "web-search-2025-03-05, web-fetch-2025-09-10",
     },
     body: JSON.stringify({
       model: "claude-opus-4-6",
       max_tokens: 4096,
       system: systemPrompt,
       stream: true,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
+      tools: [
+        { type: "web_search_20250305", name: "web_search", max_uses: 5 },
+        { type: "web_fetch_20250910", name: "web_fetch", max_uses: 5, citations: { enabled: true } },
+      ],
       messages: isGreeting
         ? [{ role: "user", content: "Hello" }]
         : messages.map((m: { role: string; content: string }) => ({
