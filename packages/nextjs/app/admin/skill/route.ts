@@ -444,14 +444,14 @@ If the client needs a backend service running permanently (a relayer, a bot, a w
 
 | Thing | Who Operates It | Who Owns It |
 |-------|----------------|-------------|
-| Contracts | Client | Client (via `job.client`) |
+| Contracts | Client | Client (via \`job.client\`) |
 | Frontend hosting | Client (Vercel, BGIPFS, etc.) | Client |
 | Domains | Client | Client |
 | API keys / RPC URLs | Client | Client |
 | Backend services | Client | Client |
 | LeftClaw platform | LeftClaw | LeftClaw |
 
-Your job ends at `ready` stage — the client takes it from there. You hand off a working project in a repo. That's it.
+Your job ends at \`ready\` stage — the client takes it from there. You hand off a working project in a repo. That's it.
 
 ---
 
