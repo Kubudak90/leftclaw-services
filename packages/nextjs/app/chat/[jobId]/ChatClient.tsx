@@ -43,7 +43,7 @@ export default function ChatPage() {
   const [routeSuggestion, setRouteSuggestion] = useState<{ type: "AUDIT" | "QA" | "PFP" | "BUILD"; summary: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const MAX_CHARS = 1000;
+  const MAX_CHARS = 3000;
 
   // On-chain job read — skip for CV jobs (they're off-chain)
   const { data: job, isLoading: jobLoading } = useScaffoldReadContract({
