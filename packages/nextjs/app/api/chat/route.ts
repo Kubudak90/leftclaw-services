@@ -238,9 +238,6 @@ Output EXACTLY this — no variations, no extra markers:
 ## Security Notes
 [Key risks specific to this project and mitigations]
 
-## Estimated Scope
-[Estimate in **CLAWD days**. One CLAWD day = one full iteration cycle: LeftClaw ships a prototype → Austin reviews and gives feedback → LeftClaw refines and ships again. This is NOT a calendar day — it's a unit of focused build-and-refine work. Be honest: a simple token dashboard might be 1–2 CLAWD days. A full DEX integration with vesting and multisig might be 5–8 CLAWD days. Err toward realism — under-promising is better than over-promising. Include what's in scope for each phase if helpful.]
-
 ## Recommended Stack
 [SE2, Foundry, which L2, which protocols, BGIPFS/Vercel]
 ---PLAN END---
