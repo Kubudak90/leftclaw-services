@@ -56,6 +56,8 @@ interface UnifiedPaymentFlowProps {
   successMessage?: string;
   /** Additional content below the description */
   children?: React.ReactNode;
+  /** Pre-populate the description textarea (e.g. from a gist URL) */
+  initialDescription?: string;
 }
 
 export function UnifiedPaymentFlow({
@@ -69,6 +71,7 @@ export function UnifiedPaymentFlow({
   onSuccess,
   successMessage,
   children,
+  initialDescription,
 }: UnifiedPaymentFlowProps) {
   const router = useRouter();
   const { address, chainId } = useAccount();
@@ -86,7 +89,7 @@ export function UnifiedPaymentFlow({
 
   const { cvCost } = useCVCost(cvDivisor);
 
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(initialDescription || "");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cv");
   const [step, setStep] = useState<Step>("idle");
   const [txError, setTxError] = useState<string | null>(null);
