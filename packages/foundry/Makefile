@@ -1,6 +1,8 @@
 .PHONY: build deploy generate-abis get-address account chain compile flatten fork format lint test verify
 
 DEPLOY_SCRIPT ?= script/Deploy.s.sol
+DEPLOY_SCRIPT_V2 ?= script/DeployLeftClawServicesV2.s.sol
+VERIFY_SCRIPT_V2 ?= script/VerifyLeftClawServicesV2.s.sol
 
 # setup wallet for anvil
 setup-anvil-wallet:
@@ -55,7 +57,11 @@ lint:
 test:
 	forge test
 
-# Verify contracts
+# Verify contracts (default V1)
 verify:
 	forge script script/VerifyAll.s.sol --ffi --rpc-url $(RPC_URL)
+
+# Verify LeftClawServicesV2 contracts
+verify-v2:
+	forge script $(VERIFY_SCRIPT_V2) --ffi --rpc-url $(RPC_URL)
 
