@@ -398,16 +398,10 @@ export function UnifiedPaymentFlow({
 
         {lockedContent ? (
           <>
-            {/* Locked build plan — immutable, always submitted */}
-            <div className="mb-3">
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wide text-primary">🔒 Build Plan</span>
-                <span className="text-xs opacity-40">(locked — sent with every submission)</span>
-              </div>
-              <pre className="bg-base-200 border border-base-300 rounded-lg px-4 py-3 text-xs overflow-x-auto whitespace-pre-wrap text-base-content font-mono max-h-64 overflow-y-auto">
-                {lockedContent}
-              </pre>
-            </div>
+            {/* Locked build plan — always submitted */}
+            <pre className="bg-base-200 border border-base-300 rounded-lg px-4 py-3 text-xs overflow-x-auto whitespace-pre-wrap text-base-content font-mono max-h-64 overflow-y-auto mb-3">
+              {lockedContent}
+            </pre>
             {/* User notes — editable */}
             <label className="block text-sm font-medium mb-2 opacity-70">Additional Notes</label>
             <textarea
