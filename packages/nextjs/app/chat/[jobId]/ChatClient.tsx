@@ -399,7 +399,7 @@ export default function ChatPage() {
             className="textarea textarea-bordered flex-1 min-w-0 rounded-md resize-none text-base leading-snug py-2 min-h-0"
             placeholder="What do you need help with?"
             autoFocus
-            rows={1}
+            rows={6}
             maxLength={MAX_CHARS}
             value={input}
             onChange={e => setInput(e.target.value)}
