@@ -282,7 +282,7 @@ export default function X402ChatClient() {
               className="textarea textarea-bordered flex-1 min-w-0 rounded-md resize-none text-base"
               placeholder="Describe what you want to build... (Enter to send, Shift+Enter for new line)"
               autoFocus
-              rows={3}
+              rows={6}
               maxLength={MAX_CHARS}
               value={input}
               onChange={e => setInput(e.target.value)}
