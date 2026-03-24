@@ -10,7 +10,6 @@ import { SERVICE_META } from "~~/lib/servicesMeta";
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
 const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
 
-const BUILD_PLAN_HEADER = "=== BUILD PLAN — DO NOT DELETE THIS SECTION ===";
 
 interface ServiceType {
   id: bigint;
@@ -62,7 +61,7 @@ function ServicePageContent({ slug }: { slug: string }) {
           }
         }
         const gistContent = fileContents.length > 0 ? fileContents.join("\n\n") : plainText;
-        setLockedContent(`${BUILD_PLAN_HEADER}\n${gistContent.trim()}`);
+        setLockedContent(gistContent.trim());
       })
       .catch(err => {
         console.error("Failed to fetch gist:", err);
