@@ -42,12 +42,11 @@ function ServicePageContent({ slug }: { slug: string }) {
       .trim();
     setInitialDescription(cleanDesc);
 
-    // Convert gist HTML URL to API URL to get raw content
-    // URL format: https://gist.github.com/{username}/{gist-id}
-    // API format: https://api.github.com/gists/{username}/{gist-id}
-    const pathname = new URL(gistUrl).pathname; // e.g. "/clawdbotatg/b8f333ee5d8df4e46dec5f51340e38ad"
-    const lastTwo = pathname.split("/").filter(Boolean).slice(-2); // ["clawdbotatg", "b8f333ee5d8df4e46dec5f51340e38ad"]
-    const apiUrl = `https://api.github.com/gists/${lastTwo.join("/")}`;
+    // Convert gist HTML URL to GitHub API URL
+    // HTML: https://gist.github.com/{username}/{gist-id}
+    // API:  https://api.github.com/gists/{gist-id}  (no username in API path)
+    const gistId = new URL(gistUrl).pathname.split("/").filter(Boolean).pop() as string;
+    const apiUrl = `https://api.github.com/gists/${gistId}`;
 
     Promise.all([
       fetch(apiUrl, { headers: { Accept: "application/vnd.github.v3+json" } }).then(r => r.json() as Promise<{
