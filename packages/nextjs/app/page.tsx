@@ -28,7 +28,10 @@ const CONSULT_TYPES = new Set([1, 2]);
 const STATUS_LABELS: Record<number, { label: string; badge: string }> = {
   0: { label: "Open", badge: "badge-success" },
   1: { label: "In Progress", badge: "badge-warning" },
+  2: { label: "Completed", badge: "badge-info" },
 };
+
+const TWENTY_FOUR_HOURS = 24 * 60 * 60; // seconds
 
 function ActiveJobCard({ jobId }: { jobId: number }) {
   const { data: job } = useScaffoldReadContract({
@@ -40,25 +43,37 @@ function ActiveJobCard({ jobId }: { jobId: number }) {
   if (!job) return null;
 
   const statusNum = Number(job.status);
-  if (statusNum !== 0 && statusNum !== 1) return null;
 
+  // Show open (0) and in-progress (1) jobs always.
+  // Show completed (2) jobs only if completed within the last 24 hours.
+  if (statusNum === 2) {
+    const completedAt = Number(job.completedAt);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (completedAt === 0 || nowSec - completedAt > TWENTY_FOUR_HOURS) return null;
+  } else if (statusNum !== 0 && statusNum !== 1) {
+    return null;
+  }
+
+  const isCompleted = statusNum === 2;
   const serviceType = Number(job.serviceTypeId);
   const status = STATUS_LABELS[statusNum] || { label: "Unknown", badge: "" };
   const price = formatUnits(job.paymentClawd, 18);
   const isConsult = CONSULT_TYPES.has(serviceType);
   const cvAmount = job.cvAmount ? Number(job.cvAmount) : 0;
   const actionLink = isConsult ? `/chat/${jobId}` : `/jobs/${jobId}`;
-  const actionLabel = isConsult
-    ? (statusNum === 0 ? "Continue Chat →" : "View Chat →")
-    : "View Details →";
+  const actionLabel = isCompleted
+    ? "View Result →"
+    : isConsult
+      ? (statusNum === 0 ? "Continue Chat →" : "View Chat →")
+      : "View Details →";
 
   return (
-    <Link href={actionLink} className="card bg-base-200 hover:bg-base-300 transition-colors cursor-pointer">
+    <Link href={actionLink} className={`card bg-base-200 hover:bg-base-300 transition-colors cursor-pointer${isCompleted ? " opacity-75" : ""}`}>
       <div className="card-body py-4 px-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm opacity-60">#{jobId}</span>
-            <span className="font-semibold">{SERVICE_NAMES[serviceType] || "Unknown"}</span>
+            <span className="font-semibold">{isCompleted ? "✅ " : ""}{SERVICE_NAMES[serviceType] || "Unknown"}</span>
           </div>
           <span className={`badge ${status.badge} badge-sm`}>{status.label}</span>
         </div>
@@ -90,7 +105,7 @@ function MyActiveJobs() {
 
   return (
     <div className="w-full max-w-5xl mb-8">
-      <h2 className="text-2xl font-bold mb-4">📋 My Active Jobs</h2>
+      <h2 className="text-2xl font-bold mb-4">📋 My Jobs</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         {jobIds.map(id => (
           <ActiveJobCard key={id} jobId={id} />
