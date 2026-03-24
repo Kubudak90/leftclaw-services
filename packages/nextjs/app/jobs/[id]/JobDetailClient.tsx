@@ -56,7 +56,7 @@ export default function JobDetailClient() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [logNote, setLogNote] = useState("");
-  const [resultCID, setResultCID] = useState("");
+  const [resultURL, setResultCID] = useState("");
 
   const {
     data: job,
@@ -207,7 +207,7 @@ export default function JobDetailClient() {
   };
 
   const handleComplete = async () => {
-    if (!resultCID.trim()) return;
+    if (!resultURL.trim()) return;
     setActionError(null);
     setPending("completeJob");
     try {
@@ -215,7 +215,7 @@ export default function JobDetailClient() {
         address: CONTRACT_ADDRESS,
         abi: CONTRACT_ABI as any,
         functionName: "completeJob",
-        args: [BigInt(jobId), resultCID.trim()],
+        args: [BigInt(jobId), resultURL.trim()],
       });
       await publicClient?.waitForTransactionReceipt({ hash });
       setResultCID("");
@@ -305,28 +305,28 @@ export default function JobDetailClient() {
               </>
             )}
 
-            {job.resultCID && (
+            {job.resultURL && (
               <>
                 <div className="divider"></div>
                 <div>
                   <span className="text-sm opacity-50">Result</span>
-                  {job.resultCID.startsWith("http") ? (
+                  {job.resultURL.startsWith("http") ? (
                     <a
-                      href={job.resultCID}
+                      href={job.resultURL}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-1 font-mono text-sm text-blue-400 hover:text-blue-300 underline break-all block"
                     >
-                      {job.resultCID}
+                      {job.resultURL}
                     </a>
                   ) : (
                     <a
-                      href={`https://${job.resultCID}.ipfs.community.bgipfs.com/`}
+                      href={`https://${job.resultURL}.ipfs.community.bgipfs.com/`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-1 font-mono text-sm text-blue-400 hover:text-blue-300 underline break-all block"
                     >
-                      {job.resultCID}
+                      {job.resultURL}
                     </a>
                   )}
                 </div>
@@ -400,15 +400,15 @@ export default function JobDetailClient() {
                         <input
                           type="text"
                           className="input input-bordered w-full text-sm"
-                          placeholder="https://{CID}.ipfs.community.bgipfs.com/ — full IPFS URL only, not raw CID"
-                          value={resultCID}
+                          placeholder="https://github.com/... or https://{CID}.ipfs.community.bgipfs.com/ — URL to repo or report only""
+                          value={resultURL}
                           onChange={e => setResultCID(e.target.value)}
                           disabled={!!pending}
                         />
                         <button
                           className="btn btn-success w-full"
                           onClick={handleComplete}
-                          disabled={!!pending || !resultCID.trim()}
+                          disabled={!!pending || !resultURL.trim()}
                         >
                           {pending === "completeJob" ? (
                             <span className="loading loading-spinner loading-sm" />
