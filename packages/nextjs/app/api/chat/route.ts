@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { getSanitization } from "~~/lib/sanitize";
-import { addMessage, getSession, getJobPlanCount, incrementPlanGenerations, incrementJobPlanCount, saveJobMessage } from "~~/lib/sessionStore";
+import { addMessage, getSession, getJobPlanCount, incrementPlanGenerations, incrementJobPlanCount, saveJobMessage, getJobMessages } from "~~/lib/sessionStore";
 import deployedContracts from "~~/contracts/deployedContracts";
 
 const { address: contractAddress, abi } = deployedContracts[8453].LeftClawServicesV2;
@@ -265,8 +265,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Post-completion rate limit: max 2 messages after job is COMPLETED/DECLINED/CANCELLED
-  // Skip rate limiting entirely for consultation sessions (serviceTypeId 1 = Quick Consult, 2 = Deep Consult)
+  // Message limits + rate limiting for job-based chats
+  // Consultations: enforce message limits (Quick=15, Deep=30)
+  // Other jobs: rate limit (3/hr active, 2 total post-completion)
+  let jobMessageLimit = 0;
+  let jobUserMessageCount = 0;
   if (jobId && clientAddress && !sessionId) {
     try {
       const numericJobId = isCvJob ? BigInt(String(jobId).slice(3)) : BigInt(String(jobId));
@@ -277,12 +280,23 @@ export async function POST(req: NextRequest) {
         args: [numericJobId],
       }) as any;
 
-      // Consultations (serviceTypeId 1 or 2) are interactive chat sessions —
-      // rate limiting would break them. Only rate-limit build/other job types.
       const serviceTypeId = Number(job.serviceTypeId);
       const isConsultation = serviceTypeId === 1 || serviceTypeId === 2;
 
-      if (!isConsultation) {
+      if (isConsultation) {
+        // Enforce message limit for consultations
+        jobMessageLimit = serviceTypeId === 1 ? 15 : 30;
+        const existingMessages = await getJobMessages(String(jobId));
+        jobUserMessageCount = existingMessages.filter(m => m.role === "user").length;
+
+        // Allow plan generation even at the limit
+        if (jobUserMessageCount >= jobMessageLimit && !isPlanGeneration) {
+          return new Response(
+            JSON.stringify({ error: "Message limit reached", messagesUsed: jobUserMessageCount, messagesLimit: jobMessageLimit }),
+            { status: 403 },
+          );
+        }
+      } else {
         const rl = checkRateLimit(String(jobId), clientAddress, Number(job.status));
         if (!rl.allowed) {
           if (rl.closed) {
@@ -300,7 +314,7 @@ export async function POST(req: NextRequest) {
         recordMessage(String(jobId), clientAddress, Number(job.status));
       }
     } catch {
-      // Job not on-chain or CV job with no on-chain record — skip post-completion check
+      // Job not on-chain or CV job with no on-chain record — skip checks
     }
   }
 
@@ -478,7 +492,14 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return new Response(stream, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
-  });
+  const responseHeaders: Record<string, string> = { "Content-Type": "text/plain; charset=utf-8" };
+  if (jobMessageLimit > 0) {
+    // +1 because the current message is being sent but not yet saved to Redis
+    const used = jobUserMessageCount + 1;
+    responseHeaders["X-Messages-Used"] = String(used);
+    responseHeaders["X-Messages-Limit"] = String(jobMessageLimit);
+    responseHeaders["X-Messages-Remaining"] = String(Math.max(0, jobMessageLimit - used));
+  }
+
+  return new Response(stream, { headers: responseHeaders });
 }

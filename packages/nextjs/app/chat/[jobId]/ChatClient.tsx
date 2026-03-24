@@ -59,6 +59,17 @@ export default function ChatPage() {
   const isAuthorized = isCvJob || !jobExists || (address && job && job.client.toLowerCase() === address.toLowerCase());
   const totalMessages = messages.length;
 
+  // Message limit tracking for consultations
+  const serviceTypeId = job ? Number(job.serviceTypeId) : 0;
+  const isConsultation = serviceTypeId === 1 || serviceTypeId === 2;
+  const maxMessages = serviceTypeId === 2 ? 30 : 15; // Deep=30, Quick=15 (default)
+  const userMessageCount = messages.filter(m => m.role === "user").length;
+  const [serverMsgUsed, setServerMsgUsed] = useState<number | null>(null);
+  // Use server count when available (more accurate), otherwise client count
+  const displayedUsed = serverMsgUsed ?? userMessageCount;
+  const messagesRemaining = isConsultation ? maxMessages - displayedUsed : null;
+  const isAtLimit = isConsultation && displayedUsed >= maxMessages;
+
   // Load plan generation count from server
   useEffect(() => {
     fetch(`/api/job/plan-count?jobId=${jobId}`)
@@ -100,6 +111,7 @@ export default function ChatPage() {
 
   const sendMessage = useCallback(async (text: string, opts?: { isOpening?: boolean; isPlanGeneration?: boolean }) => {
     if (!text.trim() || isStreaming || chatClosed) return;
+    if (isAtLimit && !opts?.isPlanGeneration) return;
     setError(null);
     const userMsg: Message = { role: "user", content: text.trim() };
     const newMessages = [...messages, userMsg];
@@ -117,7 +129,11 @@ export default function ChatPage() {
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
         const errMsg = errBody.error || `Failed to get response (${res.status})`;
-        if (errMsg.includes("Chat closed")) {
+        if (errMsg.includes("Message limit reached")) {
+          if (errBody.messagesUsed) setServerMsgUsed(errBody.messagesUsed);
+          setError("🚫 Message limit reached — consultation complete");
+          setChatClosed(true);
+        } else if (errMsg.includes("Chat closed")) {
           setChatClosed(true);
           setError(null);
         } else {
@@ -126,6 +142,10 @@ export default function ChatPage() {
         setIsStreaming(false);
         return;
       }
+
+      // Read message count headers
+      const headerUsed = res.headers.get("X-Messages-Used");
+      if (headerUsed) setServerMsgUsed(parseInt(headerUsed, 10));
 
       const reader = res.body?.getReader();
       if (!reader) { setIsStreaming(false); return; }
@@ -167,7 +187,7 @@ export default function ChatPage() {
       setIsStreaming(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [messages, isStreaming, jobId]);
+  }, [messages, isStreaming, jobId, isAtLimit]);
 
   const createGistAndRedirect = async (plan: string) => {
     try {
@@ -302,16 +322,34 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto overflow-x-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-base-300 flex items-center justify-between">
-        <div>
+      <div className="px-4 py-3 border-b border-base-300 flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <h1 className="text-lg font-bold">🦞 LeftClaw Consultation</h1>
-          <p className="text-sm opacity-60">Job #{jobId}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm opacity-60">Job #{jobId}</p>
+            {isConsultation && (
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                isAtLimit
+                  ? "bg-error/20 text-error"
+                  : messagesRemaining !== null && messagesRemaining <= 3
+                    ? "bg-warning/20 text-warning"
+                    : "bg-base-300 text-base-content/70"
+              }`}>
+                {isAtLimit
+                  ? "🚫 Limit reached"
+                  : `💬 ${displayedUsed} / ${maxMessages}`
+                }
+              </span>
+            )}
+          </div>
         </div>
-        {totalMessages >= 4 && !isStreaming && planGenerations < MAX_PLAN_GENERATIONS && (
-          <button className="btn btn-primary btn-sm" onClick={handleGeneratePlan}>
-            📋 Generate Plan{planGenerations > 0 ? ` (${MAX_PLAN_GENERATIONS - planGenerations} left)` : ""}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {totalMessages >= 4 && !isStreaming && planGenerations < MAX_PLAN_GENERATIONS && (
+            <button className="btn btn-primary btn-sm" onClick={handleGeneratePlan}>
+              📋 Generate Plan{planGenerations > 0 ? ` (${MAX_PLAN_GENERATIONS - planGenerations} left)` : ""}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
@@ -397,7 +435,17 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="px-3 sm:px-4 py-2 border-t border-base-300">
-        {chatClosed && (
+        {isAtLimit && (
+          <div className="alert alert-warning mb-2 py-2 text-sm">
+            🚫 Message limit reached ({maxMessages} messages). Generate a plan or open a new consultation.
+          </div>
+        )}
+        {!isAtLimit && isConsultation && messagesRemaining !== null && messagesRemaining <= 3 && messagesRemaining > 0 && (
+          <div className="text-xs text-warning mb-1 px-1">
+            ⚠️ {messagesRemaining} message{messagesRemaining === 1 ? "" : "s"} remaining
+          </div>
+        )}
+        {chatClosed && !isAtLimit && (
           <div className="alert alert-info mb-2 py-2 text-sm">
             💬 Chat closed — job is complete. Open a new job if you need more work.
           </div>
@@ -415,17 +463,17 @@ export default function ChatPage() {
             maxLength={MAX_CHARS}
             value={input}
             onChange={e => setInput(e.target.value)}
-            disabled={isStreaming || chatClosed}
+            disabled={isStreaming || chatClosed || isAtLimit}
             onKeyDown={e => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (input.trim() && !isStreaming && !chatClosed) sendMessage(input);
+                if (input.trim() && !isStreaming && !chatClosed && !isAtLimit) sendMessage(input);
               }
             }}
           />
           <button
             className="btn btn-primary btn-sm sm:btn-md"
-            disabled={isStreaming || !input.trim() || chatClosed}
+            disabled={isStreaming || !input.trim() || chatClosed || isAtLimit}
             onClick={() => sendMessage(input)}
           >
             {isStreaming ? <span className="loading loading-spinner loading-sm" /> : "Send"}
