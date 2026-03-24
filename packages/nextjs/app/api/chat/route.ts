@@ -270,6 +270,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Post-completion rate limit: max 2 messages after job is COMPLETED/DECLINED/CANCELLED
+  // Skip rate limiting entirely for consultation sessions (serviceTypeId 1 = Quick Consult, 2 = Deep Consult)
   if (jobId && clientAddress && !sessionId) {
     try {
       const numericJobId = isCvJob ? BigInt(String(jobId).slice(3)) : BigInt(String(jobId));
@@ -279,21 +280,29 @@ export async function POST(req: NextRequest) {
         functionName: "getJob",
         args: [numericJobId],
       }) as any;
-      const rl = checkRateLimit(String(jobId), clientAddress, Number(job.status));
-      if (!rl.allowed) {
-        if (rl.closed) {
+
+      // Consultations (serviceTypeId 1 or 2) are interactive chat sessions —
+      // rate limiting would break them. Only rate-limit build/other job types.
+      const serviceTypeId = Number(job.serviceTypeId);
+      const isConsultation = serviceTypeId === 1 || serviceTypeId === 2;
+
+      if (!isConsultation) {
+        const rl = checkRateLimit(String(jobId), clientAddress, Number(job.status));
+        if (!rl.allowed) {
+          if (rl.closed) {
+            return new Response(
+              JSON.stringify({ error: "Chat closed — job is complete. Open a new job if you need more work." }),
+              { status: 429 },
+            );
+          }
           return new Response(
-            JSON.stringify({ error: "Chat closed — job is complete. Open a new job if you need more work." }),
+            JSON.stringify({ error: "Rate limit exceeded (3 messages/hour for active jobs)" }),
             { status: 429 },
           );
         }
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded (3 messages/hour for active jobs)" }),
-          { status: 429 },
-        );
+        // Record this message for rate limiting
+        recordMessage(String(jobId), clientAddress, Number(job.status));
       }
-      // Record this message for rate limiting
-      recordMessage(String(jobId), clientAddress, Number(job.status));
     } catch {
       // Job not on-chain or CV job with no on-chain record — skip post-completion check
     }
