@@ -310,7 +310,25 @@ export default function JobDetailClient() {
                 <div className="divider"></div>
                 <div>
                   <span className="text-sm opacity-50">Result</span>
-                  <p className="mt-1 font-mono text-sm break-all">{job.resultCID}</p>
+                  {job.resultCID.startsWith("http") ? (
+                    <a
+                      href={job.resultCID}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 font-mono text-sm text-blue-400 hover:text-blue-300 underline break-all block"
+                    >
+                      {job.resultCID}
+                    </a>
+                  ) : (
+                    <a
+                      href={`https://${job.resultCID}.ipfs.community.bgipfs.com/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 font-mono text-sm text-blue-400 hover:text-blue-300 underline break-all block"
+                    >
+                      {job.resultCID}
+                    </a>
+                  )}
                 </div>
               </>
             )}
@@ -382,7 +400,7 @@ export default function JobDetailClient() {
                         <input
                           type="text"
                           className="input input-bordered w-full text-sm"
-                          placeholder="Result URL, IPFS CID, or GitHub link"
+                          placeholder="https://{CID}.ipfs.community.bgipfs.com/ — full IPFS URL only, not raw CID"
                           value={resultCID}
                           onChange={e => setResultCID(e.target.value)}
                           disabled={!!pending}
