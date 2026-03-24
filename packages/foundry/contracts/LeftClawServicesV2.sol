@@ -152,9 +152,8 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
             _clawdToken
         );
 
-        // Initial workers
-        workers.push(0x845E8c808E22469aAF07ace9Ab7D26C875fBE44F); // deployer/LeftClaw
-        workers.push(0x34aA3F359A9D614239015126635CE7732c18fDF3); // known bot
+        // Workers are added by the owner via addWorker() after deployment.
+        // See DeployLeftClawServicesV2.s.sol for the list of workers to add.
     }
 
     // ─── Service Type Admin ───────────────────────────────────────────────────
@@ -397,6 +396,13 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
 
     function getWorkers() external view returns (address[] memory) {
         return workers;
+    }
+
+    function isWorker(address worker) external view returns (bool) {
+        for (uint i = 0; i < workers.length; i++) {
+            if (workers[i] == worker) return true;
+        }
+        return false;
     }
 
     function getJob(uint256 jobId) external view returns (Job memory) {

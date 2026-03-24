@@ -38,7 +38,7 @@ contract DeployLeftClawServicesV2 is Script {
         seeds[2] = SeedService("PFP Generator",         "pfp",           250_000,         500);
         seeds[3] = SeedService("Contract Audit",       "audit",         200_000_000,     25);
         seeds[4] = SeedService("Frontend QA Audit",    "qa",            50_000_000,      50);
-        seeds[5] = SeedService("Daily Build",          "build",         1_000_000_000,   1);
+        seeds[5] = SeedService("Build",               "build",         1_000_000_000,   1);
         seeds[6] = SeedService("Research Report",     "research",      100_000_000,     13);
         seeds[7] = SeedService("Judge / Oracle",       "judge",         50_000_000,      50);
         return seeds;
