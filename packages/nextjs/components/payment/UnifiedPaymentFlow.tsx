@@ -58,6 +58,8 @@ interface UnifiedPaymentFlowProps {
   children?: React.ReactNode;
   /** Pre-populate the description textarea (e.g. from a gist URL) */
   initialDescription?: string;
+  /** Read-only content locked at the top of the description (e.g. build plan from gist) — always prepended on submit */
+  lockedContent?: string;
 }
 
 export function UnifiedPaymentFlow({
@@ -72,6 +74,7 @@ export function UnifiedPaymentFlow({
   successMessage,
   children,
   initialDescription,
+  lockedContent,
 }: UnifiedPaymentFlowProps) {
   const router = useRouter();
   const { address, chainId } = useAccount();
@@ -191,7 +194,10 @@ export function UnifiedPaymentFlow({
     setSuccessMsg(null);
 
     try {
-      const desc = description.trim() || `${serviceName} session`;
+      const userNotes = description.trim();
+      const desc = lockedContent
+        ? `${lockedContent.trim()}\n\n${userNotes || "(no additional notes)"}`
+        : (userNotes || `${serviceName} session`);
       const svcId = BigInt(serviceTypeId);
 
       if (paymentMethod === "cv") {
@@ -389,13 +395,39 @@ export function UnifiedPaymentFlow({
           {descriptionLabel}{" "}
           {!descriptionRequired && <span className="opacity-50">(optional)</span>}
         </label>
-        <textarea
-          className="textarea textarea-bordered w-full h-24 text-sm"
-          placeholder={descriptionPlaceholder}
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          disabled={busy || step === "done"}
-        />
+
+        {lockedContent ? (
+          <>
+            {/* Locked build plan — immutable, always submitted */}
+            <div className="mb-3">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-primary">🔒 Build Plan</span>
+                <span className="text-xs opacity-40">(locked — sent with every submission)</span>
+              </div>
+              <pre className="bg-base-200 border border-base-300 rounded-lg px-4 py-3 text-xs overflow-x-auto whitespace-pre-wrap text-base-content font-mono max-h-64 overflow-y-auto">
+                {lockedContent}
+              </pre>
+            </div>
+            {/* User notes — editable */}
+            <label className="block text-sm font-medium mb-2 opacity-70">Additional Notes</label>
+            <textarea
+              className="textarea textarea-bordered w-full text-sm"
+              placeholder="Add any clarifications, changes, or new requirements here..."
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              disabled={busy || step === "done"}
+              rows={5}
+            />
+          </>
+        ) : (
+          <textarea
+            className="textarea textarea-bordered w-full h-24 text-sm"
+            placeholder={descriptionPlaceholder}
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            disabled={busy || step === "done"}
+          />
+        )}
       </div>
 
       {children}

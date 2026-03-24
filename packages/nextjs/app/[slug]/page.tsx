@@ -29,6 +29,7 @@ function ServicePageContent({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [notFoundState, setNotFoundState] = useState(false);
   const [initialDescription, setInitialDescription] = useState("");
+  const [lockedContent, setLockedContent] = useState("");
 
   // Fetch gist content if gist param is present
   useEffect(() => {
@@ -40,6 +41,7 @@ function ServicePageContent({ slug }: { slug: string }) {
     const cleanDesc = descParam
       .replace(/^Build\s+plan:\s*https?:\/\/gist\.github\.com\/[^\n]+\n*/i, "")
       .trim();
+    setInitialDescription(cleanDesc);
 
     // Convert gist HTML URL to API URL to get raw content
     const apiUrl = gistUrl
@@ -47,15 +49,12 @@ function ServicePageContent({ slug }: { slug: string }) {
       .replace("http://gist.github.com/", "https://api.github.com/gists/");
 
     Promise.all([
-      // Fetch gist API to get raw file URLs
       fetch(apiUrl, { headers: { Accept: "application/vnd.github.v3+json" } }).then(r => r.json() as Promise<{
         files: Record<string, { raw_url: string; content?: string; filename: string }>;
       }>),
-      // Also fetch the API URL as plain text to use as fallback
       fetch(apiUrl, { headers: { Accept: "application/vnd.github.v3.raw+json" } }).then(r => r.text()).catch(() => ""),
     ])
       .then(([gistData, plainText]) => {
-        // Collect all file contents
         const fileContents: string[] = [];
         for (const [filename, fileData] of Object.entries(gistData.files || {})) {
           if (fileData.content !== undefined) {
@@ -63,12 +62,10 @@ function ServicePageContent({ slug }: { slug: string }) {
           }
         }
         const gistContent = fileContents.length > 0 ? fileContents.join("\n\n") : plainText;
-        const prefix = `${BUILD_PLAN_HEADER}\n${gistContent.trim()}\n\n=== ADDITIONAL NOTES (feel free to edit below) ===\n\n`;
-        setInitialDescription(prefix + cleanDesc);
+        setLockedContent(`${BUILD_PLAN_HEADER}\n${gistContent.trim()}`);
       })
       .catch(err => {
         console.error("Failed to fetch gist:", err);
-        setInitialDescription(cleanDesc);
       });
   }, [searchParams]);
 
@@ -150,6 +147,7 @@ function ServicePageContent({ slug }: { slug: string }) {
           descriptionPlaceholder={meta.descriptionPlaceholder}
           descriptionRequired={true}
           initialDescription={initialDescription}
+          lockedContent={lockedContent}
           onSuccess={jobId => `/jobs/${jobId}`}
         />
       </div>
