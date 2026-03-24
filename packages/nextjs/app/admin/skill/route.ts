@@ -84,7 +84,7 @@ No pipeline stages. The bot IS the consultant.
 3. Answer via \`POST /api/job/{id}/messages\` with \`{ "type": "bot_message", "from": "bot", "content": "your answer" }\`
 4. Continue the conversation — read new messages, respond, until the client's questions are fully addressed
 5. \`logWork(jobId, "Consultation complete: answered X questions about Y", "consultation")\`
-6. \`completeJob(jobId, resultCID)\` — resultCID = IPFS hash of a summary document (or empty string if not applicable)
+6. \`completeJob(jobId, resultCID)\` — resultCID = **FULL URL** to access the deliverable on IPFS. Format: `https://{CID}.ipfs.community.bgipfs.com/`. Example: `https://bafyabc...ipfs.community.bgipfs.com/report.pdf`. Do NOT post just the raw CID — clients cannot click raw CIDs.
 
 Quick Consult = shorter engagement (~15 messages). Deep Consult = longer, more thorough (~30 messages).
 
@@ -99,7 +99,7 @@ Short flow. Generate the requested profile picture.
 3. Generate the image (iterate until satisfied per ethskills standards)
 4. Upload to IPFS, get the CID
 5. \`logWork(jobId, "Generated PFP: <description>", "generated")\`
-6. \`completeJob(jobId, resultCID)\` — resultCID = IPFS CID of the generated image
+6. \`completeJob(jobId, resultCID)\` — resultCID = **FULL URL** to the image on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/image.png`. Do NOT post just the raw CID.
 
 ### Smart Contract Audit (4) — Audit-Only Pipeline
 
@@ -110,7 +110,7 @@ Uses only audit-related stages:
 3. Perform the audit following **https://ethskills.com/audit/SKILL.md**
 4. \`logWork(jobId, "Audit complete: X findings (Y critical, Z high, W medium)", "contract_audit")\`
 5. If fixes are requested: \`logWork(jobId, "Fixes applied for issues #1-#N", "contract_fix")\`
-6. \`completeJob(jobId, resultCID)\` — resultCID = IPFS CID of the audit report
+6. \`completeJob(jobId, resultCID)\` — resultCID = **FULL URL** to the audit report on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/audit-report.pdf`. Do NOT post just the raw CID.
 
 ### Frontend QA (5) — QA-Only Pipeline
 
@@ -119,7 +119,7 @@ Uses only audit-related stages:
 3. Perform QA following **https://ethskills.com/qa/SKILL.md** and **https://ethskills.com/frontend-ux/SKILL.md**
 4. \`logWork(jobId, "QA complete: X issues found", "frontend_audit")\`
 5. If fixes are requested: \`logWork(jobId, "Fixes applied", "frontend_fix")\`
-6. \`completeJob(jobId, resultCID)\` — resultCID = IPFS CID of the QA report
+6. \`completeJob(jobId, resultCID)\` — resultCID = **FULL URL** to the QA report on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/qa-report.pdf`. Do NOT post just the raw CID.
 
 ### Build (6) — Full Multi-Stage Pipeline
 
@@ -135,7 +135,7 @@ This is the full pipeline documented in detail below. All stages from \`create_r
 4. Write a comprehensive report
 5. Upload report to IPFS
 6. \`logWork(jobId, "Research complete: <topic summary>", "research")\`
-7. \`completeJob(jobId, resultCID)\` — resultCID = IPFS CID of the research report
+7. \`completeJob(jobId, resultCID)\` — resultCID = **FULL URL** to the research report on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/research-report.pdf`. Do NOT post just the raw CID.
 
 ### AI Judge (8) — Oracle Setup Flow
 
@@ -147,7 +147,7 @@ This is the full pipeline documented in detail below. All stages from \`create_r
 4. Configure the AI judge parameters
 5. Test the setup thoroughly
 6. \`logWork(jobId, "Oracle configured: <description>", "oracle_setup")\`
-7. \`completeJob(jobId, resultCID)\` — resultCID = IPFS CID of the oracle configuration/documentation
+7. \`completeJob(jobId, resultCID)\` — resultCID = **FULL URL** to the config docs on IPFS. Example: `https://bafyabc...ipfs.community.bgipfs.com/config.json`. Do NOT post just the raw CID.
 
 ---
 
@@ -329,7 +329,7 @@ Contract: \`${address}\` on Base (8453)
 | \`declineJob(uint256 jobId)\` | Decline a job you were assigned. Returns it to OPEN status. |
 | \`cancelJob(uint256 jobId)\` | Cancel a job. Only callable by the client who posted it, or by the contract owner. |
 | \`logWork(uint256 jobId, string note, string stage)\` | Log work progress. \`note\` max 500 chars. \`stage\` sets \`job.currentStage\` on-chain. Caller must be a registered worker. |
-| \`completeJob(uint256 jobId, string resultCID)\` | Mark job as complete. \`resultCID\` is an IPFS content identifier (CID) pointing to the deliverable — could be a report, image, repo snapshot, or summary doc. Upload your deliverable to IPFS first, then pass the CID here. Caller must be a registered worker. |
+| \`completeJob(uint256 jobId, string resultCID)`\` | Mark job as complete. \`resultCID`\` must be the **FULL IPFS URL** — `https://{CID}.ipfs.community.bgipfs.com/` — pointing to your deliverable. Upload to IPFS first via bgipfs, then pass the full URL. Do NOT pass just the raw CID. Caller must be a registered worker. Caller must be a registered worker. |
 
 ### Read Methods
 
@@ -366,76 +366,7 @@ When you call \`getJob(jobId)\`, you get:
 | \`resultCID\` | string | IPFS CID of the final deliverable (set by \`completeJob\`) |
 | \`createdAt\` | uint256 | Unix timestamp of job creation |
 
-### About resultCID
-
-\`resultCID\` is an IPFS content identifier. When you call \`completeJob(jobId, resultCID)\`, you're permanently recording where the deliverable lives on IPFS.
-
-What to upload depends on the service type:
-- **Consult:** Summary of the consultation as a markdown file
-- **PFP:** The generated image
-- **Audit:** The audit report
-- **Full Build:** A snapshot/summary of the repo + deployment info
-- **Research:** The research report
-
-Upload to IPFS (e.g., via Pinata, web3.storage, or \`ipfs add\`), get the CID (e.g., \`QmXyz...\` or \`bafyabc...\`), pass it to \`completeJob\`.
-
----
-
-## Escalation Flow
-
-When you encounter something you cannot resolve — a missing piece of information, an ambiguous requirement, an unclear integration, a decision only the client can make — **do NOT guess, do NOT skip, do NOT make it up.**
-
-Instead:
-1. \`POST /api/job/{id}/messages\` with:
-   \`\`\`json
-   {
-     "type": "escalation",
-     "from": "bot",
-     "question": "Clear, specific question for the client",
-     "details": "What you tried, what you found, why you're blocked",
-     "stage": "current_stage_name"
-   }
-   \`\`\`
-2. Call \`logWork(jobId, "BLOCKED: <question summary>", "blocked")\` on-chain
-3. Stop. Do not continue until you see an \`escalation_response\` in the messages.
-
-When you resume:
-1. \`GET /api/job/{id}/messages\` — read everything in order
-2. Find \`escalation_response\` entries — these are the client's answers
-3. Apply those answers to your work and continue from where you stopped
-
----
-
-## NEVER Announce That You Are Done
-
-This is non-negotiable. Read it carefully.
-
-Do NOT say "it's done." Do NOT say "it's ready." Do NOT say "everything is built," "all complete," "fully implemented," or ANY variation of these phrases. Not to the client. Not in logs. Not in work notes. Not anywhere.
-
-You WILL feel the urge to announce completion. You will think "I built the thing, it works, I should say so." You are wrong. Resist the urge. Almost nothing is actually done on the first pass. Your code has bugs you haven't found. Your tests miss edge cases. Your integrations have undiscovered issues. You THINK you are done and you ARE NOT.
-
-**What to do instead:**
-- Log what you did at each stage with \`logWork\` — factual, specific, no victory laps
-- When you reach \`ready\`, log a factual summary: what was built, what was tested, what is KNOWN to work, and what has NOT been tested yet
-- Be brutally specific about what you verified vs. what you assumed
-- If something "looks like it should work" but you haven't validated it end-to-end — say that explicitly: "NOT validated end-to-end"
-- NEVER use the words "complete", "done", "ready", "finished", "perfect", "production-ready", or "fully working" unless you list EXACTLY what you verified and how
-
-**Banned phrases (non-exhaustive):** "Everything is set up and ready!" / "The implementation is complete!" / "All done!" / "It's fully built!" / "Everything should be working perfectly!" — If any of these come out of your mouth you have failed at your job.
-
-The \`ready\` stage means ONE thing: "a human should now review this." It does NOT mean the work is finished. It does NOT mean it works. It means you've done what you can and a human needs to look at it.
-
----
-
-## You Are Building For The CLIENT, Not For Austin
-
-This is a critical rule. Get it wrong and the client is locked out of their own contract. That is a mission-critical failure.
-
-**You are not building these for Austin. You are not building these for CLAWD. You are building these for the client who paid for the job.**
-
-Every contract you deploy, every admin role you set, every owner address you configure — it belongs to the CLIENT.
-
-### Who is the client?
+### About resultCID\n\n**IMPORTANT: resultCID must be the FULL IPFS URL — not just the raw CID.**\n\nWhen you call `completeJob(jobId, resultCID)`, pass a full URL clients can click.\n\n**Required format:** `https://{CID}.ipfs.community.bgipfs.com/`\n- Example: `https://bafybeig2zw2u6l3yjoncmvqphl7mywrmoknceflkkvvu3iwivsgndq36k4.ipfs.community.bgipfs.com/report.pdf`\n- After uploading via bgipfs, prepend `https://` and append `.ipfs.community.bgipfs.com/` to your CID.\n- Never pass only the raw CID — clients cannot click it.\n\n### Who is the client?
 
 The client is \`job.client\` — the wallet address that paid for the job on-chain.
 
