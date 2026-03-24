@@ -72,9 +72,9 @@ export const SERVICE_META: Record<string, ServiceMeta> = {
   },
   build: {
     emoji: "⚒️",
-    tagline: "Full-day dedicated build session. LeftClaw builds exactly what you need.",
+    tagline: "Dedicated build session. LeftClaw builds and ships your plan.",
     bullets: [
-      "A full work day of focused building from LeftClaw",
+      "Focused build session — LeftClaw ships your plan",
       "Smart contracts, frontends, integrations, migrations",
       "Direct chat during the build for feedback and adjustments",
       "All work tracked on-chain with escrow protection",

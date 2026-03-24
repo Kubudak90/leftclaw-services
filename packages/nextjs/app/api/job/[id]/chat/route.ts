@@ -72,7 +72,7 @@ const SERVICE_TYPE_NAMES: Record<number, string> = {
   0: "CV-Based Consult (answer questions about crypto/web3/ETH)",
   1: "AI Code Review (automated code review via bot)",
   2: "CV-Based Build (custom dev work paid in CLAWD tokens)",
-  3: "Daily Build (recurring build subscription)",
+  3: "Build",
   4: "PFP Generation",
 };
 

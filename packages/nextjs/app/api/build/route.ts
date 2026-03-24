@@ -13,7 +13,7 @@ const handler = async (req: NextRequest): Promise<NextResponse> => {
 
     if (!description || typeof description !== "string" || description.trim().length < 20) {
       return NextResponse.json(
-        { error: "Description required (min 20 chars) — be specific about what to build. This is a full day of work." },
+        { error: "Description required (min 20 chars) — be specific about what to build." },
         { status: 400 },
       );
     }
@@ -47,11 +47,11 @@ export const POST = withX402Dynamic(
       network: BASE_NETWORK,
       payTo: PAYMENT_ADDRESS,
     },
-    description: "Full Day Build — A dedicated day of building whatever you need",
+    description: "Build — A dedicated build session. LeftClaw builds and ships your plan.",
     extensions: {
       ...declareDiscoveryExtension({
         input: {
-          description: "What to build (be specific — this is a full day of work)",
+          description: "What to build (be specific)",
           context: "optional context",
         },
         inputSchema: {

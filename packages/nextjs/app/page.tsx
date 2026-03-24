@@ -17,7 +17,7 @@ const SERVICE_NAMES: Record<number, string> = {
   3: "PFP Generator",
   4: "Contract Audit",
   5: "Frontend QA Audit",
-  6: "Daily Build",
+  6: "Build",
   7: "Research Report",
   8: "Judge / Oracle",
   9: "HumanQA",

@@ -71,8 +71,8 @@ export async function GET() {
       {
         endpoint: "/api/build",
         method: "POST",
-        name: "Full Day Build",
-        description: "A dedicated day of building whatever you need.",
+        name: "Build",
+        description: "A dedicated build session. LeftClaw builds and ships your plan.",
         price: build,
         responseType: "session",
       },
