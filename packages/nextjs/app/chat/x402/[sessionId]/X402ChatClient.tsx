@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 interface Message {
   role: "user" | "assistant";
@@ -15,6 +15,7 @@ interface SessionInfo {
   description: string;
   status: string;
   maxMessages: number;
+  planGenerations: number;
   expiresAt: string;
   messages: Message[];
 }
@@ -26,8 +27,11 @@ const SERVICE_LABELS: Record<string, string> = {
   AUDIT: "Smart Contract Audit",
 };
 
+const MAX_PLAN_GENERATIONS = 3;
+
 export default function X402ChatClient() {
   const params = useParams();
+  const router = useRouter();
   const sessionId = params.sessionId as string;
 
   const [session, setSession] = useState<SessionInfo | null>(null);
@@ -37,6 +41,11 @@ export default function X402ChatClient() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [planGenerations, setPlanGenerations] = useState(0);
+  const [planGistUrl, setPlanGistUrl] = useState<string | null>(null);
+  const [planDescription, setPlanDescription] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [routeSuggestion, setRouteSuggestion] = useState<{ type: "AUDIT" | "QA" | "PFP" | "BUILD"; summary: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const autoSentRef = useRef(false);
@@ -54,6 +63,7 @@ export default function X402ChatClient() {
         const data: SessionInfo = await res.json();
         setSession(data);
         setMessages(data.messages || []);
+        setPlanGenerations(data.planGenerations || 0);
       } catch {
         setError("Failed to load session");
       } finally {
@@ -68,8 +78,29 @@ export default function X402ChatClient() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const createGistFromPlan = async (plan: string) => {
+    try {
+      const res = await fetch("/api/gist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, sessionId }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        const desc = `Build plan: ${data.url}\n\nSee consultation plan for full scope and requirements.`;
+        setPlanGistUrl(data.url);
+        setPlanDescription(desc);
+      } else {
+        setChatError("Failed to save plan: " + (data.error || "unknown error"));
+      }
+    } catch (e) {
+      console.error("Gist creation failed:", e);
+      setChatError("Failed to save plan — please try again");
+    }
+  };
+
   const sendMessage = useCallback(
-    async (text: string, opts?: { isOpening?: boolean }) => {
+    async (text: string, opts?: { isOpening?: boolean; isPlanGeneration?: boolean }) => {
       if (!text.trim() || isStreaming || !session) return;
       if (session.status !== "active") return;
 
@@ -94,11 +125,13 @@ export default function X402ChatClient() {
             messages: newMessages,
             sessionId,
             isOpening: opts?.isOpening,
+            isPlanGeneration: opts?.isPlanGeneration || false,
           }),
         });
 
         if (!res.ok) {
-          setChatError("Failed to get response");
+          const errBody = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
+          setChatError(errBody.error || "Failed to get response");
           setIsStreaming(false);
           return;
         }
@@ -123,6 +156,21 @@ export default function X402ChatClient() {
             copy[copy.length - 1] = { role: "assistant", content: snap };
             return copy;
           });
+        }
+
+        // Check for plan markers — create gist and track count
+        if (assistantContent.includes("---PLAN START---") && assistantContent.includes("---PLAN END---")) {
+          const planMatch = assistantContent.match(/---PLAN START---([\s\S]*?)---PLAN END---/);
+          if (planMatch) {
+            setPlanGenerations(prev => prev + 1);
+            await createGistFromPlan(planMatch[1].trim());
+          }
+        }
+
+        // Check for route markers
+        const routeMatch = assistantContent.match(/---ROUTE:\s*(AUDIT|QA|PFP|BUILD)---\s*([\s\S]*?)---ROUTE END---/);
+        if (routeMatch) {
+          setRouteSuggestion({ type: routeMatch[1] as "AUDIT" | "QA" | "PFP" | "BUILD", summary: routeMatch[2].trim() });
         }
       } catch {
         setChatError("Network error");
@@ -175,6 +223,13 @@ export default function X402ChatClient() {
     }
   }, [isStreaming, session, sessionId]);
 
+  const handleGeneratePlan = () => {
+    sendMessage("Please finalize the build plan based on our discussion.", { isPlanGeneration: true });
+  };
+
+  const isConsultation = session?.serviceType === "CONSULT_QUICK" || session?.serviceType === "CONSULT_DEEP";
+  const showPlanButton = isConsultation && messages.length >= 4 && !isStreaming && planGenerations < MAX_PLAN_GENERATIONS && !planGistUrl;
+
   // Auto-start conversation
   useEffect(() => {
     if (!session || loading || messages.length > 0 || autoSentRef.current) return;
@@ -224,7 +279,14 @@ export default function X402ChatClient() {
             x402 Session • {userMsgCount}/{session.maxMessages} messages • {isExpired ? "Expired" : `${minsLeft}m left`}
           </p>
         </div>
-        <div className="badge badge-primary badge-outline">x402</div>
+        <div className="flex items-center gap-2">
+          {showPlanButton && (
+            <button className="btn btn-primary btn-sm" onClick={handleGeneratePlan}>
+              📋 Generate Plan{planGenerations > 0 ? ` (${MAX_PLAN_GENERATIONS - planGenerations} left)` : ""}
+            </button>
+          )}
+          <div className="badge badge-primary badge-outline">x402</div>
+        </div>
       </div>
 
       {/* Messages */}
@@ -266,6 +328,54 @@ export default function X402ChatClient() {
         <div ref={bottomRef} />
        </div>
       </div>
+
+      {/* Route suggestion buttons */}
+      {routeSuggestion && routeSuggestion.type !== "BUILD" && (
+        <div className="px-3 sm:px-4 py-3 border-t border-base-300 flex gap-2">
+          <button
+            className="btn btn-ghost btn-sm flex-1"
+            onClick={() => setRouteSuggestion(null)}
+          >
+            💬 Continue chatting
+          </button>
+          <button
+            className="btn btn-primary btn-sm flex-1"
+            onClick={() => {
+              if (routeSuggestion.type === "AUDIT") router.push("/post?type=7");
+              else if (routeSuggestion.type === "QA") router.push("/post?type=6");
+              else if (routeSuggestion.type === "PFP") router.push("/pfp");
+            }}
+          >
+            {routeSuggestion.type === "AUDIT" && "🛡️ Go to Audit Service →"}
+            {routeSuggestion.type === "QA" && "🔍 Go to QA Service →"}
+            {routeSuggestion.type === "PFP" && "🦞 Generate My PFP →"}
+          </button>
+        </div>
+      )}
+
+      {/* Plan buttons */}
+      {planGistUrl && (
+        <div className="px-3 sm:px-4 py-3 border-t border-base-300 flex gap-2">
+          <button
+            className="btn btn-outline btn-sm flex-1"
+            onClick={() => {
+              if (planGistUrl) {
+                navigator.clipboard.writeText(planGistUrl);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }
+            }}
+          >
+            {copied ? "✓ Copied!" : "🔗 Copy Plan Link"}
+          </button>
+          <button
+            className="btn btn-primary btn-sm flex-1"
+            onClick={() => router.push(`/build?gist=${encodeURIComponent(planGistUrl)}&description=${encodeURIComponent(planDescription || "")}`)}
+          >
+            🚀 Start Build Job
+          </button>
+        </div>
+      )}
 
       {/* Input */}
       <div className="px-4 py-3 border-t border-base-300">

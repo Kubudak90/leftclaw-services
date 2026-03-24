@@ -15,6 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sess
     description: session.description,
     status: session.status,
     maxMessages: session.maxMessages,
+    planGenerations: session.planGenerations || 0,
     expiresAt: session.expiresAt,
     messages: session.messages,
   });

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { getSanitization } from "~~/lib/sanitize";
-import { addMessage, getSession, saveJobMessage } from "~~/lib/sessionStore";
+import { addMessage, getSession, getJobPlanCount, incrementPlanGenerations, incrementJobPlanCount, saveJobMessage } from "~~/lib/sessionStore";
 import deployedContracts from "~~/contracts/deployedContracts";
 
 const { address: contractAddress, abi } = deployedContracts[8453].LeftClawServicesV2;
@@ -245,7 +245,7 @@ Output EXACTLY this — no variations, no extra markers:
 **IMPORTANT:** Do NOT give estimated scope, time, or "CLAWD days." Only map out the build. Pay close attention to details. Do not give time estimates or iteration cycles.`;
 
 export async function POST(req: NextRequest) {
-  const { messages, isOpening, isGreeting, sessionId, jobId, clientAddress } = await req.json();
+  const { messages, isOpening, isGreeting, sessionId, jobId, clientAddress, isPlanGeneration } = await req.json();
 
   if (!messages || !Array.isArray(messages)) {
     return new Response(JSON.stringify({ error: "messages required" }), { status: 400 });
@@ -305,6 +305,7 @@ export async function POST(req: NextRequest) {
   }
 
   // x402 session validation
+  let sessionPlanGenerations = 0;
   if (sessionId) {
     const session = await getSession(sessionId);
     if (!session) {
@@ -321,10 +322,31 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ error: "Message limit reached" }), { status: 403 });
     }
 
+    // Plan generation limit: max 3 per session
+    sessionPlanGenerations = session.planGenerations || 0;
+    if (isPlanGeneration && sessionPlanGenerations >= 3) {
+      return new Response(
+        JSON.stringify({ error: "Plan generation limit reached (3 max per session)" }),
+        { status: 403 },
+      );
+    }
+
     // Save user message to KV
     const lastUserMsg = messages[messages.length - 1];
     if (lastUserMsg?.role === "user" && lastUserMsg.content !== "__GREET__") {
       await addMessage(sessionId, { role: "user", content: lastUserMsg.content });
+    }
+  }
+
+  // Plan generation limit for on-chain/CV jobs (non-x402)
+  let jobPlanCount = 0;
+  if (jobId && !sessionId && isPlanGeneration) {
+    jobPlanCount = await getJobPlanCount(String(jobId));
+    if (jobPlanCount >= 3) {
+      return new Response(
+        JSON.stringify({ error: "Plan generation limit reached (3 max per session)" }),
+        { status: 403 },
+      );
     }
   }
 
@@ -343,6 +365,13 @@ export async function POST(req: NextRequest) {
 
   // Build system prompt with context-specific instructions
   let systemPrompt = SYSTEM_PROMPT;
+
+  // Add plan generation limit context
+  const currentPlanCount = sessionId ? sessionPlanGenerations : (jobId ? jobPlanCount : 0);
+  if (currentPlanCount > 0) {
+    systemPrompt += `\n\n[PLAN LIMIT: This session has generated ${currentPlanCount}/3 build plans.${currentPlanCount >= 3 ? " The plan generation limit has been reached. Do NOT generate any more build plans. If the user asks for another plan, politely tell them they've used all 3 plan generations for this session and suggest they open a new consultation if they need a fresh plan." : ""}]`;
+  }
+
   if (isGreeting) {
     systemPrompt += "\n\n[INSTRUCTION: The user just arrived at the consultation. Give a short, punchy opening — 2 sentences max. Tell them you're LeftClaw, and ask what they need help with today. Mention you can help with builds, smart contract audits, QA reports, or PFP generation. Be direct and real, not corporate. No generic cheerfulness.]";
   } else if (isOpening) {
@@ -435,6 +464,14 @@ export async function POST(req: NextRequest) {
         // Save assistant response for job chats
         if (jobId && !capturedSessionId && fullResponse) {
           saveJobMessage(String(jobId), { role: "assistant", content: fullResponse }).catch(console.error);
+        }
+        // Increment plan generation count if a plan was generated
+        if (isPlanGeneration && fullResponse.includes("---PLAN START---") && fullResponse.includes("---PLAN END---")) {
+          if (capturedSessionId) {
+            incrementPlanGenerations(capturedSessionId).catch(console.error);
+          } else if (jobId) {
+            incrementJobPlanCount(String(jobId)).catch(console.error);
+          }
         }
         controller.close();
       }

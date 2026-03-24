@@ -41,6 +41,8 @@ export default function ChatPage() {
   const [planDescription, setPlanDescription] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [routeSuggestion, setRouteSuggestion] = useState<{ type: "AUDIT" | "QA" | "PFP" | "BUILD"; summary: string } | null>(null);
+  const [planGenerations, setPlanGenerations] = useState(0);
+  const MAX_PLAN_GENERATIONS = 3;
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const MAX_CHARS = 3000;
@@ -56,6 +58,15 @@ export default function ChatPage() {
   const jobExists = isCvJob || (job && job.id > 0n);
   const isAuthorized = isCvJob || !jobExists || (address && job && job.client.toLowerCase() === address.toLowerCase());
   const totalMessages = messages.length;
+
+  // Load plan generation count from server
+  useEffect(() => {
+    fetch(`/api/job/plan-count?jobId=${jobId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.planGenerations) setPlanGenerations(data.planGenerations); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
 
   // Sanitization gate — CV jobs auto-pass (set at payment time)
   const [sanitized, setSanitized] = useState<boolean | null>(isCvJob ? true : null);
@@ -87,7 +98,7 @@ export default function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  const sendMessage = useCallback(async (text: string, opts?: { isOpening?: boolean }) => {
+  const sendMessage = useCallback(async (text: string, opts?: { isOpening?: boolean; isPlanGeneration?: boolean }) => {
     if (!text.trim() || isStreaming || chatClosed) return;
     setError(null);
     const userMsg: Message = { role: "user", content: text.trim() };
@@ -100,7 +111,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, jobId, isOpening: opts?.isOpening, clientAddress: address }),
+        body: JSON.stringify({ messages: newMessages, jobId, isOpening: opts?.isOpening, isPlanGeneration: opts?.isPlanGeneration || false, clientAddress: address }),
       });
 
       if (!res.ok) {
@@ -139,6 +150,7 @@ export default function ChatPage() {
       if (assistantContent.includes("---PLAN START---") && assistantContent.includes("---PLAN END---")) {
         const planMatch = assistantContent.match(/---PLAN START---([\s\S]*?)---PLAN END---/);
         if (planMatch) {
+          setPlanGenerations(prev => prev + 1);
           await createGistAndRedirect(planMatch[1].trim());
         }
       }
@@ -237,7 +249,7 @@ export default function ChatPage() {
   }, [storageLoaded, jobLoading, jobExists, sanitized]);
 
   const handleGeneratePlan = () => {
-    sendMessage("Please finalize the build plan based on our discussion.");
+    sendMessage("Please finalize the build plan based on our discussion.", { isPlanGeneration: true });
   };
 
   if (!isCvJob && jobLoading) {
@@ -295,9 +307,9 @@ export default function ChatPage() {
           <h1 className="text-lg font-bold">🦞 LeftClaw Consultation</h1>
           <p className="text-sm opacity-60">Job #{jobId}</p>
         </div>
-        {totalMessages >= 4 && !isStreaming && (
+        {totalMessages >= 4 && !isStreaming && planGenerations < MAX_PLAN_GENERATIONS && (
           <button className="btn btn-primary btn-sm" onClick={handleGeneratePlan}>
-            📋 Generate Plan
+            📋 Generate Plan{planGenerations > 0 ? ` (${MAX_PLAN_GENERATIONS - planGenerations} left)` : ""}
           </button>
         )}
       </div>

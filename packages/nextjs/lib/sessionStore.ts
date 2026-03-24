@@ -16,6 +16,7 @@ export interface X402Session {
   payerAddress?: string;
   messages: ChatMessage[];
   maxMessages: number;
+  planGenerations: number;
   createdAt: string;
   expiresAt: string;
 }
@@ -59,6 +60,7 @@ export async function createSession(params: {
     payerAddress: params.payerAddress,
     messages: [],
     maxMessages: limits.maxMessages,
+    planGenerations: 0,
     createdAt: now.toISOString(),
     expiresAt: expiresAt.toISOString(),
   };
@@ -136,6 +138,48 @@ export async function getJobMessages(jobId: string): Promise<ChatMessage[]> {
   } catch {
     return [];
   }
+}
+
+export async function incrementPlanGenerations(id: string): Promise<number> {
+  const session = await getSession(id);
+  if (!session) return 0;
+
+  // Backfill for old sessions that don't have planGenerations
+  session.planGenerations = (session.planGenerations || 0) + 1;
+
+  const kv = getKV();
+  if (kv) {
+    const ttlMs = new Date(session.expiresAt).getTime() - Date.now();
+    const ttlSec = Math.max(Math.floor(ttlMs / 1000), 60);
+    await kv.set(kvKey(id), JSON.stringify(session), { ex: ttlSec });
+  } else {
+    memStore.set(id, session);
+  }
+
+  return session.planGenerations;
+}
+
+// --- Job-level plan count tracking (on-chain + CV jobs) ---
+const JOB_PLAN_COUNT_TTL = 30 * 24 * 60 * 60; // 30 days
+
+function jobPlanCountKey(jobId: string): string {
+  return `jobPlanCount:${jobId}`;
+}
+
+export async function getJobPlanCount(jobId: string): Promise<number> {
+  const kv = getKV();
+  if (!kv) return 0;
+  const count = await kv.get<string>(jobPlanCountKey(jobId));
+  return count ? parseInt(String(count), 10) || 0 : 0;
+}
+
+export async function incrementJobPlanCount(jobId: string): Promise<number> {
+  const kv = getKV();
+  if (!kv) return 0;
+  const current = await getJobPlanCount(jobId);
+  const newCount = current + 1;
+  await kv.set(jobPlanCountKey(jobId), String(newCount), { ex: JOB_PLAN_COUNT_TTL });
+  return newCount;
 }
 
 export async function updateSession(id: string, updates: Partial<X402Session>): Promise<X402Session | null> {
