@@ -413,7 +413,7 @@ When you accept a job, you are building something for the **CLIENT** — the per
 
 Everything the client needs to deploy and run their project goes in the repo:
 - README.md with deployment steps
-- Environment variable templates (`.env.example`) — NO real values
+- Environment variable templates (\`.env.example\`) — NO real values
 - Deployment scripts or CI configs
 - Any hosting instructions (Vercel, BGIPFS, Railway, etc.)
 
@@ -426,7 +426,7 @@ If the client needs a backend service running permanently (a relayer, a bot, a w
 
 **This is a hard line. No exceptions.**
 
-- Do NOT put private keys in `.env` files
+- Do NOT put private keys in \`.env\` files
 - Do NOT put private keys in environment variables
 - Do NOT put API keys, secrets, or credentials in code
 - Do NOT put deployer mnemonics in any file — even "temporarily"
@@ -435,7 +435,7 @@ If the client needs a backend service running permanently (a relayer, a bot, a w
 
 **How to handle deployments for the client:**
 - Use a deployer account that belongs to the CLIENT, not you
-- If the client doesn't have a deployer, include `.env.example` with placeholder values and clear instructions: "Replace these with your own keys"
+- If the client doesn't have a deployer, include \`.env.example\` with placeholder values and clear instructions: "Replace these with your own keys"
 - The README must include: "Do not commit real private keys. Never share your mnemonic or private key."
 
 **If you accidentally commit a secret — tell Austin immediately.**
