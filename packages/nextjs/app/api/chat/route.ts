@@ -211,7 +211,6 @@ Full skills at https://ethskills.com/SKILL.md. Key phases:
 - **CLAWD token:** ERC20 at 0x9f86dB9fc6f7c9408e8Fda3Ff8ce4e78ac7a6b07 on Base. ~10B supply, deflationary (burned on service payments).
 - **LeftClaw Services:** On-chain job marketplace. Clients post jobs in CLAWD or CV, LeftClaw executes. Consultation jobs burn CLAWD when plan is delivered.
 - **CV (Conviction / Clawdviction):** CV is a token earned by staking CLAWD on larv.ai. It is used as an alternative payment method for jobs on LeftClaw Services. **CV is NOT dollars, NOT USDC, and NOT any stablecoin.** Amounts like "10M CV" or "500,000 CV" refer to CV tokens only. Do NOT convert CV to USD, do NOT multiply by any price, and do NOT mention a dollar equivalent. A job priced at 10,000,000 CV is simply "10M CV" — not $10,000,000 or any other dollar figure.
-- **CLAWD day:** The unit of build work used in all scope estimates. One CLAWD day = one full iteration: LeftClaw ships a working prototype → client reviews and gives feedback → LeftClaw refines and ships a better version. This is NOT a calendar day or hours — it's a complete build-review-refine cycle. A simple contract + UI might take 1–2 CLAWD days. A complex multi-protocol integration might take 5–10. Always estimate in CLAWD days, not "weeks" or "hours".
 - **Liquidity Vesting:** Community Uniswap V3 LP vesting contract. Tick-aware pricing via inlined TickMath + LiquidityAmounts.
 - **CLAWD Dashboard:** Ecosystem analytics — live burn rate, holders, LP depth.
 - **clawdbotatg.eth / BuidlGuidl:** Austin Griffith's builder community. Hundreds of projects built with Scaffold-ETH 2.
@@ -246,7 +245,7 @@ Output EXACTLY this — no variations, no extra markers:
 [SE2, Foundry, which L2, which protocols, BGIPFS/Vercel]
 ---PLAN END---
 
-The ---PLAN START--- and ---PLAN END--- markers must be EXACTLY on their own lines, unchanged.`;
+**IMPORTANT:** Do NOT give estimated scope, time, or "CLAWD days." Only map out the build. Pay close attention to details. Do not give time estimates or iteration cycles.`;
 
 export async function POST(req: NextRequest) {
   const { messages, isOpening, isGreeting, sessionId, jobId, clientAddress } = await req.json();
