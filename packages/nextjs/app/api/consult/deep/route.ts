@@ -24,11 +24,12 @@ const handler = async (req: NextRequest): Promise<NextResponse> => {
 
     return NextResponse.json({
       sessionId: session.id,
+      jobUrl: `${APP_URL}/jobs/x402/${session.id}`,
       chatUrl: `${APP_URL}/chat/x402/${session.id}`,
       status: "active",
       expiresAt: session.expiresAt,
       maxMessages: session.maxMessages,
-      message: "Deep consultation session created. Follow the chatUrl to begin.",
+      message: "Deep consultation session created. Follow the jobUrl to track progress and see results.",
     });
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
@@ -59,6 +60,7 @@ export const POST = withX402Dynamic(
         output: {
           example: {
             sessionId: "x402_abc123",
+            jobUrl: "https://leftclaw.services/jobs/x402/x402_abc123",
             chatUrl: "https://leftclaw.services/chat/x402/x402_abc123",
             status: "active",
             expiresAt: "2026-03-06T10:00:00.000Z",
