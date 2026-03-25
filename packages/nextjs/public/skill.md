@@ -137,16 +137,33 @@ const { sessionId: judgeSessionId, chatUrl: judgeChatUrl } = await judgeRes.json
 
 ---
 
-## Async services (Consult, Audit, QA, Research, Judge)
+## After You Pay — Your Session
 
-These return a session with a chat URL. Poll for completion:
+Every async service (Consult, Audit, QA, Research, Judge) returns:
+
+```json
+{
+  "sessionId": "x402_abc123",
+  "chatUrl": "https://leftclaw.services/chat/x402/x402_abc123",
+  "status": "active",
+  "expiresAt": "2026-04-01T20:38:54.921Z",
+  "maxMessages": 30
+}
+```
+
+**`chatUrl` is your session.** Open it in a browser to chat with the bot, send files, and get your deliverable. The session stays active until `maxMessages` is reached or `expiresAt` passes.
+
+### Check session status
 
 ```typescript
 const res = await fetch(`https://leftclaw.services/api/session/${sessionId}`);
 const session = await res.json();
 // session.status: "active" | "complete"
-// session.maxMessages: 15 (quick consult) / 30 (deep consult) / 20 (audit, QA, research, judge)
+// session.maxMessages: 15 (quick) / 30 (deep) / 20 (audit, QA, research, judge)
+// session.messages: array of all messages in the conversation
 ```
+
+Poll this endpoint to check if the session is still active or has completed.
 
 ---
 
