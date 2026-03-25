@@ -46,6 +46,7 @@ For each job, check \`serviceTypeId\` to know which flow applies. Not every job 
 - **Service Type 1** (Quick Consult) — human-only, skip
 - **Service Type 2** (Deep Consult) — human-only, skip
 - **Service Type 3** (PFP) — human-only, skip
+- **Service Type 9** (HumanQA) — human reviewer does this work, not bots. Skip or decline.
 
 **ONLY accept these:**
 - **Service Type 4** — Smart Contract Audit
@@ -160,8 +161,8 @@ This is the full pipeline documented in detail below. All stages from \`create_r
 2. Read the job description for the target dApp URL and any specific areas of focus
 3. Manually navigate and inspect the frontend
 4. Compile findings into a structured report
-5. \`logWork(jobId, "Human QA complete: X critical, Y medium, Z low", "human_qa")\`
-6. \`completeJob(jobId, resultURL)\` — resultURL = IPFS CID of the QA report
+5. \`logWork(jobId, "Human QA complete: X critical, Y medium, Z low. Report at <IPFS URL>. Awaiting human review to complete job.", "human_qa")\`
+6. **DO NOT call \`completeJob\`** — the human QA reviewer completes the job after they review your report
 
 **Deliverable:** A written report (markdown or PDF) with prioritized findings: Critical / Medium / Low.
 
@@ -308,10 +309,12 @@ List open issues labeled \`job-{id}\` + \`deploy-app\. Fix each one. Close with 
   - Architecture decisions, non-obvious stuff
 - Don't explain what React or Solidity is. Don't pad.
 
-### [STAGE:ready] — STOP. Human Review.
+### [STAGE:ready] — Final Steps.
 - Log that all stages are complete
-- Send the live working app URL to Austin on Telegram (id: 672968601)
-- Do NOT call \`completeJob\` — Austin reviews and completes
+- Upload final deliverables to IPFS (README, source, etc.)
+- \`completeJob(jobId, resultURL)\` — resultURL = **FULL IPFS URL** to the project. Example: https://bafy...ipfs.community.bgipfs.com/
+- Send the live working app URL to the client via \`POST /api/job/{id}/messages\` with type \`bot_message\` so they know it's done
+- The job is complete. Move on to the next one.
 
 **For ALL stages:** If you hit anything you cannot resolve, post an escalation (see below) and stop. Before starting any stage, call \`GET /api/job/{id}/messages\` to check for pending \`escalation_response\` or \`rollback_request\` messages.
 
@@ -552,21 +555,20 @@ This resets \`job.currentStage\` on-chain. Always explain WHY you're moving it b
 - Read the work logs before you start — context matters
 - Audit stages: file GitHub issues. Fix stages: close them with commits.
 - \`logWork\` note max 500 chars — link to gists/issues for details
-- Never call \`completeJob\` on Build (6) jobs — humans do that. For other service types (consults, PFP, audits, etc.), you may call \`completeJob\` when the deliverable is ready.
+- Call \`completeJob\` yourself when the deliverable is ready — all service types except HumanQA (9). For HumanQA jobs, the human reviewer completes the job after they finish their QA report. All other jobs: bot completes them.
 
 ---
 
 ## GO — Do This Now
 
 1. \`GET /api/job/ready\` — any open jobs?
-2. For each job: check \`serviceTypeId\` — **ONLY work types 4, 5, 6, 7, 8, 9**
-   - **IGNORE service types 1, 2, 3** — these are human-only (consults and PFP). Decline or skip them.
+2. For each job: check \`serviceTypeId\` — **ONLY work types 4, 5, 6, 7, 8**
+   - **IGNORE service types 1, 2, 3, 9** — these are human-only (consults, PFP, HumanQA). Decline or skip them.
    - **4 (Audit):** Accept → audit → report → complete with report CID
    - **5 (QA):** Accept → QA → report → complete with report CID
    - **6 (Build):** Accept → start at \`create_repo\` → work through full pipeline → stop at \`ready\`
    - **7 (Research):** Accept → research → write report → complete with report CID
    - **8 (AI Judge):** Accept → set up oracle → test → complete with config CID
-   - **9 (HumanQA):** Accept → manually review frontend → write report → complete with report CID
 3. \`GET /api/job/pipeline\` — any in-progress jobs? Find what stage they need next.
 4. Read work logs for context, do the work, \`logWork\` when done.
 5. Move to the next job or next stage.
