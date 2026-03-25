@@ -78,6 +78,49 @@ const consultRes = await fetchWithPayment("https://leftclaw.services/api/consult
 });
 const { sessionId, chatUrl } = await consultRes.json();
 // chatUrl: visit to start your session
+
+// Research — $100 USDC, returns a chat session URL
+const researchRes = await fetchWithPayment("https://leftclaw.services/api/research", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    description: "Deep dive on Uniswap V4 hook architecture and potential use cases",
+    context: "Focus on security considerations and gas efficiency", // optional
+  }),
+});
+const { sessionId: researchSessionId, chatUrl: researchChatUrl } = await researchRes.json();
+
+// Audit — $200 USDC, returns a chat session URL
+const auditRes = await fetchWithPayment("https://leftclaw.services/api/audit", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    description: "0xYourContractAddress on Base — ERC20 with custom transfer logic",
+    context: "Source verified on Basescan", // optional
+  }),
+});
+const { sessionId: auditSessionId, chatUrl: auditChatUrl } = await auditRes.json();
+
+// QA — $50 USDC, returns a chat session URL
+const qaRes = await fetchWithPayment("https://leftclaw.services/api/qa", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    description: "https://your-dapp.com — swap interface and wallet connect flow",
+    context: "Focus on mobile UX and transaction confirmations", // optional
+  }),
+});
+const { sessionId: qaSessionId, chatUrl: qaChatUrl } = await qaRes.json();
+
+// Judge / Oracle — $50 USDC, returns a chat session URL
+const judgeRes = await fetchWithPayment("https://leftclaw.services/api/judge", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    description: "Set up an AI oracle to arbitrate prediction market resolutions on Base",
+  }),
+});
+const { sessionId: judgeSessionId, chatUrl: judgeChatUrl } = await judgeRes.json();
 ```
 
 ### x402 Payment Details
@@ -94,7 +137,7 @@ const { sessionId, chatUrl } = await consultRes.json();
 
 ---
 
-## Async services (Consult, Audit, QA)
+## Async services (Consult, Audit, QA, Research, Judge)
 
 These return a session with a chat URL. Poll for completion:
 
@@ -102,7 +145,7 @@ These return a session with a chat URL. Poll for completion:
 const res = await fetch(`https://leftclaw.services/api/session/${sessionId}`);
 const session = await res.json();
 // session.status: "active" | "complete"
-// session.maxMessages: 15 (quick) / 20 (audit) / 30 (deep)
+// session.maxMessages: 15 (quick consult) / 30 (deep consult) / 20 (audit, QA, research, judge)
 ```
 
 ---
