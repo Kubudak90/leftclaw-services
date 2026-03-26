@@ -25,6 +25,9 @@ const SERVICE_NAMES: Record<number, string> = {
 
 const CONSULT_TYPES = new Set([1, 2]);
 
+// Service types that are fully automated at purchase — exclude from job listings
+const AUTOMATED_SERVICE_TYPES = new Set([3]); // PFP Generator (ID 3): minted instantly on purchase
+
 const STATUS_LABELS: Record<number, { label: string; badge: string }> = {
   0: { label: "Open", badge: "badge-success" },
   1: { label: "In Progress", badge: "badge-warning" },
@@ -43,6 +46,12 @@ function ActiveJobCard({ jobId }: { jobId: number }) {
   if (!job) return null;
 
   const statusNum = Number(job.status);
+  const serviceType = Number(job.serviceTypeId);
+
+  // Hide automated service types (instant jobs like PFP Generator)
+  if (AUTOMATED_SERVICE_TYPES.has(serviceType)) {
+    return null;
+  }
 
   // Show open (0) and in-progress (1) jobs always.
   // Show completed (2) jobs only if completed within the last 24 hours.
@@ -55,7 +64,6 @@ function ActiveJobCard({ jobId }: { jobId: number }) {
   }
 
   const isCompleted = statusNum === 2;
-  const serviceType = Number(job.serviceTypeId);
   const status = STATUS_LABELS[statusNum] || { label: "Unknown", badge: "" };
   const price = formatUnits(job.paymentClawd, 18);
   const isConsult = CONSULT_TYPES.has(serviceType);

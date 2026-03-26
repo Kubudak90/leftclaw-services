@@ -24,6 +24,9 @@ dist
 .vercel
 .env*.local
 
+# Local notes (private, not committed)
+NOTES.local.md
+
 # Test script secrets
 scripts/*.env
 scripts/test-pfp-output.png
