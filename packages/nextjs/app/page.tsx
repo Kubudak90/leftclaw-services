@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { NextPage } from "next";
+import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
 import { Address } from "~~/components/scaffold-eth";
@@ -36,7 +37,7 @@ const STATUS_LABELS: Record<number, { label: string; badge: string }> = {
 
 const TWENTY_FOUR_HOURS = 24 * 60 * 60; // seconds
 
-function ActiveJobCard({ jobId }: { jobId: number }) {
+function ActiveJobCard({ jobId, doneConsultIds }: { jobId: number; doneConsultIds: Set<number> }) {
   const { data: job } = useScaffoldReadContract({
     contractName: "LeftClawServicesV2",
     functionName: "getJob",
@@ -50,6 +51,11 @@ function ActiveJobCard({ jobId }: { jobId: number }) {
 
   // Hide automated service types (instant jobs like PFP Generator)
   if (AUTOMATED_SERVICE_TYPES.has(serviceType)) {
+    return null;
+  }
+
+  // Hide consult jobs that have already spawned a build
+  if (CONSULT_TYPES.has(serviceType) && doneConsultIds.has(jobId)) {
     return null;
   }
 
@@ -100,12 +106,21 @@ function ActiveJobCard({ jobId }: { jobId: number }) {
 
 function MyActiveJobs() {
   const { address } = useAccount();
+  const [doneConsultIds, setDoneConsultIds] = useState<Set<number>>(new Set());
 
   const { data: clientJobIds } = useScaffoldReadContract({
     contractName: "LeftClawServicesV2",
     functionName: "getJobsByClient",
     args: [address || "0x0000000000000000000000000000000000000000"],
   });
+
+  useEffect(() => {
+    if (!address) return;
+    fetch(`/api/job/consult-complete?address=${address}`)
+      .then(r => r.ok ? r.json() : { done: [] })
+      .then(data => setDoneConsultIds(new Set(data.done as number[])))
+      .catch(() => {});
+  }, [address]);
 
   if (!address || !clientJobIds || clientJobIds.length === 0) return null;
 
@@ -116,7 +131,7 @@ function MyActiveJobs() {
       <h2 className="text-2xl font-bold mb-4">📋 My Jobs</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         {jobIds.map(id => (
-          <ActiveJobCard key={id} jobId={id} />
+          <ActiveJobCard key={id} jobId={id} doneConsultIds={doneConsultIds} />
         ))}
       </div>
       <div className="mt-3 text-right">

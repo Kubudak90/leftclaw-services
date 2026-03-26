@@ -426,7 +426,16 @@ export default function ChatPage() {
           </button>
           <button
             className="btn btn-primary btn-sm flex-1"
-            onClick={() => router.push(`/build?gist=${encodeURIComponent(planGistUrl)}&description=${encodeURIComponent(planDescription || "")}`)}
+            onClick={() => {
+              if (address && !isCvJob) {
+                fetch("/api/job/consult-complete", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ consultJobId: jobId, address }),
+                }).catch(() => {});
+              }
+              router.push(`/build?gist=${encodeURIComponent(planGistUrl)}&description=${encodeURIComponent(planDescription || "")}`);
+            }}
           >
             🚀 Start Build Job
           </button>
