@@ -204,6 +204,31 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
         _createJob(msg.sender, serviceTypeId, clawdAmount, priceUsd, description, PaymentMethod.CLAWD, 0);
     }
 
+    /// @notice Post a job on behalf of a client. Server calls this after receiving USDC via x402.
+    /// @param client  The actual client address (the person paying via x402)
+    /// @param serviceTypeId  The service type ID
+    /// @param description  Job description
+    /// @param minClawdOut  Minimum CLAWD expected from the USDC→CLAWD swap (slippage protection)
+    function postJobFor(address client, uint256 serviceTypeId, string calldata description, uint256 minClawdOut) external nonReentrant {
+        require(client != address(0), "!client");
+        (uint256 priceUsd, ) = _validateService(serviceTypeId);
+        require(bytes(description).length > 0, "!desc");
+
+        usdcToken.safeTransferFrom(msg.sender, address(this), priceUsd);
+        usdcToken.forceApprove(address(uniswapRouter), priceUsd);
+
+        uint256 clawdReceived = uniswapRouter.exactInput(
+            ISwapRouter02.ExactInputParams({
+                path: swapPath,
+                recipient: address(this),
+                amountIn: priceUsd,
+                amountOutMinimum: minClawdOut
+            })
+        );
+
+        _createJob(client, serviceTypeId, clawdReceived, priceUsd, description, PaymentMethod.USDC, 0);
+    }
+
     /// @notice Post a job paying with USDC — swaps to CLAWD
     function postJobWithUsdc(uint256 serviceTypeId, string calldata description, uint256 minClawdOut) external nonReentrant {
         (uint256 priceUsd, ) = _validateService(serviceTypeId);
