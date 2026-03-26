@@ -377,8 +377,8 @@ You can use your tools to read additional repo files, answer escalations, or req
     },
   ];
 
-  // Call Anthropic with tool use loop
-  const anthropic = new Anthropic();
+  // Call Bankr LLM gateway (Anthropic-compatible) with tool use loop
+  const anthropic = new Anthropic({ apiKey: process.env.BANKR_API_KEY, baseURL: "https://llm.bankr.bot" });
   const aiMessages: Anthropic.Messages.MessageParam[] = [{ role: "user", content: message }];
 
   let finalText = "";
@@ -386,7 +386,7 @@ You can use your tools to read additional repo files, answer escalations, or req
 
   for (let i = 0; i < maxIterations; i++) {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4.6",
       max_tokens: 2000,
       system: systemPrompt,
       tools,

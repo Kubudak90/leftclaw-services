@@ -372,7 +372,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.BANKR_API_KEY;
   if (!apiKey) {
     return new Response(JSON.stringify({ error: "API key not configured" }), { status: 500 });
   }
@@ -392,23 +392,17 @@ export async function POST(req: NextRequest) {
     systemPrompt += "\n\n[INSTRUCTION: This is the client's opening message. They just started a consultation. Read their context carefully. Determine if they want a build, audit, QA report, PFP, or something else. If it's clearly a non-build service, acknowledge and confirm before routing. If it's a build or unclear, reflect back the most interesting/challenging part in one sentence, then ask the single most important clarifying question. Keep it under 4 sentences total. Do not say 'great idea' or anything generic.]";
   }
 
-  const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+  const anthropicRes = await fetch("https://llm.bankr.bot/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-beta": "web-search-2025-03-05, web-fetch-2025-09-10",
+      "X-API-Key": apiKey,
     },
     body: JSON.stringify({
-      model: "claude-opus-4-6",
+      model: "claude-opus-4.6",
       max_tokens: 4096,
       system: systemPrompt,
       stream: true,
-      tools: [
-        { type: "web_search_20250305", name: "web_search", max_uses: 5 },
-        { type: "web_fetch_20250910", name: "web_fetch", max_uses: 5, citations: { enabled: true } },
-      ],
       messages: isGreeting
         ? [{ role: "user", content: "Hello" }]
         : messages.map((m: { role: string; content: string }) => ({
@@ -428,8 +422,8 @@ export async function POST(req: NextRequest) {
 
   if (!anthropicRes.ok) {
     const err = await anthropicRes.text();
-    console.error("Anthropic error:", anthropicRes.status, err);
-    let detail = "Anthropic API error";
+    console.error("Bankr error:", anthropicRes.status, err);
+    let detail = "Bankr API error";
     try { detail = JSON.parse(err)?.error?.message || detail; } catch {}
     return new Response(JSON.stringify({ error: detail }), { status: 500 });
   }
