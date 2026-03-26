@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   8453: {
     LeftClawServicesV2: {
-      address: "0x89A241Bb53B666108B9e354b355d3C64f97E8E6f",
+      address: "0x103c5FAfd8734AE9Ec4Cc2f116eD03Ff6cc2Ca5F",
       abi: [
     {
         "type": "constructor",
@@ -739,6 +739,34 @@ const deployedContracts = {
         "type": "function",
         "name": "postJobWithUsdc",
         "inputs": [
+            {
+                "name": "serviceTypeId",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "description",
+                "type": "string",
+                "internalType": "string"
+            },
+            {
+                "name": "minClawdOut",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "postJobFor",
+        "inputs": [
+            {
+                "name": "client",
+                "type": "address",
+                "internalType": "address"
+            },
             {
                 "name": "serviceTypeId",
                 "type": "uint256",
