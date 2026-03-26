@@ -1,7 +1,7 @@
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 
-const SERVICE_TYPE_CONTRACT = "0xfab998867b16cf0369f78a6ebbe77ea4eace212c";
+const SERVICE_TYPE_CONTRACT = "0x103c5FAfd8734AE9Ec4Cc2f116eD03Ff6cc2Ca5F";
 
 const priceCache = new Map<number, { price: string; ts: number }>();
 const CACHE_TTL_MS = 60_000;
