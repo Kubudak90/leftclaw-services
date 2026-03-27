@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
-import { useAccount, usePublicClient, useReadContract, useReadContracts } from "wagmi";
+import { useAccount, useBalance, usePublicClient, useReadContract, useReadContracts } from "wagmi";
 import deployedContracts from "~~/contracts/deployedContracts";
 import { AddressInput } from "@scaffold-ui/components";
 import { Address, RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
@@ -11,6 +11,10 @@ import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
 const CONTRACT_ABI = deployedContracts[8453]?.LeftClawServicesV2?.abi;
+
+const SANITIZER_ADDRESS = "0xCfB32a7d01Ca2B4B538C83B2b38656D3502D76EA" as `0x${string}`;
+const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
+const ERC20_BALANCE_ABI = [{ inputs: [{ name: "account", type: "address" }], name: "balanceOf", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" }] as const;
 
 const STATUS_LABELS: Record<number, { text: string; badge: string }> = {
   0: { text: "OPEN", badge: "badge-info" },
@@ -76,6 +80,67 @@ function useWorkers() {
   useEffect(() => { fetchWorkers(); }, [fetchWorkers]);
 
   return { workers, loading, refetch: fetchWorkers };
+}
+
+// ─── Service Type ──────────────────────────────────────────────
+
+// ─── Sanitizer Wallet Panel ────────────────────────────────────────
+
+function SanitizerPanel() {
+  const { data: ethBalance } = useBalance({
+    address: SANITIZER_ADDRESS,
+    chainId: 8453,
+  });
+
+  const { data: usdcBalance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_BALANCE_ABI,
+    functionName: "balanceOf",
+    args: [SANITIZER_ADDRESS],
+    chainId: 8453,
+  });
+
+  const ethFormatted = ethBalance ? Number(formatUnits(ethBalance.value, 18)).toFixed(5) : "—";
+  const usdcFormatted = usdcBalance !== undefined ? Number(formatUnits(usdcBalance, 6)).toFixed(2) : "—";
+
+  return (
+    <div className="card bg-base-200 mb-8">
+      <div className="card-body">
+        <h2 className="font-bold mb-3">💸 Sanitizer Wallet (x402)</h2>
+        <p className="text-xs opacity-50 mb-4">
+          All x402 payments route through this address before being posted on-chain via <code>postJobFor</code>.
+        </p>
+
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs opacity-50">Address:</span>
+          <Address address={SANITIZER_ADDRESS} />
+        </div>
+
+        <div className="flex gap-6">
+          <div className="bg-base-300 rounded-lg px-5 py-3 flex-1">
+            <div className="text-xs opacity-50 mb-1">ETH Balance</div>
+            <div className="font-mono text-lg font-bold">
+              {ethBalance ? ethFormatted : <span className="loading loading-spinner loading-xs" />}
+              {ethBalance && <span className="text-xs opacity-50 ml-1">ETH</span>}
+            </div>
+          </div>
+          <div className="bg-base-300 rounded-lg px-5 py-3 flex-1">
+            <div className="text-xs opacity-50 mb-1">USDC Balance</div>
+            <div className="font-mono text-lg font-bold">
+              {usdcBalance !== undefined ? `$${usdcFormatted}` : <span className="loading loading-spinner loading-xs" />}
+              {usdcBalance !== undefined && <span className="text-xs opacity-50 ml-1">USDC</span>}
+            </div>
+          </div>
+        </div>
+
+        {ethBalance && ethBalance.value < BigInt(1e15) && (
+          <div className="alert alert-warning mt-4 py-2">
+            <span className="text-xs">⚠️ Low ETH — sanitizer needs gas to call <code>postJobFor</code>.</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Service Type ──────────────────────────────────────────────
@@ -675,6 +740,9 @@ export default function AdminPage() {
       <div className="w-full max-w-4xl">
         <h1 className="text-3xl font-bold mb-1">🦞 Admin</h1>
         <p className="opacity-50 text-sm mb-8">CLAWD price: {clawdPrice ? `$${clawdPrice.toFixed(8)}` : "loading..."}</p>
+
+        {/* Sanitizer Wallet */}
+        <SanitizerPanel />
 
         {/* Owner Panel */}
         {isOwner && (

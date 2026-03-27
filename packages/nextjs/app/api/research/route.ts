@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withX402Dynamic } from "~~/lib/x402-next-adapter";
 import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
-import { createSession } from "~~/lib/sessionStore";
+import { postJobForOnChain } from "~~/lib/postJobFor";
 import { BASE_NETWORK, PAYMENT_ADDRESS, getContractPriceUsd, x402Server } from "~~/lib/x402";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw.services";
@@ -18,24 +18,20 @@ const handler = async (req: NextRequest): Promise<NextResponse> => {
       );
     }
 
-    const session = await createSession({
-      serviceType: "RESEARCH",
-      description: description.trim(),
-      context: context?.trim(),
-      priceUsd: await getContractPriceUsd(7),
-    });
+    const fullDescription = context?.trim()
+      ? `${description.trim()}\n\nContext: ${context.trim()}`
+      : description.trim();
+
+    const jobId = await postJobForOnChain(7, fullDescription);
 
     return NextResponse.json({
-      sessionId: session.id,
-      jobUrl: `${APP_URL}/jobs/x402/${session.id}`,
-      chatUrl: `${APP_URL}/chat/x402/${session.id}`,
-      status: "active",
-      expiresAt: session.expiresAt,
-      maxMessages: session.maxMessages,
-      message: "Research session created. Follow the jobUrl to track progress and see results.",
+      jobId,
+      jobUrl: `${APP_URL}/jobs/${jobId}`,
+      message: "Research job created on-chain. Visit the jobUrl to track progress.",
     });
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  } catch (e: any) {
+    console.error("Research route error:", e);
+    return NextResponse.json({ error: e.message || "Failed to create job" }, { status: 500 });
   }
 };
 
@@ -68,12 +64,9 @@ export const POST = withX402Dynamic(
         bodyType: "json",
         output: {
           example: {
-            sessionId: "x402_abc123",
-            jobUrl: "https://leftclaw.services/jobs/x402/x402_abc123",
-            chatUrl: "https://leftclaw.services/chat/x402/x402_abc123",
-            status: "active",
-            expiresAt: "2026-03-21T18:00:00.000Z",
-            maxMessages: 30,
+            jobId: 42,
+            jobUrl: "https://leftclaw.services/jobs/42",
+            message: "Research job created on-chain. Visit the jobUrl to track progress.",
           },
         },
       }),

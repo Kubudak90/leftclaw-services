@@ -13,15 +13,15 @@ Contract is 1-indexed. Prices are dynamic — always read from the 402 response,
 
 | Contract ID | Service | Endpoint | Type |
 |-------------|---------|----------|------|
-| 1 | Quick Consultation | `/api/consult/quick` | async session |
-| 2 | Deep Consultation | `/api/consult/deep` | async session |
+| 1 | Quick Consultation | `/api/consult/quick` | async on-chain job |
+| 2 | Deep Consultation | `/api/consult/deep` | async on-chain job |
 | 3 | **PFP Generator** | `/api/pfp` | instant image |
-| 4 | Contract Audit | `/api/audit` | async session |
-| 5 | Frontend QA Audit | `/api/qa` | async session |
-| 6 | Build | `/api/build` | async session |
-| 7 | Research Report | `/api/research` | async session |
-| 8 | Judge / Oracle | `/api/judge` | async session |
-| 9 | HumanQA | (post job via contract) | async session |
+| 4 | Contract Audit | `/api/audit` | async on-chain job |
+| 5 | Frontend QA Audit | `/api/qa` | async on-chain job |
+| 6 | Build | `/api/build` | async on-chain job |
+| 7 | Research Report | `/api/research` | async on-chain job |
+| 8 | Judge / Oracle | `/api/judge` | async on-chain job |
+| 9 | HumanQA | (post job via contract) | async on-chain job |
 
 Prices are set on-chain in the smart contract and can change. Always read the price from the 402 response.
 
@@ -81,17 +81,16 @@ const pfpRes = await fetchWithPayment("https://leftclaw.services/api/pfp", {
 const { image } = await pfpRes.json();
 // image: "data:image/png;base64,..."
 
-// Consult — returns a chat session URL (price in 402 response)
+// Consult — creates an on-chain job (price in 402 response)
 const consultRes = await fetchWithPayment("https://leftclaw.services/api/consult/quick", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ description: "I want to build a token vesting contract on Base" }),
 });
-const { sessionId, jobUrl, chatUrl } = await consultRes.json();
-// jobUrl: visit to see job status + deliverable
-// chatUrl: direct link to the chat session
+const { jobId, jobUrl } = await consultRes.json();
+// jobUrl: visit to track progress on-chain
 
-// Research — returns a chat session URL (price in 402 response)
+// Research — creates an on-chain job (price in 402 response)
 const researchRes = await fetchWithPayment("https://leftclaw.services/api/research", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -100,9 +99,9 @@ const researchRes = await fetchWithPayment("https://leftclaw.services/api/resear
     context: "Focus on security considerations and gas efficiency", // optional
   }),
 });
-const { sessionId: researchSessionId, jobUrl: researchJobUrl, chatUrl: researchChatUrl } = await researchRes.json();
+const { jobId: researchJobId, jobUrl: researchJobUrl } = await researchRes.json();
 
-// Audit — returns a chat session URL (price in 402 response)
+// Audit — creates an on-chain job (price in 402 response)
 const auditRes = await fetchWithPayment("https://leftclaw.services/api/audit", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -111,9 +110,9 @@ const auditRes = await fetchWithPayment("https://leftclaw.services/api/audit", {
     context: "Source verified on Basescan", // optional
   }),
 });
-const { sessionId: auditSessionId, jobUrl: auditJobUrl, chatUrl: auditChatUrl } = await auditRes.json();
+const { jobId: auditJobId, jobUrl: auditJobUrl } = await auditRes.json();
 
-// QA — returns a chat session URL (price in 402 response)
+// QA — creates an on-chain job (price in 402 response)
 const qaRes = await fetchWithPayment("https://leftclaw.services/api/qa", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -122,9 +121,9 @@ const qaRes = await fetchWithPayment("https://leftclaw.services/api/qa", {
     context: "Focus on mobile UX and transaction confirmations", // optional
   }),
 });
-const { sessionId: qaSessionId, jobUrl: qaJobUrl, chatUrl: qaChatUrl } = await qaRes.json();
+const { jobId: qaJobId, jobUrl: qaJobUrl } = await qaRes.json();
 
-// Judge / Oracle — returns a chat session URL (price in 402 response)
+// Judge / Oracle — creates an on-chain job (price in 402 response)
 const judgeRes = await fetchWithPayment("https://leftclaw.services/api/judge", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -132,7 +131,7 @@ const judgeRes = await fetchWithPayment("https://leftclaw.services/api/judge", {
     description: "Set up an AI oracle to arbitrate prediction market resolutions on Base",
   }),
 });
-const { sessionId: judgeSessionId, jobUrl: judgeJobUrl, chatUrl: judgeChatUrl } = await judgeRes.json();
+const { jobId: judgeJobId, jobUrl: judgeJobUrl } = await judgeRes.json();
 ```
 
 ### x402 Payment Details
@@ -141,7 +140,7 @@ const { sessionId: judgeSessionId, jobUrl: judgeJobUrl, chatUrl: judgeChatUrl } 
 |-------|-------|
 | Network | Base (chain ID 8453, CAIP-2: `eip155:8453`) |
 | Token | USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
-| Pay to | `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (clawdbotatg.eth) |
+| Pay to | `0xCfB32a7d01Ca2B4B538C83B2b38656D3502D76EA` (sanitizer wallet) |
 | Scheme | `exact` EVM |
 | Method | EIP-3009 `TransferWithAuthorization` |
 | Gas required | None — gasless for client |
@@ -151,32 +150,17 @@ const { sessionId: judgeSessionId, jobUrl: judgeJobUrl, chatUrl: judgeChatUrl } 
 
 ## After You Pay — Your Job
 
-Every async service (Consult, Audit, QA, Research, Judge) returns:
+Every async service (Consult, Build, Audit, QA, Research, Judge) creates an on-chain job and returns:
 
 ```json
 {
-  "sessionId": "x402_abc123",
-  "jobUrl": "https://leftclaw.services/jobs/x402/x402_abc123",
-  "chatUrl": "https://leftclaw.services/chat/x402/x402_abc123",
-  "status": "active",
-  "expiresAt": "2026-04-01T20:38:54.921Z",
-  "maxMessages": 30
+  "jobId": 42,
+  "jobUrl": "https://leftclaw.services/jobs/42",
+  "message": "Job created on-chain. Visit the jobUrl to track progress."
 }
 ```
 
-**`jobUrl` is your job page.** Open it to see job status, progress, and the final deliverable when complete. The job page auto-refreshes while work is in progress. Use `chatUrl` to continue the conversation directly. The session stays active until `maxMessages` is reached or `expiresAt` passes.
-
-### Check session status
-
-```typescript
-const res = await fetch(`https://leftclaw.services/api/session/${sessionId}`);
-const session = await res.json();
-// session.status: "active" | "complete"
-// session.maxMessages: 15 (quick) / 30 (deep) / 20 (audit, QA, research, judge)
-// session.messages: array of all messages in the conversation
-```
-
-Poll this endpoint to check if the session is still active or has completed.
+**`jobUrl` is your job page.** Open it to see job status, progress, and the final deliverable when complete. The job is recorded on-chain via `postJobFor` on the LeftClaw contract. For Build jobs, the worker creates a GitHub repo named `leftclaw-service-job-JOBID` (where JOBID is the job's numeric ID) in the `clawdbotatg` org.
 
 ---
 

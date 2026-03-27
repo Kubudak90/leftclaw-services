@@ -11,9 +11,9 @@
 
 ## What you get
 
-Send a description of what you want researched (protocol, topic, codebase, etc.). After payment settles, you receive a research session with a `jobUrl` to track progress. A CLAWD worker bot conducts deep research and posts the final report when complete.
+Send a description of what you want researched (protocol, topic, codebase, etc.). After payment settles, an on-chain job is created via `postJobFor` and you receive a `jobUrl` to track progress. A CLAWD worker bot conducts deep research and posts the final report when complete.
 
-**This is an async service** — unlike the PFP generator, results are not instant. You'll get a job URL to poll for status and final deliverables.
+**This is an async service** — unlike the PFP generator, results are not instant. You'll get a `jobUrl` to track status and retrieve the final report.
 
 **Description examples:**
 - `"Comprehensive analysis of the EigenLayer restaking protocol — architecture, risks, and competitive landscape"`
@@ -100,39 +100,11 @@ async function main() {
   }
 
   const result = await response.json();
-  console.log("Research session created!");
+  console.log("On-chain job created!");
+  console.log(`  Job ID:   ${result.jobId}`);
   console.log(`  Job URL:  ${result.jobUrl}`);
-  console.log(`  Chat URL: ${result.chatUrl}`);
-  console.log(`  Status:   ${result.status}`);
-  console.log(`  Expires:  ${result.expiresAt}`);
-
-  // Poll job status until complete
-  console.log("\nPolling job status...");
-  const jobId = result.sessionId;
-  let complete = false;
-
-  while (!complete) {
-    await new Promise(r => setTimeout(r, 30_000)); // poll every 30s
-
-    const jobRes = await fetch(`https://leftclaw.services/api/job/${jobId}`);
-    if (!jobRes.ok) {
-      console.log(`  Job poll returned ${jobRes.status}, retrying...`);
-      continue;
-    }
-
-    const job = await jobRes.json();
-    console.log(`  Status: ${job.status}`);
-
-    if (job.status === "completed") {
-      console.log("\n Research complete!");
-      console.log("Result:", JSON.stringify(job.result, null, 2));
-      complete = true;
-    } else if (job.status === "failed") {
-      console.error("\n Research failed:", job.error);
-      complete = true;
-    }
-    // "queued" or "processing" → keep polling
-  }
+  console.log(`  Message:  ${result.message}`);
+  console.log("\nVisit the jobUrl to track progress and see results.");
 }
 
 main().catch(console.error);
@@ -146,13 +118,11 @@ main().catch(console.error);
 2. Header contains: amount (USDC 6 decimals), payTo address, maxTimeoutSeconds, EIP-712 domain info
 3. Client signs `TransferWithAuthorization` typed message (EIP-3009) — offline, no gas
 4. Retry `POST /api/research` with `PAYMENT-SIGNATURE` header containing the signed payload
-5. Server verifies signature via facilitator → creates research session → returns `200` with session details
+5. Server verifies signature via facilitator → creates on-chain job via `postJobFor` → returns `200` with job details
 6. Facilitator calls `transferWithAuthorization` on USDC contract on-chain (async after response)
-7. Client follows `jobUrl` to track progress — poll `GET /api/job/{id}` until `status: "completed"`
+7. Client visits `jobUrl` to track progress
 
-**Key difference from instant services:** After payment, you don't get the result immediately. You get a `jobUrl` and `chatUrl`. The CLAWD worker bot picks up the job, conducts research, and posts the final report. Poll the job endpoint or visit the job page to check status and retrieve the deliverable.
-
-> **Note:** The `jobUrl` will point to an on-chain job page once `postJobFor` is fully wired in the settle flow. Until then, the URL may point to a placeholder page — the job data is still accessible via the API at `GET /api/job/{id}`.
+**Key difference from instant services:** After payment, you don't get the result immediately. You get a `jobUrl` pointing to the on-chain job page. The CLAWD worker bot picks up the job, conducts research, and posts the final report. Visit the job page to check status and retrieve the deliverable.
 
 ---
 
@@ -163,7 +133,7 @@ main().catch(console.error);
 | Network | Base (chain ID 8453, CAIP-2: `eip155:8453`) |
 | Token | USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | Amount | Dynamic — always read from the 402 response |
-| Pay to | `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (clawdbotatg.eth) |
+| Pay to | `0xCfB32a7d01Ca2B4B538C83B2b38656D3502D76EA` (clawdbotatg.eth) |
 | Scheme | `exact` EVM |
 | Method | EIP-3009 `TransferWithAuthorization` |
 | Gas required | None — gasless for client |
@@ -187,30 +157,11 @@ Decode the base64 value to see the full payment requirements JSON including the 
 
 ```json
 {
-  "sessionId": "x402_abc123",
-  "jobUrl": "https://leftclaw.services/jobs/x402/x402_abc123",
-  "chatUrl": "https://leftclaw.services/chat/x402/x402_abc123",
-  "status": "active",
-  "expiresAt": "2026-04-01T00:00:00.000Z",
-  "maxMessages": 30,
-  "message": "Research session created. Follow the jobUrl to track progress and see results."
+  "jobId": 42,
+  "jobUrl": "https://leftclaw.services/jobs/42",
+  "message": "On-chain job created. Visit jobUrl to track progress and see results."
 }
 ```
-
-### Job status (poll `GET /api/job/{id}`)
-
-```json
-{
-  "jobId": "x402_abc123",
-  "serviceType": "RESEARCH",
-  "status": "completed",
-  "createdAt": "2026-03-25T...",
-  "result": { "reportCid": "Qm...", "summary": "..." },
-  "completedAt": "2026-03-25T..."
-}
-```
-
-**Possible `status` values:** `queued` → `processing` → `completed` | `failed`
 
 ---
 

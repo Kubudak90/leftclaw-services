@@ -130,7 +130,7 @@ main().catch(console.error);
 | Network | Base (chain ID 8453, CAIP-2: `eip155:8453`) |
 | Token | USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | Amount | Dynamic — always read from the 402 response |
-| Pay to | `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (clawdbotatg.eth) |
+| Pay to | `0xCfB32a7d01Ca2B4B538C83B2b38656D3502D76EA` (clawdbotatg.eth) |
 | Scheme | `exact` EVM |
 | Method | EIP-3009 `TransferWithAuthorization` |
 | Gas required | None — gasless for client |

@@ -140,7 +140,7 @@ async function fetchGitHubFile(jobId: string, path: string): Promise<string | nu
   const token = process.env.GITHUB_TOKEN;
   if (!token) return null;
   try {
-    const res = await fetch(`https://api.github.com/repos/clawdbotatg/${jobId}/contents/${path}`, {
+    const res = await fetch(`https://api.github.com/repos/clawdbotatg/leftclaw-service-job-${jobId}/contents/${path}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github.v3+json" },
     });
     if (!res.ok) return null;

@@ -204,14 +204,14 @@ Every time you finish a stage, call \`logWork(jobId, note, stage)\` on-chain. Th
 
 ### [STAGE:create_repo] — Create GitHub Repo
 - Create a new repo in the \`clawdbotatg\` GitHub org
-- Name it exactly after the job ID — e.g., if jobId is \`cv-1773321831954\`, the repo is \`cv-1773321831954\`
+- Name the repo \`leftclaw-service-job-JOBID\` where JOBID is the job's ID — e.g., if jobId is \`42\`, the repo is \`leftclaw-service-job-42\`
 - Initialize with a README
 - Log the repo URL in the work log
 - Advance to \`create_plan\`
 - If you hit anything you cannot resolve during this stage, post an escalation (see "When You Hit a Critical Unknown" below) and stop.
 
 ### [STAGE:create_plan] — Build Plan
-- Clone the repo created in \`create_repo\` (repo name = job ID)
+- Clone the repo created in \`create_repo\` (repo name = \`leftclaw-service-job-JOBID\`)
 - Scaffold the project (use scaffold-eth-2 if it's an Ethereum dapp)
 - Write \`PLAN.md\`: architecture, contracts, frontend, integrations, everything the builder needs
 - Commit and push

@@ -11,9 +11,9 @@
 
 ## What you get
 
-Send a description of what you want built (smart contracts, frontends, integrations, etc.). After payment settles, you receive a build session with a `chatUrl` for direct communication with the LeftClaw builder during the build. All work is tracked on-chain with escrow protection.
+Send a description of what you want built (smart contracts, frontends, integrations, etc.). After payment settles, an on-chain job is created via `postJobFor` and you receive a `jobUrl` to track progress. All work is tracked on-chain with escrow protection.
 
-**This is an async service** — you get a chat URL to scope, communicate, and track the build. The builder picks up the job, works through it, and delivers.
+**This is an async service** — you get a `jobUrl` to track the build. The builder picks up the job, creates a GitHub repo named `leftclaw-service-job-JOBID` (where JOBID is the job's numeric ID) in the `clawdbotatg` org, works through it, and delivers.
 
 **Description examples:**
 - `"Build a staking contract where users deposit CLAWD and earn ETH rewards, plus a React frontend with wallet connect"`
@@ -100,11 +100,11 @@ async function main() {
   }
 
   const result = await response.json();
-  console.log("Build session created!");
-  console.log(`  Chat URL: ${result.chatUrl}`);
-  console.log(`  Status:   ${result.status}`);
-  console.log(`  Expires:  ${result.expiresAt}`);
-  console.log(`  Messages: up to ${result.maxMessages}`);
+  console.log("On-chain job created!");
+  console.log(`  Job ID:   ${result.jobId}`);
+  console.log(`  Job URL:  ${result.jobUrl}`);
+  console.log(`  Message:  ${result.message}`);
+  console.log("\nVisit the jobUrl to track progress.");
 }
 
 main().catch(console.error);
@@ -118,11 +118,11 @@ main().catch(console.error);
 2. Header contains: amount (USDC 6 decimals), payTo address, maxTimeoutSeconds, EIP-712 domain info
 3. Client signs `TransferWithAuthorization` typed message (EIP-3009) — offline, no gas
 4. Retry `POST /api/build` with `PAYMENT-SIGNATURE` header containing the signed payload
-5. Server verifies signature via facilitator → creates build session → returns `200` with session details
+5. Server verifies signature via facilitator → creates on-chain job via `postJobFor` → returns `200` with job details
 6. Facilitator calls `transferWithAuthorization` on USDC contract on-chain (async after response)
-7. Client follows `chatUrl` to communicate with the builder, provide feedback, and track progress
+7. Client visits `jobUrl` to track progress
 
-**Key difference from instant services:** After payment, you don't get a deliverable immediately. You get a `chatUrl` where you can scope the work, answer questions, and provide feedback as the builder works.
+**Key difference from instant services:** After payment, you don't get a deliverable immediately. You get a `jobUrl` pointing to the on-chain job page where you can track the build's progress and retrieve deliverables.
 
 ---
 
@@ -133,7 +133,7 @@ main().catch(console.error);
 | Network | Base (chain ID 8453, CAIP-2: `eip155:8453`) |
 | Token | USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | Amount | Dynamic — always read from the 402 response |
-| Pay to | `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (clawdbotatg.eth) |
+| Pay to | `0xCfB32a7d01Ca2B4B538C83B2b38656D3502D76EA` (clawdbotatg.eth) |
 | Scheme | `exact` EVM |
 | Method | EIP-3009 `TransferWithAuthorization` |
 | Gas required | None — gasless for client |
@@ -157,12 +157,9 @@ Decode the base64 value to see the full payment requirements JSON including the 
 
 ```json
 {
-  "sessionId": "x402_abc123",
-  "chatUrl": "https://leftclaw.services/chat/x402/x402_abc123",
-  "status": "active",
-  "expiresAt": "2026-04-09T00:00:00.000Z",
-  "maxMessages": 50,
-  "message": "Build session created. Follow the chatUrl to scope and execute your build."
+  "jobId": 42,
+  "jobUrl": "https://leftclaw.services/jobs/42",
+  "message": "On-chain job created. Visit jobUrl to track progress and see results."
 }
 ```
 

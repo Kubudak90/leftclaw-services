@@ -3,8 +3,8 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { bazaarResourceServerExtension } from "@x402/extensions/bazaar";
 import { x402ResourceServer } from "~~/lib/x402-next-adapter";
 
-// clawdbotatg.eth receives USDC payments on Base
-export const PAYMENT_ADDRESS = "0x11ce532845cE0eAcdA41f72FDc1C88c335981442";
+// Sanitizer wallet — receives x402 USDC and calls postJobFor on-chain
+export const PAYMENT_ADDRESS = "0xCfB32a7d01Ca2B4B538C83B2b38656D3502D76EA";
 export const BASE_NETWORK = "eip155:8453";
 
 // Self-hosted facilitator — Base mainnet (eip155:8453)
