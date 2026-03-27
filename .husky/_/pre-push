@@ -1,5 +1,2 @@
 #!/usr/bin/env sh
 . "$(dirname "$0")/h"
-
-echo "Running pre-push build check..."
-yarn next:build
