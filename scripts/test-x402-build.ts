@@ -1,7 +1,7 @@
 /**
  * test-x402-build.ts
  *
- * End-to-end test: pay ~$1000 USDC via x402 -> purchase a Build job on leftclaw.services.
+ * End-to-end test: pay ~$1 USDC via x402 -> purchase a Build job on leftclaw.services.
  *
  * The x402 payment protocol works entirely off-chain from the client's perspective:
  * an EIP-3009 TransferWithAuthorization signature is created, and the facilitator
@@ -42,8 +42,8 @@ const RPC_URL = process.env.RPC_URL || "https://mainnet.base.org";
 const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 const USDC_DECIMALS = 6;
 
-// Minimum USDC balance required (slightly above $1000 to account for rounding)
-const MIN_USDC_BALANCE = 1000;
+// Minimum USDC balance required — price is read live from on-chain contract
+const MIN_USDC_BALANCE = 2; // ~$1 currently; keep a small buffer
 
 // The build job description
 const BUILD_DESCRIPTION = [
@@ -132,7 +132,7 @@ async function main(): Promise<void> {
 
   if (usdcBalance < MIN_USDC_BALANCE) {
     console.error(
-      `Insufficient USDC. Need at least $${MIN_USDC_BALANCE}, have $${usdcBalance.toFixed(2)}`
+      `Insufficient USDC. Need at least $${MIN_USDC_BALANCE} (price is ~$1, fetched live from contract), have $${usdcBalance.toFixed(2)}`
     );
     console.error(`Fund ${account.address} on Base with USDC`);
     process.exit(1);

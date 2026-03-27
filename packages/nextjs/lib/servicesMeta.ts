@@ -11,6 +11,7 @@ interface ServiceMeta {
   heroPosition?: "left" | "right";
   descriptionLabel?: string;
   descriptionPlaceholder?: string;
+  skillFile?: boolean;
 }
 
 export const SERVICE_META: Record<string, ServiceMeta> = {
@@ -83,6 +84,7 @@ export const SERVICE_META: Record<string, ServiceMeta> = {
     heroPosition: "right",
     descriptionLabel: "What should we build?",
     descriptionPlaceholder: "Describe the project in detail. Include tech stack preferences, existing repos, deployment targets, and any constraints.",
+    skillFile: true,
   },
 };
 
