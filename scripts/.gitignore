@@ -1,0 +1,5 @@
+# Secret env files (never commit private keys)
+*.env
+
+# Test output artifacts
+test-pfp-output.png
