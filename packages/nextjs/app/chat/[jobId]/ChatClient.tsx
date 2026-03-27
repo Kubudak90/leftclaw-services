@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useParams, useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
+import { getCachedAuthSignature, setCachedAuthSignature, clearCachedAuthSignature } from "~~/utils/authSignatureCache";
+import { AUTH_SIGN_MESSAGE } from "~~/lib/authSignature";
 
 interface Message {
   role: "user" | "assistant";
@@ -17,7 +19,35 @@ export default function ChatPage() {
   const router = useRouter();
   const jobId = params.jobId as string;
   const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const isCvJob = jobId.startsWith("cv-");
+
+  const [authSignature, setAuthSignature] = useState<string | null>(null);
+  const [isSigning, setIsSigning] = useState(false);
+
+  // Load cached auth signature when address becomes available
+  useEffect(() => {
+    if (address) {
+      const cached = getCachedAuthSignature(address);
+      setAuthSignature(cached);
+    } else {
+      setAuthSignature(null);
+    }
+  }, [address]);
+
+  const handleSign = useCallback(async () => {
+    if (!walletClient || !address) return;
+    setIsSigning(true);
+    try {
+      const sig = await walletClient.signMessage({ message: AUTH_SIGN_MESSAGE });
+      setCachedAuthSignature(address, sig);
+      setAuthSignature(sig);
+    } catch {
+      // User rejected or signing failed
+    } finally {
+      setIsSigning(false);
+    }
+  }, [walletClient, address]);
 
   const storageKey = `chat-messages-${jobId}`;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -123,10 +153,14 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessages, jobId, isOpening: opts?.isOpening, isPlanGeneration: opts?.isPlanGeneration || false, clientAddress: address }),
+        body: JSON.stringify({ messages: newMessages, jobId, isOpening: opts?.isOpening, isPlanGeneration: opts?.isPlanGeneration || false, clientAddress: address, authSignature }),
       });
 
       if (!res.ok) {
+        if (res.status === 401 && address) {
+          clearCachedAuthSignature(address);
+          setAuthSignature(null);
+        }
         const errBody = await res.json().catch(() => ({ error: `Server error (${res.status})` }));
         const errMsg = errBody.error || `Failed to get response (${res.status})`;
         if (errMsg.includes("Message limit reached")) {
@@ -187,7 +221,7 @@ export default function ChatPage() {
       setIsStreaming(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [messages, isStreaming, jobId, isAtLimit]);
+  }, [messages, isStreaming, jobId, isAtLimit, address, authSignature]);
 
   const createGistAndRedirect = async (plan: string) => {
     try {
@@ -219,9 +253,16 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [{ role: "user", content: "__GREET__" }], jobId, isGreeting: true }),
+        body: JSON.stringify({ messages: [{ role: "user", content: "__GREET__" }], jobId, isGreeting: true, clientAddress: address, authSignature }),
       });
-      if (!res.ok) { setIsStreaming(false); return; }
+      if (!res.ok) {
+        if (res.status === 401 && address) {
+          clearCachedAuthSignature(address);
+          setAuthSignature(null);
+        }
+        setIsStreaming(false);
+        return;
+      }
       const reader = res.body?.getReader();
       if (!reader) { setIsStreaming(false); return; }
       const decoder = new TextDecoder();
@@ -240,7 +281,7 @@ export default function ChatPage() {
       setIsStreaming(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [isStreaming, jobId]);
+  }, [isStreaming, jobId, address, authSignature]);
 
   // Auto-kick the conversation on first load:
   // - if topic came from consult form → send it as user message, bot asks clarifying question
@@ -250,6 +291,7 @@ export default function ChatPage() {
     if (!isCvJob && jobLoading) return; // CV jobs skip on-chain loading
     if (!jobExists) return;
     if (sanitized !== true) return; // wait for sanitization (CV jobs start with true)
+    if (!authSignature) return; // wait for auth signature before sending any messages
     if (messages.length > 0) return; // returning user — don't re-trigger
     if (autoSentRef.current) return;
 
@@ -266,7 +308,7 @@ export default function ChatPage() {
       greetUser();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageLoaded, jobLoading, jobExists, sanitized]);
+  }, [storageLoaded, jobLoading, jobExists, sanitized, authSignature]);
 
   const handleGeneratePlan = () => {
     sendMessage("Please finalize the build plan based on our discussion.", { isPlanGeneration: true });
@@ -306,6 +348,18 @@ export default function ChatPage() {
       <div className="flex flex-col items-center py-20">
         <p className="text-xl mb-4">🔒 Connect your wallet to access the consultation</p>
         <RainbowKitCustomConnectButton />
+      </div>
+    );
+  }
+
+  if (!authSignature) {
+    return (
+      <div className="flex flex-col items-center py-20">
+        <p className="text-xl mb-4">🔐 Verify your identity</p>
+        <p className="opacity-70 mb-4 max-w-sm text-center text-sm">Sign a message to prove you own this wallet. This is free and only required once.</p>
+        <button className="btn btn-primary" onClick={handleSign} disabled={isSigning || !walletClient}>
+          {isSigning ? <span className="loading loading-spinner loading-sm" /> : "Sign to Continue"}
+        </button>
       </div>
     );
   }

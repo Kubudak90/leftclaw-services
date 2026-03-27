@@ -3,6 +3,7 @@ import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { getSanitization } from "~~/lib/sanitize";
 import { addMessage, getSession, getJobPlanCount, incrementPlanGenerations, incrementJobPlanCount, saveJobMessage, getJobMessages } from "~~/lib/sessionStore";
+import { verifyAuthSignature } from "~~/lib/authSignature";
 import deployedContracts from "~~/contracts/deployedContracts";
 
 const { address: contractAddress, abi } = deployedContracts[8453].LeftClawServicesV2;
@@ -245,10 +246,21 @@ Output EXACTLY this — no variations, no extra markers:
 **IMPORTANT:** Do NOT give estimated scope, time, or "CLAWD days." Only map out the build. Pay close attention to details. Do not give time estimates or iteration cycles.`;
 
 export async function POST(req: NextRequest) {
-  const { messages, isOpening, isGreeting, sessionId, jobId, clientAddress, isPlanGeneration } = await req.json();
+  const { messages, isOpening, isGreeting, sessionId, jobId, clientAddress, isPlanGeneration, authSignature } = await req.json();
 
   if (!messages || !Array.isArray(messages)) {
     return new Response(JSON.stringify({ error: "messages required" }), { status: 400 });
+  }
+
+  // Signature verification for job-based chats (not x402 sessions — those use session tokens)
+  if (jobId && clientAddress && !sessionId) {
+    if (!authSignature) {
+      return new Response(JSON.stringify({ error: "Auth signature required" }), { status: 401 });
+    }
+    const valid = await verifyAuthSignature(clientAddress, authSignature);
+    if (!valid) {
+      return new Response(JSON.stringify({ error: "Invalid auth signature" }), { status: 401 });
+    }
   }
 
   // Sanitization gate — on-chain jobs must pass security review before AI responds.
