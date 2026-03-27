@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withX402Dynamic } from "~~/lib/x402-next-adapter";
+import { withX402DynamicSettleFirst } from "~~/lib/x402-next-adapter";
 import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import { postJobForOnChain } from "~~/lib/postJobFor";
 import { BASE_NETWORK, PAYMENT_ADDRESS, getContractPriceUsd, x402Server } from "~~/lib/x402";
@@ -32,7 +32,7 @@ const handler = async (req: NextRequest): Promise<NextResponse> => {
   }
 };
 
-export const POST = withX402Dynamic(
+export const POST = withX402DynamicSettleFirst(
   handler,
   (price) => ({
     accepts: {

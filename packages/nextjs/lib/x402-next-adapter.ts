@@ -216,5 +216,80 @@ export function withX402Dynamic(
   };
 }
 
+/**
+ * Settle-first variant: settles x402 payment BEFORE running the handler.
+ * Required for routes that call postJobFor — the USDC must land in the
+ * sanitizer wallet before the contract can pull it.
+ */
+export function withX402DynamicSettleFirst(
+  routeHandler: (req: NextRequest) => Promise<NextResponse>,
+  routeConfigFactory: (price: string) => RouteConfig,
+  priceResolver: () => Promise<string>,
+  server: InstanceType<typeof x402ResourceServer>,
+  paywallConfig?: PaywallConfig,
+) {
+  const httpServerCache = new Map<string, { server: any; initPromise: Promise<void> | null }>();
+
+  return async (request: NextRequest) => {
+    const price = await priceResolver();
+    const routeConfig = routeConfigFactory(price);
+
+    let entry = httpServerCache.get(price);
+    if (!entry) {
+      const routes = { "*": routeConfig };
+      const httpServer = new x402HTTPResourceServer(server, routes);
+      entry = { server: httpServer, initPromise: httpServer.initialize() };
+      httpServerCache.set(price, entry);
+    }
+
+    if (entry.initPromise) {
+      await entry.initPromise;
+      entry.initPromise = null;
+    }
+
+    const httpServer = entry.server;
+    const adapter = new NextAdapter(request);
+    const context = {
+      adapter,
+      path: request.nextUrl.pathname,
+      method: request.method,
+      paymentHeader: adapter.getHeader("payment-signature") || adapter.getHeader("x-payment"),
+    };
+
+    const result = await httpServer.processHTTPRequest(context, paywallConfig);
+    switch (result.type) {
+      case "no-payment-required":
+        return routeHandler(request);
+      case "payment-error":
+        return handlePaymentError(result.response);
+      case "payment-verified": {
+        const { paymentPayload, paymentRequirements, declaredExtensions } = result;
+
+        // Settle FIRST so USDC lands in our wallet before the handler runs
+        const settlementResult = await httpServer.processSettlement(
+          paymentPayload,
+          paymentRequirements,
+          declaredExtensions,
+          { request: context, responseBody: Buffer.from("{}") },
+        );
+        if (!settlementResult.success) {
+          return new NextResponse(
+            JSON.stringify({ error: "Settlement failed", details: settlementResult.errorReason }),
+            { status: 402, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        const handlerResponse = await routeHandler(request);
+        if (handlerResponse.status >= 400) return handlerResponse;
+
+        Object.entries(settlementResult.headers).forEach(([key, value]) => {
+          handlerResponse.headers.set(key, value as string);
+        });
+        return handlerResponse;
+      }
+    }
+  };
+}
+
 // Re-export what we use from core
 export { x402ResourceServer, x402HTTPResourceServer } from "@x402/core/server";
