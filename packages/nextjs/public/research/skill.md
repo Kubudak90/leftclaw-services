@@ -3,7 +3,7 @@
 > For AI agents and bots. Everything you need to pay USDC and get a comprehensive research report.
 > Human page: https://leftclaw.services/research
 
-**Price:** $100 USDC on Base (always current — check the 402 response)
+**Price:** Dynamic — read from the 402 response (USDC on Base)
 **Endpoint:** `POST https://leftclaw.services/api/research`
 **Payment:** x402 — sign an EIP-3009 message, no approval tx, no gas required
 
@@ -28,7 +28,7 @@ Send a description of what you want researched (protocol, topic, codebase, etc.)
 x402 = HTTP 402 payment protocol. You hit the endpoint, get a 402 with payment requirements, sign an **EIP-3009 TransferWithAuthorization** message (no gas, no approval tx), retry with the signature in the header. The `@x402/fetch` library does all of this automatically.
 
 **Requirements:**
-- A wallet with ≥ $100 USDC on Base
+- A wallet with USDC on Base (amount returned in the 402 response)
 - No ETH needed — EIP-3009 is gasless for the client
 
 ---
@@ -42,7 +42,7 @@ x402 = HTTP 402 payment protocol. You hit the endpoint, get a 402 with payment r
  * Requirements:
  *   npm install viem @x402/core @x402/evm @x402/fetch
  *
- * Fund your wallet with $100+ USDC on Base before running.
+ * Fund your wallet with USDC on Base before running.
  * No ETH needed — x402 uses EIP-3009 (gasless for client).
  */
 
@@ -52,7 +52,8 @@ import { privateKeyToAccount } from "viem/accounts";
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
 
-const PRIVATE_KEY = "0xYourPrivateKey" as `0x${string}`;
+// NEVER hardcode private keys — always load from environment variables
+const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
 const DESCRIPTION = "Comprehensive analysis of the EigenLayer restaking protocol";
 const RPC = "https://mainnet.base.org";
 const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -64,7 +65,7 @@ async function main() {
   const publicClient = createPublicClient({ chain: base, transport: http(RPC) });
   const walletClient = createWalletClient({ account, chain: base, transport: http(RPC) });
 
-  // Check USDC balance
+  // Check USDC balance (price is dynamic — the 402 response tells you the exact amount)
   const balance = await publicClient.readContract({
     address: USDC,
     abi: [{
@@ -76,21 +77,17 @@ async function main() {
     args: [account.address],
   });
   console.log(`USDC balance: $${(Number(balance) / 1_000_000).toFixed(2)}`);
-  if (Number(balance) < 100_000_000) {
-    throw new Error("Need at least $100 USDC on Base");
-  }
 
   // Build x402 client
-  // toClientEvmSigner converts viem WalletClient → x402 signer interface
   const rawSigner = toClientEvmSigner(walletClient as any, publicClient as any);
-  const signer = { ...rawSigner, address: account.address }; // expose address explicitly
+  const signer = { ...rawSigner, address: account.address };
 
   const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
     schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(signer) }],
   });
 
   console.log("Submitting research request...");
-  // x402 flow: POST → 402 (payment required) → sign EIP-3009 → retry with header → 200
+  // x402 handles payment automatically: POST → 402 → sign EIP-3009 → retry → 200
   const response = await fetchWithPayment("https://leftclaw.services/api/research", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -127,11 +124,11 @@ async function main() {
     console.log(`  Status: ${job.status}`);
 
     if (job.status === "completed") {
-      console.log("\n✅ Research complete!");
+      console.log("\n Research complete!");
       console.log("Result:", JSON.stringify(job.result, null, 2));
       complete = true;
     } else if (job.status === "failed") {
-      console.error("\n❌ Research failed:", job.error);
+      console.error("\n Research failed:", job.error);
       complete = true;
     }
     // "queued" or "processing" → keep polling
@@ -165,7 +162,7 @@ main().catch(console.error);
 |-------|-------|
 | Network | Base (chain ID 8453, CAIP-2: `eip155:8453`) |
 | Token | USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
-| Amount | $100 (100000000 in 6-decimal USDC) — always read from 402 response |
+| Amount | Dynamic — always read from the 402 response |
 | Pay to | `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (clawdbotatg.eth) |
 | Scheme | `exact` EVM |
 | Method | EIP-3009 `TransferWithAuthorization` |
@@ -182,7 +179,7 @@ curl -si -X POST https://leftclaw.services/api/research \
   -d '{"description":"Research the x402 payment protocol"}' | grep payment-required
 ```
 
-Decode the base64 value to see the full payment requirements JSON.
+Decode the base64 value to see the full payment requirements JSON including the current price.
 
 ---
 
@@ -207,7 +204,6 @@ Decode the base64 value to see the full payment requirements JSON.
   "jobId": "x402_abc123",
   "serviceType": "RESEARCH",
   "status": "completed",
-  "priceUsd": "$100",
   "createdAt": "2026-03-25T...",
   "result": { "reportCid": "Qm...", "summary": "..." },
   "completedAt": "2026-03-25T..."
@@ -222,9 +218,9 @@ Decode the base64 value to see the full payment requirements JSON.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `description` | string | ✅ | What to research (min 10 chars) — protocol, topic, codebase, etc. |
-| `context` | string | ❌ | Additional context to guide the research |
+| `description` | string | Yes | What to research (min 10 chars) — protocol, topic, codebase, etc. |
+| `context` | string | No | Additional context to guide the research |
 
 ---
 
-*CLAWD Deep Research · $100 USDC · https://leftclaw.services/research*
+*CLAWD Deep Research · https://leftclaw.services/research*

@@ -97,6 +97,12 @@ export default function JudgePage() {
           descriptionRequired={true}
           onSuccess={jobId => `/jobs/${jobId}`}
         />
+
+        <div className="mt-[100px] flex justify-center">
+          <a href="/judge/skill.md" className="btn btn-outline btn-sm opacity-60 hover:opacity-100">
+            Agent / bot? Read the skill file →
+          </a>
+        </div>
       </div>
     </div>
   );

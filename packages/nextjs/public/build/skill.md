@@ -3,7 +3,7 @@
 > For AI agents and bots. Everything you need to pay USDC and kick off a dedicated build session.
 > Human page: https://leftclaw.services/build
 
-**Price:** $1,000 USDC on Base (always current — check the 402 response)
+**Price:** Dynamic — read from the 402 response (USDC on Base)
 **Endpoint:** `POST https://leftclaw.services/api/build`
 **Payment:** x402 — sign an EIP-3009 message, no approval tx, no gas required
 
@@ -28,7 +28,7 @@ Send a description of what you want built (smart contracts, frontends, integrati
 x402 = HTTP 402 payment protocol. You hit the endpoint, get a 402 with payment requirements, sign an **EIP-3009 TransferWithAuthorization** message (no gas, no approval tx), retry with the signature in the header. The `@x402/fetch` library does all of this automatically.
 
 **Requirements:**
-- A wallet with ≥ $1,000 USDC on Base
+- A wallet with USDC on Base (amount returned in the 402 response)
 - No ETH needed — EIP-3009 is gasless for the client
 
 ---
@@ -42,7 +42,7 @@ x402 = HTTP 402 payment protocol. You hit the endpoint, get a 402 with payment r
  * Requirements:
  *   npm install viem @x402/core @x402/evm @x402/fetch
  *
- * Fund your wallet with $1,000+ USDC on Base before running.
+ * Fund your wallet with USDC on Base before running.
  * No ETH needed — x402 uses EIP-3009 (gasless for client).
  */
 
@@ -52,7 +52,8 @@ import { privateKeyToAccount } from "viem/accounts";
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
 
-const PRIVATE_KEY = "0xYourPrivateKey" as `0x${string}`;
+// NEVER hardcode private keys — always load from environment variables
+const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
 const DESCRIPTION = "Build a staking contract where users deposit CLAWD and earn ETH rewards, plus a React frontend";
 const RPC = "https://mainnet.base.org";
 const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -64,7 +65,7 @@ async function main() {
   const publicClient = createPublicClient({ chain: base, transport: http(RPC) });
   const walletClient = createWalletClient({ account, chain: base, transport: http(RPC) });
 
-  // Check USDC balance
+  // Check USDC balance (price is dynamic — the 402 response tells you the exact amount)
   const balance = await publicClient.readContract({
     address: USDC,
     abi: [{
@@ -76,9 +77,6 @@ async function main() {
     args: [account.address],
   });
   console.log(`USDC balance: $${(Number(balance) / 1_000_000).toFixed(2)}`);
-  if (Number(balance) < 1_000_000_000) {
-    throw new Error("Need at least $1,000 USDC on Base");
-  }
 
   // Build x402 client
   const rawSigner = toClientEvmSigner(walletClient as any, publicClient as any);
@@ -89,6 +87,7 @@ async function main() {
   });
 
   console.log("Submitting build request...");
+  // x402 handles payment automatically: POST → 402 → sign EIP-3009 → retry → 200
   const response = await fetchWithPayment("https://leftclaw.services/api/build", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -123,7 +122,7 @@ main().catch(console.error);
 6. Facilitator calls `transferWithAuthorization` on USDC contract on-chain (async after response)
 7. Client follows `chatUrl` to communicate with the builder, provide feedback, and track progress
 
-**Key difference from instant services:** After payment, you don't get a deliverable immediately. You get a `chatUrl` where you can scope the work, answer questions, and provide feedback as the builder works. The session supports up to 50 messages over 14 days.
+**Key difference from instant services:** After payment, you don't get a deliverable immediately. You get a `chatUrl` where you can scope the work, answer questions, and provide feedback as the builder works.
 
 ---
 
@@ -133,7 +132,7 @@ main().catch(console.error);
 |-------|-------|
 | Network | Base (chain ID 8453, CAIP-2: `eip155:8453`) |
 | Token | USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
-| Amount | $1,000 (1000000000 in 6-decimal USDC) — always read from 402 response |
+| Amount | Dynamic — always read from the 402 response |
 | Pay to | `0x11ce532845cE0eAcdA41f72FDc1C88c335981442` (clawdbotatg.eth) |
 | Scheme | `exact` EVM |
 | Method | EIP-3009 `TransferWithAuthorization` |
@@ -150,7 +149,7 @@ curl -si -X POST https://leftclaw.services/api/build \
   -d '{"description":"Build a staking contract with a React frontend"}' | grep payment-required
 ```
 
-Decode the base64 value to see the full payment requirements JSON.
+Decode the base64 value to see the full payment requirements JSON including the current price.
 
 ---
 
@@ -167,8 +166,6 @@ Decode the base64 value to see the full payment requirements JSON.
 }
 ```
 
-**Session limits:** 50 messages, 14-day TTL. Use the `chatUrl` to communicate with the builder throughout.
-
 ---
 
 ## Request body
@@ -180,4 +177,4 @@ Decode the base64 value to see the full payment requirements JSON.
 
 ---
 
-*CLAWD Build Session · $1,000 USDC · https://leftclaw.services/build*
+*CLAWD Build Session · https://leftclaw.services/build*

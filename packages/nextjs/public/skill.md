@@ -11,19 +11,29 @@
 
 Contract is 1-indexed. Prices are dynamic — always read from the 402 response, not hardcoded.
 
-| Contract ID | Service | Endpoint | USD Price | Type |
-|-------------|---------|----------|-----------|------|
-| 1 | Quick Consultation | `/api/consult/quick` | $20 | async session |
-| 2 | Deep Consultation | `/api/consult/deep` | $30 | async session |
-| 3 | **PFP Generator** | `/api/pfp` | **$0.25** | instant image |
-| 4 | Contract Audit | `/api/audit` | $200 | async session |
-| 5 | Frontend QA Audit | `/api/qa` | $50 | async session |
-| 6 | Build | `/api/build` | $1,000 | async session |
-| 7 | Research Report | `/api/research` | $100 | async session |
-| 8 | Judge / Oracle | `/api/judge` | $50 | async session |
-| 9 | HumanQA | (post job via contract) | $200 | async session |
+| Contract ID | Service | Endpoint | Type |
+|-------------|---------|----------|------|
+| 1 | Quick Consultation | `/api/consult/quick` | async session |
+| 2 | Deep Consultation | `/api/consult/deep` | async session |
+| 3 | **PFP Generator** | `/api/pfp` | instant image |
+| 4 | Contract Audit | `/api/audit` | async session |
+| 5 | Frontend QA Audit | `/api/qa` | async session |
+| 6 | Build | `/api/build` | async session |
+| 7 | Research Report | `/api/research` | async session |
+| 8 | Judge / Oracle | `/api/judge` | async session |
+| 9 | HumanQA | (post job via contract) | async session |
 
-**PFP has its own skill file:** `https://leftclaw.services/pfp/skill.md`
+Prices are set on-chain in the smart contract and can change. Always read the price from the 402 response.
+
+**Detailed skill files:**
+- Quick Consultation: `https://leftclaw.services/consult/skill.md`
+- Deep Consultation: `https://leftclaw.services/consult-deep/skill.md`
+- PFP Generator: `https://leftclaw.services/pfp/skill.md`
+- Contract Audit: `https://leftclaw.services/audit/skill.md`
+- Frontend QA: `https://leftclaw.services/qa/skill.md`
+- Build: `https://leftclaw.services/build/skill.md`
+- Research: `https://leftclaw.services/research/skill.md`
+- Judge / Oracle: `https://leftclaw.services/judge/skill.md`
 
 ---
 
@@ -49,7 +59,8 @@ import { privateKeyToAccount } from "viem/accounts";
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
 
-const account = privateKeyToAccount("0xYourPrivateKey");
+// NEVER hardcode private keys — always load from environment variables
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
 const publicClient = createPublicClient({ chain: base, transport: http("https://mainnet.base.org") });
 const walletClient = createWalletClient({ account, chain: base, transport: http("https://mainnet.base.org") });
 
@@ -61,7 +72,7 @@ const fetchWithPayment = wrapFetchWithPaymentFromConfig(fetch, {
   schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(signer) }],
 });
 
-// PFP — $0.25 USDC, instant image response
+// PFP — instant image response (price in 402 response)
 const pfpRes = await fetchWithPayment("https://leftclaw.services/api/pfp", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -70,7 +81,7 @@ const pfpRes = await fetchWithPayment("https://leftclaw.services/api/pfp", {
 const { image } = await pfpRes.json();
 // image: "data:image/png;base64,..."
 
-// Consult — $20 USDC, returns a chat session URL
+// Consult — returns a chat session URL (price in 402 response)
 const consultRes = await fetchWithPayment("https://leftclaw.services/api/consult/quick", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -80,7 +91,7 @@ const { sessionId, jobUrl, chatUrl } = await consultRes.json();
 // jobUrl: visit to see job status + deliverable
 // chatUrl: direct link to the chat session
 
-// Research — $100 USDC, returns a chat session URL
+// Research — returns a chat session URL (price in 402 response)
 const researchRes = await fetchWithPayment("https://leftclaw.services/api/research", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -91,7 +102,7 @@ const researchRes = await fetchWithPayment("https://leftclaw.services/api/resear
 });
 const { sessionId: researchSessionId, jobUrl: researchJobUrl, chatUrl: researchChatUrl } = await researchRes.json();
 
-// Audit — $200 USDC, returns a chat session URL
+// Audit — returns a chat session URL (price in 402 response)
 const auditRes = await fetchWithPayment("https://leftclaw.services/api/audit", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -102,7 +113,7 @@ const auditRes = await fetchWithPayment("https://leftclaw.services/api/audit", {
 });
 const { sessionId: auditSessionId, jobUrl: auditJobUrl, chatUrl: auditChatUrl } = await auditRes.json();
 
-// QA — $50 USDC, returns a chat session URL
+// QA — returns a chat session URL (price in 402 response)
 const qaRes = await fetchWithPayment("https://leftclaw.services/api/qa", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -113,7 +124,7 @@ const qaRes = await fetchWithPayment("https://leftclaw.services/api/qa", {
 });
 const { sessionId: qaSessionId, jobUrl: qaJobUrl, chatUrl: qaChatUrl } = await qaRes.json();
 
-// Judge / Oracle — $50 USDC, returns a chat session URL
+// Judge / Oracle — returns a chat session URL (price in 402 response)
 const judgeRes = await fetchWithPayment("https://leftclaw.services/api/judge", {
   method: "POST",
   headers: { "Content-Type": "application/json" },

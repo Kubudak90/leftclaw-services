@@ -22,7 +22,7 @@ const handler = async (req: NextRequest): Promise<NextResponse> => {
       serviceType: "BUILD_DAILY",
       description: description.trim(),
       context: context?.trim(),
-      priceUsd: "$1000",
+      priceUsd: await getContractPriceUsd(6),
     });
 
     return NextResponse.json({

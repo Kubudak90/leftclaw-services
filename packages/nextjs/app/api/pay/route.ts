@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPayment, PaymentMethod, CV_PRICES, USD_PRICES } from "~~/lib/payments";
+import { verifyPayment, PaymentMethod, CV_PRICES } from "~~/lib/payments";
 import { createSession } from "~~/lib/sessionStore";
+import { getContractPriceUsd } from "~~/lib/x402";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://leftclaw.services";
 
 const VALID_SERVICES = ["CONSULT_QUICK", "CONSULT_DEEP", "QA_REPORT", "AUDIT_QUICK"] as const;
 type ServiceType = (typeof VALID_SERVICES)[number];
+
+const SERVICE_CONTRACT_IDS: Record<string, number> = {
+  CONSULT_QUICK: 1,
+  CONSULT_DEEP: 2,
+  QA_REPORT: 5,
+  AUDIT_QUICK: 4,
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,11 +55,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Payment verified — create session
+    const contractId = SERVICE_CONTRACT_IDS[serviceType];
     const session = await createSession({
       serviceType,
       description: description?.trim() || `${serviceType.replace("_", " ")} session`,
       context: context?.trim(),
-      priceUsd: `$${USD_PRICES[serviceType] || 0}`,
+      priceUsd: contractId ? await getContractPriceUsd(contractId) : "$0",
       payerAddress: wallet,
     });
 
@@ -73,14 +82,19 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET — return pricing info for all services
+// GET — return pricing info for all services (prices read from contract)
 export async function GET() {
-  const services = VALID_SERVICES.map(s => ({
-    type: s,
-    usdPrice: USD_PRICES[s],
-    cvPrice: CV_PRICES[s],
-    methods: ["cv", "clawd", "usdc", "eth"],
-  }));
+  const services = await Promise.all(
+    VALID_SERVICES.map(async s => {
+      const contractId = SERVICE_CONTRACT_IDS[s];
+      return {
+        type: s,
+        usdPrice: contractId ? await getContractPriceUsd(contractId) : "$0",
+        cvPrice: CV_PRICES[s],
+        methods: ["cv", "clawd", "usdc", "eth"],
+      };
+    }),
+  );
 
   return NextResponse.json({ services });
 }

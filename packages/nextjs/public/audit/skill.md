@@ -1,25 +1,25 @@
-# CLAWD PFP Generator — Agent Skill File
+# CLAWD Smart Contract Audit — Agent Skill File
 
-> For AI agents and bots. Everything you need to generate a custom CLAWD PFP.
-> Human page: https://leftclaw.services/pfp
+> For AI agents and bots. Everything you need to pay USDC and get an AI-powered security audit.
+> Human page: https://leftclaw.services/audit
 
 **Price:** Dynamic — read from the 402 response (USDC on Base)
-**Endpoint:** `POST https://leftclaw.services/api/pfp`
+**Endpoint:** `POST https://leftclaw.services/api/audit`
 **Payment:** x402 — sign an EIP-3009 message, no approval tx, no gas required
 
 ---
 
 ## What you get
 
-Send a prompt describing how to modify the CLAWD mascot. Get back a 1024x1024 PNG inline as a base64 data URL. Instant delivery — no waiting, no job queue.
+Submit a contract address (verified on Basescan/Etherscan) or paste source code. Get a detailed security review covering vulnerabilities, logic errors, access control issues, and gas optimizations. Delivered as a written report with severity ratings and fix recommendations.
 
-The character: a red crystalline/geometric Pepe-style creature with an ethereum diamond-shaped head, wearing a black tuxedo with bow tie, holding a teacup.
+**This is an async service** — you get a job URL to track progress and a chat URL for the audit session.
 
-**Prompt examples:**
-- `"wearing a cowboy hat and holding a lasso"`
-- `"as a pirate captain on a ship"`
-- `"in a space suit floating in orbit"`
-- `"wearing sunglasses at a beach"`
+**Description examples:**
+- `"0xYourContractAddress on Base — ERC20 with custom transfer logic"`
+- `"Audit this Solidity contract: [paste source code]"`
+- `"Security review of our staking contract at 0x... — focus on reentrancy and access control"`
+- `"Review our Uniswap V4 hook contract — concerned about sandwich attack vectors"`
 
 ---
 
@@ -37,7 +37,7 @@ x402 = HTTP 402 payment protocol. You hit the endpoint, get a 402 with payment r
 
 ```typescript
 /**
- * CLAWD PFP Generator — x402 payment script
+ * CLAWD Smart Contract Audit — x402 payment script
  *
  * Requirements:
  *   npm install viem @x402/core @x402/evm @x402/fetch
@@ -46,7 +46,6 @@ x402 = HTTP 402 payment protocol. You hit the endpoint, get a 402 with payment r
  * No ETH needed — x402 uses EIP-3009 (gasless for client).
  */
 
-import { writeFileSync } from "fs";
 import { createWalletClient, createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
@@ -55,9 +54,8 @@ import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
 
 // NEVER hardcode private keys — always load from environment variables
 const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
-const PROMPT = "wearing a cowboy hat and holding a lasso";
+const DESCRIPTION = "0xYourContractAddress on Base — ERC20 with custom transfer logic";
 const RPC = "https://mainnet.base.org";
-const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 
 async function main() {
   const account = privateKeyToAccount(PRIVATE_KEY);
@@ -66,18 +64,6 @@ async function main() {
   const publicClient = createPublicClient({ chain: base, transport: http(RPC) });
   const walletClient = createWalletClient({ account, chain: base, transport: http(RPC) });
 
-  // Check USDC balance (price is dynamic — the 402 response tells you the exact amount)
-  const balance = await publicClient.readContract({
-    address: USDC,
-    abi: [{ name: "balanceOf", type: "function", stateMutability: "view",
-      inputs: [{ name: "account", type: "address" }],
-      outputs: [{ name: "", type: "uint256" }] }],
-    functionName: "balanceOf",
-    args: [account.address],
-  });
-  console.log(`USDC balance: $${(Number(balance) / 1_000_000).toFixed(2)}`);
-
-  // Build x402 client
   const rawSigner = toClientEvmSigner(walletClient as any, publicClient as any);
   const signer = { ...rawSigner, address: account.address };
 
@@ -85,12 +71,11 @@ async function main() {
     schemes: [{ network: "eip155:8453", client: new ExactEvmScheme(signer) }],
   });
 
-  console.log("Generating PFP...");
-  // x402 handles payment automatically: POST → 402 → sign EIP-3009 → retry → 200
-  const response = await fetchWithPayment("https://leftclaw.services/api/pfp", {
+  console.log("Submitting audit request...");
+  const response = await fetchWithPayment("https://leftclaw.services/api/audit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: PROMPT }),
+    body: JSON.stringify({ description: DESCRIPTION }),
   });
 
   if (!response.ok) {
@@ -98,13 +83,13 @@ async function main() {
     throw new Error(`Failed ${response.status}: ${err}`);
   }
 
-  const { image, message } = await response.json();
-  console.log(message);
-
-  // Save to disk
-  const path = `clawd-pfp-${Date.now()}.png`;
-  writeFileSync(path, Buffer.from(image.replace("data:image/png;base64,", ""), "base64"));
-  console.log(`Saved -> ${path}`);
+  const result = await response.json();
+  console.log("Audit session created!");
+  console.log(`  Job URL:  ${result.jobUrl}`);
+  console.log(`  Chat URL: ${result.chatUrl}`);
+  console.log(`  Status:   ${result.status}`);
+  console.log(`  Expires:  ${result.expiresAt}`);
+  console.log(`  Messages: up to ${result.maxMessages}`);
 }
 
 main().catch(console.error);
@@ -114,12 +99,13 @@ main().catch(console.error);
 
 ## How x402 works here
 
-1. `POST /api/pfp` with no payment → `402` response with `PAYMENT-REQUIRED` header (base64 JSON)
+1. `POST /api/audit` with no payment → `402` response with `PAYMENT-REQUIRED` header (base64 JSON)
 2. Header contains: amount (USDC 6 decimals), payTo address, maxTimeoutSeconds, EIP-712 domain info
 3. Client signs `TransferWithAuthorization` typed message (EIP-3009) — offline, no gas
-4. Retry `POST /api/pfp` with `PAYMENT-SIGNATURE` header containing the signed payload
-5. Server verifies signature via facilitator → generates image → returns `200` with base64 PNG
+4. Retry `POST /api/audit` with `PAYMENT-SIGNATURE` header containing the signed payload
+5. Server verifies signature via facilitator → creates audit session → returns `200` with session details
 6. Facilitator calls `transferWithAuthorization` on USDC contract on-chain (async after response)
+7. Client follows `jobUrl` to track progress and `chatUrl` to interact with the audit
 
 ---
 
@@ -138,30 +124,29 @@ main().catch(console.error);
 
 ---
 
-## Raw 402 response (for reference)
-
-```bash
-curl -si -X POST https://leftclaw.services/api/pfp \
-  -H "Content-Type: application/json" \
-  -d '{"prompt":"cowboy hat"}' | grep payment-required
-```
-
-Decode the base64 value to see the full payment requirements JSON including the current price.
-
----
-
 ## Response format (200 OK)
 
 ```json
 {
-  "image": "data:image/png;base64,...",
-  "prompt": "wearing a cowboy hat and holding a lasso",
-  "message": "Your custom CLAWD PFP is ready!"
+  "sessionId": "x402_abc123",
+  "jobUrl": "https://leftclaw.services/jobs/x402/x402_abc123",
+  "chatUrl": "https://leftclaw.services/chat/x402/x402_abc123",
+  "status": "active",
+  "expiresAt": "2026-04-01T00:00:00.000Z",
+  "maxMessages": 20,
+  "message": "Audit session created. Follow the jobUrl to track progress and see results."
 }
 ```
 
-The `image` field is a complete data URL — write it to a `.png` file or render it directly.
+---
+
+## Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `description` | string | Yes | Contract address (verified on Basescan/Etherscan) or source code (min 10 chars) |
+| `context` | string | No | Additional context about what the contract does |
 
 ---
 
-*CLAWD PFP Generator · https://leftclaw.services/pfp*
+*CLAWD Smart Contract Audit · https://leftclaw.services/audit*

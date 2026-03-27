@@ -146,6 +146,15 @@ function ConsultPage() {
             return `/chat/${jobId}`;
           }}
         />
+
+        <div className="mt-[100px] flex justify-center">
+          <a
+            href={serviceType === 1 ? "/consult-deep/skill.md" : "/consult/skill.md"}
+            className="btn btn-outline btn-sm opacity-60 hover:opacity-100"
+          >
+            Agent / bot? Read the skill file →
+          </a>
+        </div>
       </div>
     </div>
   );

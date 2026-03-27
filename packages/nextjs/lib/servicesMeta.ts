@@ -56,6 +56,7 @@ export const SERVICE_META: Record<string, ServiceMeta> = {
     heroPosition: "left",
     descriptionLabel: "What contract should we audit?",
     descriptionPlaceholder: "Paste the contract address (verified on Basescan/Etherscan) or paste source code. Include any relevant context about what the contract does.",
+    skillFile: true,
   },
   qa: {
     emoji: "🔍",
@@ -70,6 +71,7 @@ export const SERVICE_META: Record<string, ServiceMeta> = {
     heroPosition: "right",
     descriptionLabel: "What dApp should we QA?",
     descriptionPlaceholder: "Include the dApp URL, contract address, or GitHub repo link. Mention specific areas of concern if any.",
+    skillFile: true,
   },
   build: {
     emoji: "⚒️",

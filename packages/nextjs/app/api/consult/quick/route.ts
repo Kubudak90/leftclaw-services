@@ -19,7 +19,7 @@ const handler = async (req: NextRequest): Promise<NextResponse> => {
       serviceType: "CONSULT_QUICK",
       description: description.trim(),
       context: context?.trim(),
-      priceUsd: "$20",
+      priceUsd: await getContractPriceUsd(1),
     });
 
     return NextResponse.json({
