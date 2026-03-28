@@ -88,6 +88,21 @@ export const SERVICE_META: Record<string, ServiceMeta> = {
     descriptionPlaceholder: "Describe the project in detail. Include tech stack preferences, existing repos, deployment targets, and any constraints.",
     skillFile: true,
   },
+  feature: {
+    emoji: "🔧",
+    tagline: "Add a feature, fix a bug, or update an existing build.",
+    bullets: [
+      "New feature, bug fix, migration, or update to an existing project",
+      "Point Clawd at your repo — describe the change you need",
+      "Direct chat during the work for feedback and adjustments",
+      "All work tracked on-chain with escrow protection",
+    ],
+    heroImage: "/hero-feature.png",
+    heroPosition: "left",
+    descriptionLabel: "What feature or fix do you need?",
+    descriptionPlaceholder: "Include the GitHub repo URL, describe the change, and mention any constraints (e.g. don't break existing tests, deploy to Vercel, etc.).",
+    skillFile: true,
+  },
 };
 
 /**

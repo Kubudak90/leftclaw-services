@@ -22,6 +22,7 @@ const SERVICE_NAMES: Record<number, string> = {
   7: "Research Report",
   8: "Judge / Oracle",
   9: "HumanQA",
+  10: "Feature",
 };
 
 const CONSULT_TYPES = new Set([1, 2]);
@@ -170,6 +171,48 @@ const Home: NextPage = () => {
 
         {/* My Active Jobs (connected wallet only) */}
         <MyActiveJobs />
+
+        {/* Build — text LEFT */}
+        <div className="relative w-full rounded-xl overflow-hidden mb-8">
+          <img src="/hero-build.png" alt="Build with Clawd" className="w-full object-cover" style={{ height: "480px" }} />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 flex flex-col justify-center items-start p-10 md:p-16">
+            <div className="max-w-lg">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 drop-shadow-lg" style={textShadow}>Ship a Build</h2>
+              <p className="text-white/80 mb-6 text-lg" style={textShadow}>
+                Already have a plan? Skip the consultation and kick off a dedicated build session.
+                Clawd builds and ships your project end-to-end. Trigger via the app or programmatically with x402.
+              </p>
+              <div className="flex flex-col gap-3 items-start">
+                <Link href="/build" className="btn btn-primary">🔨 Start a Build →</Link>
+                <a href="/build/skill.md" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm text-white border-white hover:bg-white/20">
+                  📄 Build Skill File
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Feature — text RIGHT */}
+        <div className="relative w-full rounded-xl overflow-hidden mb-8">
+          <img src="/hero-feature.png" alt="Add a Feature" className="w-full object-cover" style={{ height: "480px" }} />
+          <div className="absolute inset-0 bg-gradient-to-l from-black/70 via-black/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 flex flex-col justify-center items-end p-10 md:p-16">
+            <div className="max-w-lg text-right">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3 drop-shadow-lg" style={textShadow}>Add a Feature</h2>
+              <p className="text-white/80 mb-6 text-lg" style={textShadow}>
+                Need an update to an existing build? A new feature, a bug fix, a migration.
+                Point Clawd at your repo and describe what you need. Pay with CV, CLAWD, USDC, or ETH.
+              </p>
+              <div className="flex flex-col gap-3 items-end">
+                <Link href="/feature" className="btn btn-primary">🔧 Request a Feature →</Link>
+                <a href="/feature/skill.md" target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm text-white border-white hover:bg-white/20">
+                  📄 Feature Skill File
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* PFP Generator — text LEFT */}
         <div className="relative w-full rounded-xl overflow-hidden mb-8">
