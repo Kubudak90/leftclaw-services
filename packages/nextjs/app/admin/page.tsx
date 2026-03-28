@@ -434,10 +434,14 @@ function JobCard({
   job,
   clawdPrice,
   onAction,
+  serviceTypeName,
+  tldr,
 }: {
   job: JobData;
   clawdPrice: number | null;
   onAction: (action: string, jobId: bigint, args?: any) => Promise<void>;
+  serviceTypeName?: string;
+  tldr?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [resultCID, setResultCID] = useState("");
@@ -482,7 +486,7 @@ function JobCard({
         <div className="flex items-center gap-2">
           <span className="font-mono font-bold text-sm">#{Number(job.id)}</span>
           <span className={`badge ${statusInfo.badge} badge-sm`}>{statusInfo.text}</span>
-          <span className="text-xs opacity-60">Type #{Number(job.serviceTypeId)}</span>
+          <span className="text-xs opacity-60">{serviceTypeName || `Type #${Number(job.serviceTypeId)}`}</span>
           <span className="badge badge-ghost badge-xs">{paymentLabels[job.paymentMethod] || "?"}</span>
         </div>
         <button className="btn btn-ghost btn-xs" onClick={() => setExpanded(!expanded)}>
@@ -492,7 +496,7 @@ function JobCard({
 
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-3">
-          <span className="opacity-60">Client: <span className="font-mono">{truncAddr(job.client)}</span></span>
+          <span className="opacity-60 flex items-center gap-1">Client: <Address address={job.client as `0x${string}`} size="xs" /></span>
           <span className="opacity-40">·</span>
           <span className="opacity-60">{timeAgo(Number(job.createdAt))}</span>
         </div>
@@ -503,9 +507,9 @@ function JobCard({
         </div>
       </div>
 
-      {/* Quick description preview */}
-      {job.description && (
-        <p className="text-xs opacity-50 mt-1 truncate">{job.description.slice(0, 120)}</p>
+      {/* Quick description preview — prefer TLDR summary over raw text */}
+      {(tldr || job.description) && (
+        <p className="text-xs opacity-50 mt-1 truncate">{tldr || job.description.slice(0, 120)}</p>
       )}
 
       {/* Action buttons */}
@@ -524,11 +528,17 @@ function JobCard({
 
       {expanded && (
         <div className="mt-4 space-y-4 border-t border-base-100 pt-4">
-          {job.description && (
+          {tldr && (
             <div className="text-xs">
-              <span className="opacity-50">Description: </span>
-              <span className="break-all">{job.description}</span>
+              <span className="opacity-50">Summary: </span>
+              <span>{tldr}</span>
             </div>
+          )}
+          {job.description && (
+            <details className="text-xs">
+              <summary className="opacity-50 cursor-pointer hover:opacity-70">Raw description</summary>
+              <span className="break-all opacity-70 mt-1 block">{job.description}</span>
+            </details>
           )}
           {job.resultCID && (
             <div className="text-xs">
@@ -537,7 +547,7 @@ function JobCard({
             </div>
           )}
           {job.worker !== "0x0000000000000000000000000000000000000000" && (
-            <div className="text-xs"><span className="opacity-50">Worker: </span><span className="font-mono">{truncAddr(job.worker)}</span></div>
+            <div className="text-xs flex items-center gap-1"><span className="opacity-50">Worker: </span><Address address={job.worker as `0x${string}`} size="xs" /></div>
           )}
           {job.currentStage && (
             <div className="text-xs"><span className="opacity-50">Stage: </span><span className="badge badge-info badge-xs">{job.currentStage}</span></div>
@@ -656,6 +666,30 @@ export default function AdminPage() {
   const allJobs: JobData[] = (jobsData || []).map(d => d.result as JobData | undefined).filter((j): j is JobData => !!j);
   const filteredJobs = statusFilter === -1 ? allJobs : allJobs.filter(j => j.status === statusFilter);
   const sortedJobs = [...filteredJobs].sort((a, b) => Number(b.id) - Number(a.id));
+
+  // Service type lookup for human-readable names
+  const { data: serviceTypesRaw } = useReadContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI as any,
+    functionName: "getAllServiceTypes",
+  });
+  const serviceTypeMap: Record<string, string> = {};
+  if (serviceTypesRaw) {
+    for (const st of serviceTypesRaw as ServiceTypeData[]) {
+      serviceTypeMap[st.id.toString()] = st.name;
+    }
+  }
+
+  // Job TLDR summaries from sanitization cache
+  const [tldrMap, setTldrMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (allJobs.length === 0) return;
+    const jobIds = allJobs.map(j => Number(j.id)).join(",");
+    fetch(`/api/job/summaries?jobIds=${jobIds}`)
+      .then(r => r.json())
+      .then(data => { if (data.summaries) setTldrMap(data.summaries); })
+      .catch(() => {});
+  }, [allJobs.length, totalJobs]);
 
   // Job actions
   const handleJobAction = async (action: string, jobId: bigint, args?: any) => {
@@ -825,7 +859,14 @@ export default function AdminPage() {
                 <p className="text-sm opacity-50 text-center py-4">No jobs</p>
               ) : (
                 sortedJobs.map(job => (
-                  <JobCard key={Number(job.id)} job={job} clawdPrice={clawdPrice} onAction={handleJobAction} />
+                  <JobCard
+                    key={Number(job.id)}
+                    job={job}
+                    clawdPrice={clawdPrice}
+                    onAction={handleJobAction}
+                    serviceTypeName={serviceTypeMap[job.serviceTypeId.toString()]}
+                    tldr={tldrMap[job.id.toString()]}
+                  />
                 ))
               )}
             </div>
