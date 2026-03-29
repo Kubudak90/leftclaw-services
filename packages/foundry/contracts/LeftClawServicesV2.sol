@@ -385,7 +385,7 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
     function adminResetJob(uint256 jobId) external onlyOwner nonReentrant {
         Job storage job = jobs[jobId];
         require(job.id != 0, "!job");
-        require(job.status == JobStatus.IN_PROGRESS, "!active");
+        require(job.status == JobStatus.IN_PROGRESS || job.status == JobStatus.COMPLETED, "!active");
 
         emit JobReassigned(jobId, job.worker);
 
