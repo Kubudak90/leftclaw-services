@@ -730,6 +730,11 @@ const deployedContracts = {
                 "name": "description",
                 "type": "string",
                 "internalType": "string"
+            },
+            {
+                "name": "minClawdOut",
+                "type": "uint256",
+                "internalType": "uint256"
             }
         ],
         "outputs": [],

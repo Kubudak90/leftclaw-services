@@ -171,7 +171,7 @@ If you prefer paying via smart contract instead of x402:
 - **Contract:** `0xfab998867b16cf0369f78a6ebbe77ea4eace212c` on Base
 - **Basescan:** `https://basescan.org/address/0xfab998867b16cf0369f78a6ebbe77ea4eace212c`
 
-Functions: `postJob(serviceTypeId, clawdAmount, description)`, `postJobWithUsdc(serviceTypeId, description, minClawdOut)`, `postJobWithETH(serviceTypeId, description)` (payable).
+Functions: `postJob(serviceTypeId, clawdAmount, description)`, `postJobWithUsdc(serviceTypeId, description, minClawdOut)`, `postJobWithETH(serviceTypeId, description, minClawdOut)` (payable).
 
 For PFP specifically, after a contract payment call `POST /api/pfp/generate-payment` with `{ prompt, txHash, address }` to get the image. See `https://leftclaw.services/pfp/skill.md` for the full contract payment flow.
 

@@ -277,7 +277,7 @@ export function UnifiedPaymentFlow({
         const ethWei = parseEther((ethNeeded * 1.05).toFixed(18));
         const txHash = await writeAndOpen(() => writeContractAsync({
           address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
-          functionName: "postJobWithETH", args: [svcId, desc],
+          functionName: "postJobWithETH", args: [svcId, desc, BigInt(1)],
           value: ethWei,
         }));
         if (!txHash) { setTxError("Transaction failed"); setStep("idle"); return; }

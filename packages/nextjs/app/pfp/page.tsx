@@ -243,7 +243,7 @@ export default function PfpPage() {
         const txHash = await writeContractAsync({
           address: CONTRACT_ADDRESS, abi: CONTRACT_ABI as any,
           functionName: "postJobWithETH",
-          args: [BigInt(PFP_SERVICE_TYPE_ID), `PFP: ${prompt.trim()}`],
+          args: [BigInt(PFP_SERVICE_TYPE_ID), `PFP: ${prompt.trim()}`, BigInt(1)],
           value: ethWei,
         });
         if (!txHash) throw new Error("Transaction failed");
