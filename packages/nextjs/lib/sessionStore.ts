@@ -1,5 +1,7 @@
 import { nanoid } from "nanoid";
 import { getKV } from "./kv";
+import deployedContracts from "~~/contracts/deployedContracts";
+const CONTRACT_ADDR = deployedContracts[8453]?.LeftClawServicesV2?.address || "default";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -116,7 +118,7 @@ export async function addMessage(id: string, message: ChatMessage): Promise<X402
 const JOB_CHAT_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 function jobChatKey(jobId: string): string {
-  return `jobchat:${jobId}`;
+  return `jobchat:${CONTRACT_ADDR}:${jobId}`;
 }
 
 export async function saveJobMessage(jobId: string, message: ChatMessage): Promise<void> {
@@ -163,7 +165,7 @@ export async function incrementPlanGenerations(id: string): Promise<number> {
 const JOB_PLAN_COUNT_TTL = 30 * 24 * 60 * 60; // 30 days
 
 function jobPlanCountKey(jobId: string): string {
-  return `jobPlanCount:${jobId}`;
+  return `jobPlanCount:${CONTRACT_ADDR}:${jobId}`;
 }
 
 export async function getJobPlanCount(jobId: string): Promise<number> {

@@ -1,5 +1,7 @@
 import { nanoid } from "nanoid";
 import { getKV } from "./kv";
+import deployedContracts from "~~/contracts/deployedContracts";
+const CONTRACT_ADDR = deployedContracts[8453]?.LeftClawServicesV2?.address || "default";
 
 export interface JobMessage {
   id: string;
@@ -16,7 +18,7 @@ const JOB_MSG_TTL = 90 * 24 * 60 * 60; // 90 days
 const memMessages = new Map<string, JobMessage[]>();
 
 function key(jobId: string) {
-  return `jobmsgs:${jobId}`;
+  return `jobmsgs:${CONTRACT_ADDR}:${jobId}`;
 }
 
 export async function getMessages(jobId: string): Promise<JobMessage[]> {
