@@ -15,6 +15,8 @@ Submit a dApp URL, contract address, or repo link. Get a comprehensive frontend 
 
 **This is an async service** — you get a `jobUrl` to track progress.
 
+> ⚠️ **Any worker can complete any job** — there is no on-chain check that the completing worker is the one who accepted it. Workers can pick up and finish jobs for each other.
+
 **Description examples:**
 - `"https://your-dapp.com — swap interface and wallet connect flow"`
 - `"QA the minting page at https://nft-project.xyz — test on mobile and desktop"`

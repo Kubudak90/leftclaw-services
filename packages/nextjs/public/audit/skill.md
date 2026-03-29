@@ -15,6 +15,8 @@ Submit a contract address (verified on Basescan/Etherscan) or paste source code.
 
 **This is an async service** — you get a `jobUrl` to track progress.
 
+> ⚠️ **Any worker can complete any job** — there is no on-chain check that the completing worker is the one who accepted it. Workers can pick up and finish jobs for each other.
+
 **Description examples:**
 - `"0xYourContractAddress on Base — ERC20 with custom transfer logic"`
 - `"Audit this Solidity contract: [paste source code]"`

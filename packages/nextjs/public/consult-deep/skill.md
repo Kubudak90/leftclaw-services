@@ -15,6 +15,8 @@ A longer, open-ended 30-message session to work through a complex idea. Multi-co
 
 **This is an async service** — you get a job URL to track progress on-chain.
 
+> ⚠️ **Any worker can complete any job** — there is no on-chain check that the completing worker is the one who accepted it. Workers can pick up and finish jobs for each other.
+
 **Description examples:**
 - `"Design a cross-chain bridge with optimistic verification and fraud proofs"`
 - `"Help me design tokenomics for a dual-token staking and governance system"`

@@ -22,6 +22,7 @@ const STATUS_LABELS: Record<number, { text: string; badge: string }> = {
   2: { text: "COMPLETED", badge: "badge-success" },
   3: { text: "DECLINED", badge: "badge-error" },
   4: { text: "CANCELLED", badge: "badge-ghost" },
+  5: { text: "REASSIGNED", badge: "badge-secondary" },
 };
 
 const STATUS_FILTERS = [
@@ -31,6 +32,7 @@ const STATUS_FILTERS = [
   { value: 2, label: "Completed" },
   { value: 3, label: "Declined" },
   { value: 4, label: "Cancelled" },
+  { value: 5, label: "Reassigned" },
 ];
 
 function parseError(e: unknown): string {
@@ -642,6 +644,14 @@ export default function AdminPage() {
   const [ownerBusy, setOwnerBusy] = useState<string | null>(null);
   const [ownerMsg, setOwnerMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Admin Reset Job state
+  const [resetJobId, setResetJobId] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetMsg, setResetMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [resetJobPreview, setResetJobPreview] = useState<JobData | null>(null);
+  const [resetPreviewLoading, setResetPreviewLoading] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState(false);
+
   // Workers list
   const { workers, loading: workersLoading, refetch: refetchWorkers } = useWorkers();
 
@@ -748,6 +758,53 @@ export default function AdminPage() {
     }
   };
 
+  // Admin Reset Job handlers
+  const handleResetJobPreview = async () => {
+    if (!resetJobId || !publicClient) return;
+    setResetPreviewLoading(true);
+    setResetJobPreview(null);
+    setResetMsg(null);
+    setResetConfirm(false);
+    try {
+      const job = await publicClient.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: CONTRACT_ABI,
+        functionName: "getJob",
+        args: [BigInt(resetJobId)],
+      }) as JobData;
+      if (!job || job.id === 0n) {
+        setResetMsg({ type: "error", text: "Job not found" });
+      } else {
+        setResetJobPreview(job);
+      }
+    } catch (e) {
+      setResetMsg({ type: "error", text: parseError(e) });
+    } finally {
+      setResetPreviewLoading(false);
+    }
+  };
+
+  const handleResetJob = async () => {
+    if (!resetJobId) return;
+    setResetBusy(true);
+    setResetMsg(null);
+    try {
+      await writeContractAsync({
+        functionName: "adminResetJob",
+        args: [BigInt(resetJobId)],
+      });
+      setResetMsg({ type: "success", text: `Job #${resetJobId} reset to REASSIGNED ✓` });
+      setResetJobPreview(null);
+      setResetJobId("");
+      setResetConfirm(false);
+      await refetchJobs();
+    } catch (e) {
+      setResetMsg({ type: "error", text: parseError(e) });
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   const isWorkerLoaded = isWorkerData !== undefined;
   const isOwnerLoaded = ownerData !== undefined;
   const isLoading = !isWorkerLoaded || !isOwnerLoaded;
@@ -828,6 +885,95 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
+                )}
+              </div>
+
+              {/* Admin Reset Job */}
+              <div className="border-t border-base-300 mt-4 pt-4">
+                <h3 className="text-sm font-bold mb-2">🔄 Reset Job (Admin Reassign)</h3>
+                <p className="text-xs opacity-50 mb-3">
+                  Move an IN_PROGRESS or COMPLETED job back to REASSIGNED so another worker can pick it up.
+                </p>
+                <div className="flex gap-2 items-end mb-3">
+                  <div className="flex-1">
+                    <label className="text-xs opacity-50 mb-1 block">Job ID</label>
+                    <input
+                      type="number"
+                      className="input input-bordered input-sm w-full font-mono"
+                      placeholder="e.g. 42"
+                      value={resetJobId}
+                      onChange={e => { setResetJobId(e.target.value); setResetJobPreview(null); setResetConfirm(false); setResetMsg(null); }}
+                      disabled={resetBusy}
+                    />
+                  </div>
+                  <button
+                    className="btn btn-sm btn-outline"
+                    disabled={!resetJobId || resetPreviewLoading || resetBusy}
+                    onClick={handleResetJobPreview}
+                  >
+                    {resetPreviewLoading ? <span className="loading loading-spinner loading-xs" /> : "Look Up"}
+                  </button>
+                </div>
+
+                {/* Job Preview */}
+                {resetJobPreview && (
+                  <div className="bg-base-300 rounded-lg p-3 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-mono font-bold text-sm">#{Number(resetJobPreview.id)}</span>
+                      <span className={`badge ${(STATUS_LABELS[resetJobPreview.status] || { badge: "badge-ghost" }).badge} badge-sm`}>
+                        {(STATUS_LABELS[resetJobPreview.status] || { text: "UNKNOWN" }).text}
+                      </span>
+                    </div>
+                    {resetJobPreview.worker !== "0x0000000000000000000000000000000000000000" && (
+                      <div className="text-xs flex items-center gap-1 mb-1">
+                        <span className="opacity-50">Worker:</span>
+                        <Address address={resetJobPreview.worker as `0x${string}`} size="xs" />
+                      </div>
+                    )}
+                    <div className="text-xs opacity-50 mb-2">
+                      Client: {truncAddr(resetJobPreview.client)} · Created {timeAgo(Number(resetJobPreview.createdAt))}
+                    </div>
+
+                    {resetJobPreview.status === 1 || resetJobPreview.status === 2 ? (
+                      !resetConfirm ? (
+                        <button
+                          className="btn btn-sm btn-warning"
+                          onClick={() => setResetConfirm(true)}
+                          disabled={resetBusy}
+                        >
+                          Reset to REASSIGNED
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-warning">⚠️ Are you sure?</span>
+                          <button
+                            className="btn btn-sm btn-warning"
+                            disabled={resetBusy}
+                            onClick={handleResetJob}
+                          >
+                            {resetBusy ? <span className="loading loading-spinner loading-xs" /> : "Confirm Reset"}
+                          </button>
+                          <button
+                            className="btn btn-sm btn-ghost"
+                            disabled={resetBusy}
+                            onClick={() => setResetConfirm(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )
+                    ) : (
+                      <p className="text-xs text-warning">
+                        ⚠️ Only IN_PROGRESS or COMPLETED jobs can be reset.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {resetMsg && (
+                  <p className={`text-xs ${resetMsg.type === "success" ? "text-success" : "text-error"}`}>
+                    {resetMsg.text}
+                  </p>
                 )}
               </div>
             </div>

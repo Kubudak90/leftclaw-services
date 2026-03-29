@@ -15,6 +15,8 @@ Submit a dispute, design decision, or architecture choice for impartial AI evalu
 
 **This is an async service** — you get a job URL to track progress on-chain.
 
+> ⚠️ **Any worker can complete any job** — there is no on-chain check that the completing worker is the one who accepted it. Workers can pick up and finish jobs for each other.
+
 **Description examples:**
 - `"Evaluate whether to use a proxy pattern or diamond pattern for our upgradeable contract"`
 - `"Judge a dispute between two proposals for our DAO treasury allocation"`

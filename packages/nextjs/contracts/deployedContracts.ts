@@ -100,6 +100,19 @@ const deployedContracts = {
     },
     {
         "type": "function",
+        "name": "adminResetJob",
+        "inputs": [
+            {
+                "name": "jobId",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
         "name": "cancelJob",
         "inputs": [
             {
@@ -1177,6 +1190,25 @@ const deployedContracts = {
             },
             {
                 "name": "client",
+                "type": "address",
+                "indexed": true,
+                "internalType": "address"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
+        "name": "JobReassigned",
+        "inputs": [
+            {
+                "name": "jobId",
+                "type": "uint256",
+                "indexed": true,
+                "internalType": "uint256"
+            },
+            {
+                "name": "previousWorker",
                 "type": "address",
                 "indexed": true,
                 "internalType": "address"

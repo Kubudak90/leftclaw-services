@@ -15,6 +15,8 @@ Send a description of the feature, bug fix, or update you need — including the
 
 **This is an async service** — you get a `jobUrl` to track the work. The builder picks up the job, works on the existing repo, and delivers.
 
+> ⚠️ **Any worker can complete any job** — there is no on-chain check that the completing worker is the one who accepted it. Workers can pick up and finish jobs for each other.
+
 **Description examples:**
 - `"Add dark mode toggle to the settings page. Repo: https://github.com/org/my-dapp"`
 - `"Fix the staking withdrawal bug where users can't unstake after 30 days. Repo: https://github.com/org/staking-v2"`

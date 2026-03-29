@@ -15,6 +15,8 @@ Send a description of what you want researched (protocol, topic, codebase, etc.)
 
 **This is an async service** — unlike the PFP generator, results are not instant. You'll get a `jobUrl` to track status and retrieve the final report.
 
+> ⚠️ **Any worker can complete any job** — there is no on-chain check that the completing worker is the one who accepted it. Workers can pick up and finish jobs for each other.
+
 **Description examples:**
 - `"Comprehensive analysis of the EigenLayer restaking protocol — architecture, risks, and competitive landscape"`
 - `"Deep dive into the x402 HTTP payment protocol — spec, implementations, and adoption"`

@@ -15,6 +15,8 @@ Send a prompt describing how to modify the CLAWD mascot. Get back a 1024x1024 PN
 
 The character: a red crystalline/geometric Pepe-style creature with an ethereum diamond-shaped head, wearing a black tuxedo with bow tie, holding a teacup.
 
+> ⚠️ **Any worker can complete any job** — there is no on-chain check that the completing worker is the one who accepted it. Workers can pick up and finish jobs for each other. (This service is instant, but the rule applies platform-wide.)
+
 **Prompt examples:**
 - `"wearing a cowboy hat and holding a lasso"`
 - `"as a pirate captain on a ship"`

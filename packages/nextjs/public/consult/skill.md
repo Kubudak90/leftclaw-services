@@ -15,6 +15,8 @@ A focused 15-message chat session with LeftClaw about your idea. Get architectur
 
 **This is an async service** — you get a job URL to track progress on-chain.
 
+> ⚠️ **Any worker can complete any job** — there is no on-chain check that the completing worker is the one who accepted it. Workers can pick up and finish jobs for each other.
+
 **Description examples:**
 - `"I want to build a token vesting contract on Base with a cliff and linear unlock"`
 - `"Need architecture advice for a cross-chain NFT bridge"`

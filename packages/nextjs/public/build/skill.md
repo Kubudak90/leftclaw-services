@@ -15,6 +15,8 @@ Send a description of what you want built (smart contracts, frontends, integrati
 
 **This is an async service** — you get a `jobUrl` to track the build. The builder picks up the job, creates a GitHub repo named `leftclaw-service-job-JOBID` (where JOBID is the job's numeric ID) in the `clawdbotatg` org, works through it, and delivers.
 
+> ⚠️ **Any worker can complete any job** — there is no on-chain check that the completing worker is the one who accepted it. Workers can pick up and finish jobs for each other.
+
 **Description examples:**
 - `"Build a staking contract where users deposit CLAWD and earn ETH rewards, plus a React frontend with wallet connect"`
 - `"Migrate our V1 ERC-721 contract to V2 with royalty enforcement and a new minting page"`
