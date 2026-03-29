@@ -251,12 +251,14 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
     }
 
     /// @notice Post a job paying with ETH — wraps + swaps to CLAWD
-    function postJobWithETH(uint256 serviceTypeId, string calldata description) external payable nonReentrant {
+    /// @param minClawdOut Minimum CLAWD expected from the ETH→CLAWD swap (slippage protection)
+    function postJobWithETH(uint256 serviceTypeId, string calldata description, uint256 minClawdOut) external payable nonReentrant {
         (uint256 priceUsd, ) = _validateService(serviceTypeId);
         require(bytes(description).length > 0, "!desc");
         require(msg.value > 0, "!eth");
+        require(minClawdOut > 0, "!minOut");
 
-        uint256 clawdReceived = _swapETHToClawd(msg.value);
+        uint256 clawdReceived = _swapETHToClawd(msg.value, minClawdOut);
         _createJob(msg.sender, serviceTypeId, clawdReceived, priceUsd, description, PaymentMethod.ETH, 0);
     }
 
@@ -490,7 +492,7 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
         require(keccak256(bytes(st.status)) == keccak256("active"), "!active");
     }
 
-    function _swapETHToClawd(uint256 ethAmount) internal returns (uint256 clawdReceived) {
+    function _swapETHToClawd(uint256 ethAmount, uint256 minClawdOut) internal returns (uint256 clawdReceived) {
         IWETH9(weth).deposit{value: ethAmount}();
         IWETH9(weth).approve(address(uniswapRouter), ethAmount);
 
@@ -499,7 +501,7 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
                 path: ethSwapPath,
                 recipient: address(this),
                 amountIn: ethAmount,
-                amountOutMinimum: 1
+                amountOutMinimum: minClawdOut
             })
         );
     }
