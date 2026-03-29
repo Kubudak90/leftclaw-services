@@ -290,8 +290,8 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
         job.startedAt = block.timestamp;
         job.currentStage = "accepted";
 
-        // Transfer CLAWD escrow to treasury (skip if REASSIGNED — already paid)
-        if (job.paymentClawd > 0) {
+        // Transfer CLAWD escrow to treasury (skip if already claimed — REASSIGNED jobs have already been paid)
+        if (job.paymentClawd > 0 && !job.paymentClaimed) {
             totalLockedClawd -= job.paymentClawd;
             job.paymentClaimed = true;
             clawdToken.safeTransfer(treasury, job.paymentClawd);
