@@ -1,8 +1,9 @@
 import { createPublicClient, createWalletClient, http, parseAbi } from "viem";
 import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
+import deployedContracts from "~~/contracts/deployedContracts";
 
-const CONTRACT_ADDRESS = "0x103c5FAfd8734AE9Ec4Cc2f116eD03Ff6cc2Ca5F" as const;
+const CONTRACT_ADDRESS = deployedContracts[8453]?.LeftClawServicesV2?.address as `0x${string}`;
 const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 
 const CONTRACT_ABI = parseAbi([

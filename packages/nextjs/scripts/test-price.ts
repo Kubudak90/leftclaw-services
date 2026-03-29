@@ -1,7 +1,8 @@
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
+import deployedContracts from "../contracts/deployedContracts";
 
-const SERVICE_TYPE_CONTRACT = "0x103c5FAfd8734AE9Ec4Cc2f116eD03Ff6cc2Ca5F";
+const SERVICE_TYPE_CONTRACT = deployedContracts[8453]?.LeftClawServicesV2?.address;
 
 const priceCache = new Map<number, { price: string; ts: number }>();
 const CACHE_TTL_MS = 60_000;
