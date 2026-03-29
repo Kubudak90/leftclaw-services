@@ -30,7 +30,7 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
 
     // ─── Enums ────────────────────────────────────────────────────────────────
 
-    enum JobStatus { OPEN, IN_PROGRESS, COMPLETED, DECLINED, CANCELLED }
+    enum JobStatus { OPEN, IN_PROGRESS, COMPLETED, DECLINED, CANCELLED, REASSIGNED }
     enum PaymentMethod { CLAWD, USDC, ETH, CV }
 
     // ─── Structs ──────────────────────────────────────────────────────────────
@@ -102,6 +102,7 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
     event WorkLogged(uint256 indexed jobId, address indexed worker, string note);
     event WorkerAdded(address indexed worker);
     event WorkerRemoved(address indexed worker);
+    event JobReassigned(uint256 indexed jobId, address indexed previousWorker);
     event TreasuryUpdated(address indexed newTreasury);
     event SwapPathUpdated(bytes newPath);
 
@@ -282,14 +283,14 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
     function acceptJob(uint256 jobId) external nonReentrant onlyWorker {
         Job storage job = jobs[jobId];
         require(job.id != 0, "!job");
-        require(job.status == JobStatus.OPEN, "!open");
+        require(job.status == JobStatus.OPEN || job.status == JobStatus.REASSIGNED, "!open");
 
         job.status = JobStatus.IN_PROGRESS;
         job.worker = msg.sender;
         job.startedAt = block.timestamp;
         job.currentStage = "accepted";
 
-        // Transfer CLAWD escrow to treasury
+        // Transfer CLAWD escrow to treasury (skip if REASSIGNED — already paid)
         if (job.paymentClawd > 0) {
             totalLockedClawd -= job.paymentClawd;
             job.paymentClaimed = true;
@@ -377,6 +378,19 @@ contract LeftClawServicesV2 is Ownable, ReentrancyGuard {
             }
         }
         revert("!worker");
+    }
+
+    function adminResetJob(uint256 jobId) external onlyOwner nonReentrant {
+        Job storage job = jobs[jobId];
+        require(job.id != 0, "!job");
+        require(job.status == JobStatus.IN_PROGRESS, "!active");
+
+        emit JobReassigned(jobId, job.worker);
+
+        job.status = JobStatus.REASSIGNED;
+        job.worker = address(0);
+        job.startedAt = 0;
+        job.currentStage = "";
     }
 
     function setTreasury(address _treasury) external onlyOwner {
