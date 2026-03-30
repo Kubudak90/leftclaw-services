@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
-import { checkSanitization, setSanitization } from "~~/lib/sanitize";
+import { checkSanitization, getSanitization, setSanitization } from "~~/lib/sanitize";
 import deployedContracts from "~~/contracts/deployedContracts";
 
 const { address, abi } = deployedContracts[8453].LeftClawServicesV2;
@@ -97,5 +97,39 @@ export async function GET(req: NextRequest) {
     return Response.json({ jobId, safe: null, pending: true, onChain: false });
   } catch {
     return Response.json({ error: "Job not found", safe: null, pending: true }, { status: 404 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const secret = process.env.SANITIZER_PRIVATE_KEY;
+    if (!secret) {
+      return Response.json({ error: "Admin override not configured" }, { status: 500 });
+    }
+
+    const auth = req.headers.get("authorization")?.replace("Bearer ", "");
+    if (!auth || auth !== secret) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { jobId } = await req.json();
+    if (!jobId) {
+      return Response.json({ error: "jobId required" }, { status: 400 });
+    }
+
+    const existing = await getSanitization(String(jobId));
+    const result = {
+      jobId: String(jobId),
+      safe: true,
+      reason: "Admin override" + (existing?.reason ? ` (was: ${existing.reason})` : ""),
+      checkedAt: new Date().toISOString(),
+      tldr: existing?.tldr,
+    };
+    await setSanitization(result);
+
+    return Response.json(result);
+  } catch (e) {
+    console.error("Sanitize PATCH error:", e);
+    return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
