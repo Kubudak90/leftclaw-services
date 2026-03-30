@@ -92,7 +92,7 @@ export default function ChatPage() {
   // Message limit tracking for consultations
   const serviceTypeId = job ? Number(job.serviceTypeId) : 0;
   const isConsultation = serviceTypeId === 1 || serviceTypeId === 2;
-  const maxMessages = serviceTypeId === 2 ? 30 : 15; // Deep=30, Quick=15 (default)
+  const maxMessages = 9999; // TEMP: no limit during testing
   const userMessageCount = messages.filter(m => m.role === "user").length;
   const [serverMsgUsed, setServerMsgUsed] = useState<number | null>(null);
   // Use server count when available (more accurate), otherwise client count
@@ -391,7 +391,7 @@ export default function ChatPage() {
               }`}>
                 {isAtLimit
                   ? "🚫 Limit reached"
-                  : `💬 ${displayedUsed} / ${maxMessages}`
+                  : `💬 ${displayedUsed} / ∞`
                 }
               </span>
             )}

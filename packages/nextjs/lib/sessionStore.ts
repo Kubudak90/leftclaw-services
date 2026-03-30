@@ -24,8 +24,8 @@ export interface X402Session {
 }
 
 const SESSION_LIMITS: Record<string, { maxMessages: number; ttlHours: number }> = {
-  CONSULT_QUICK: { maxMessages: 15, ttlHours: 168 },
-  CONSULT_DEEP: { maxMessages: 30, ttlHours: 168 },
+  CONSULT_QUICK: { maxMessages: 9999, ttlHours: 168 },
+  CONSULT_DEEP: { maxMessages: 9999, ttlHours: 168 },
   QA_REPORT: { maxMessages: 20, ttlHours: 168 },
   AUDIT: { maxMessages: 20, ttlHours: 168 },
   RESEARCH: { maxMessages: 30, ttlHours: 168 },
